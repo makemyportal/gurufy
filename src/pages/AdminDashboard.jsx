@@ -3,7 +3,7 @@ import {
   Users, AlertTriangle, Settings, Shield, Activity, TrendingUp, CheckCircle,
   XCircle, Search, Power, Trash2, Edit, BarChart3, Briefcase, FolderOpen,
   CalendarDays, Trophy, Megaphone, Eye, Ban, UserCheck, FileText,
-  MessageSquare, ChevronRight, RefreshCw, Send, X, AlertCircle
+  MessageSquare, ChevronRight, RefreshCw, Send, X, AlertCircle, Award
 } from 'lucide-react'
 import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, getDoc, setDoc, query, orderBy, limit, where } from 'firebase/firestore'
 import { db } from '../utils/firebase'
@@ -124,6 +124,24 @@ export default function AdminDashboard() {
     } catch (err) { showToast('Action failed', 'error') }
   }
 
+  async function handleToggleVerify(user, color) {
+    const isVerified = !!color
+    try {
+      await updateDoc(doc(db, 'users', user.id), { isVerified, verificationColor: color || null })
+      if (user.role === 'teacher') await updateDoc(doc(db, 'teachers', user.id), { isVerified, verificationColor: color || null }).catch(() => {})
+      if (user.role === 'school') await updateDoc(doc(db, 'schools', user.id), { isVerified, verificationColor: color || null }).catch(() => {})
+      
+      const postsQ = query(collection(db, 'posts'), where('authorId', '==', user.id))
+      const pSnap = await getDocs(postsQ)
+      const pBatch = pSnap.docs.map(d => updateDoc(d.ref, { authorVerified: isVerified, authorVerificationColor: color || null }))
+      await Promise.all(pBatch)
+
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isVerified, verificationColor: color || null } : u))
+      setPosts(prev => prev.map(p => p.authorId === user.id ? { ...p, authorVerified: isVerified, authorVerificationColor: color || null } : p))
+      showToast(`User ${isVerified ? 'verified' : 'unverified'} successfully`)
+    } catch (err) { console.error(err); showToast('Action failed', 'error') }
+  }
+
   async function handleDeletePost(postId) {
     setConfirmModal({
       title: 'Delete Post', message: 'This post will be permanently removed.', danger: true,
@@ -201,8 +219,8 @@ export default function AdminDashboard() {
     try {
       const usersSnap = await getDocs(collection(db, 'users'))
       const batch = usersSnap.docs.map(u =>
-        addDoc(collection(db, 'notifications'), {
-          userId: u.id, title: announcementText, type: 'system',
+        addDoc(collection(db, 'users', u.id, 'notifications'), {
+          title: announcementText, type: 'system', fromUserId: 'admin', fromUserName: 'Platform Admin',
           read: false, createdAt: new Date().toISOString()
         })
       )
@@ -259,6 +277,8 @@ export default function AdminDashboard() {
   }
 
   const formatDate = (d) => { try { const dt = d?.toDate ? d.toDate() : new Date(d); return dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) } catch { return '-' } }
+
+  const BADGE_COLORS = { blue: 'bg-blue-500', gold: 'bg-yellow-500', emerald: 'bg-emerald-500', purple: 'bg-purple-500' }
 
   if (loading) return (
     <div className="min-h-[60vh] flex items-center justify-center">
@@ -398,14 +418,31 @@ export default function AdminDashboard() {
                               <div className="w-9 h-9 rounded-full bg-surface-200 flex items-center justify-center text-surface-600 font-bold text-sm overflow-hidden">
                                 {user.profilePhoto ? <img src={user.profilePhoto} alt="" className="w-full h-full object-cover" /> : (user.name || 'U')[0].toUpperCase()}
                               </div>
-                              <div><p className="font-bold text-surface-900 text-sm">{user.name || 'No Name'}</p><p className="text-xs font-medium text-surface-500">{user.email}</p></div>
+                              <div>
+                                <p className="font-bold text-surface-900 text-sm flex items-center gap-1">
+                                  {user.name || 'No Name'}
+                                  {user.isVerified && <span className={`w-3.5 h-3.5 text-white rounded-full flex items-center justify-center text-[8px] shadow-sm shrink-0 ${BADGE_COLORS[user.verificationColor] || 'bg-blue-500'}`}>✓</span>}
+                                </p>
+                                <p className="text-xs font-medium text-surface-500">{user.email}</p>
+                              </div>
                             </div>
                           </td>
                           <td className="p-4"><span className="px-2.5 py-1 rounded-lg bg-surface-100 text-surface-700 text-xs font-bold capitalize">{user.role || 'teacher'}</span></td>
                           <td className="p-4"><StatusBadge status={user.status} /></td>
                           <td className="p-4 text-sm font-medium text-surface-500">{formatDate(user.createdAt)}</td>
                           <td className="p-4">
-                            <div className="flex items-center justify-end gap-1">
+                            <div className="flex items-center justify-end gap-2">
+                              <select
+                                value={user.isVerified ? (user.verificationColor || 'blue') : ''}
+                                onChange={(e) => handleToggleVerify(user, e.target.value)}
+                                className="text-[11px] font-bold px-2 py-1.5 border border-surface-200 rounded-lg bg-surface-50 text-surface-700 outline-none cursor-pointer"
+                              >
+                                <option value="">No Badge</option>
+                                <option value="blue">Blue Badge</option>
+                                <option value="gold">Gold Badge</option>
+                                <option value="emerald">Green Badge</option>
+                                <option value="purple">Purple Badge</option>
+                              </select>
                               <button onClick={() => handleToggleSuspend(user.id, user.status)} title={user.status === 'suspended' ? 'Activate' : 'Suspend'}
                                 className={`p-2 rounded-lg transition-colors ${user.status === 'suspended' ? 'text-emerald-600 hover:bg-emerald-50' : 'text-amber-600 hover:bg-amber-50'}`}>
                                 {user.status === 'suspended' ? <UserCheck className="w-4 h-4" /> : <Ban className="w-4 h-4" />}

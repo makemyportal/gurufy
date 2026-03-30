@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
+import PublicLayout from './components/PublicLayout'
 import Login from './pages/Login'
 import Feed from './pages/Feed'
 import TeacherProfile from './pages/TeacherProfile'
@@ -17,10 +18,17 @@ import Messaging from './pages/Messaging'
 import Events from './pages/Events'
 import AdminDashboard from './pages/AdminDashboard'
 import Leaderboard from './pages/Leaderboard'
+// Public info pages
+import About from './pages/public/About'
+import HowItWorks from './pages/public/HowItWorks'
+import Pricing from './pages/public/Pricing'
+import Contact from './pages/public/Contact'
+import Blog from './pages/public/Blog'
+import Privacy from './pages/public/Privacy'
+import Terms from './pages/public/Terms'
 
 function ProtectedRoute({ children }) {
   const { currentUser, loading } = useAuth()
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface-50">
@@ -30,22 +38,17 @@ function ProtectedRoute({ children }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
           </div>
-          <p className="text-surface-500 font-medium">Loading Gurufy...</p>
+          <p className="text-surface-500 font-medium">Loading LDMS...</p>
         </div>
       </div>
     )
   }
-
-  if (!currentUser) {
-    return <Navigate to="/login" />
-  }
-
+  if (!currentUser) return <Navigate to="/login" />
   return children
 }
 
 function DashboardRouter() {
   const { userProfile, loading } = useAuth()
-  // Wait until profile is fully loaded before deciding which dashboard to show
   if (loading || !userProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface-50">
@@ -63,7 +66,6 @@ function ProfileRouter() {
 
 function AdminRoute({ children }) {
   const { userProfile, loading } = useAuth()
-
   if (loading || !userProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface-50">
@@ -71,24 +73,20 @@ function AdminRoute({ children }) {
       </div>
     )
   }
-
   if (userProfile.role !== 'admin' && userProfile.role !== 'superadmin') {
     return <Navigate to="/" />
   }
-
   return children
 }
 
 export default function App() {
   return (
     <Routes>
+      {/* Auth */}
       <Route path="/login" element={<Login />} />
-      <Route
-        path="/"
-        element={
-          <Layout />
-        }
-      >
+
+      {/* Main App — exactly like before */}
+      <Route path="/" element={<Layout />}>
         <Route index element={<Feed />} />
         <Route path="profile" element={<ProtectedRoute><ProfileRouter /></ProtectedRoute>} />
         <Route path="jobs" element={<Jobs />} />
@@ -101,12 +99,22 @@ export default function App() {
         <Route path="messaging" element={<ProtectedRoute><Messaging /></ProtectedRoute>} />
         <Route path="events" element={<Events />} />
         <Route path="leaderboard" element={<Leaderboard />} />
-        <Route path="admin" element={
-          <AdminRoute>
-            <AdminDashboard />
-          </AdminRoute>
-        } />
+        <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        {/* Redirect /feed → / */}
+        <Route path="feed" element={<Navigate to="/" replace />} />
       </Route>
+
+      {/* Public info pages with their own marketing layout */}
+      <Route path="/" element={<PublicLayout />}>
+        <Route path="about" element={<About />} />
+        <Route path="how-it-works" element={<HowItWorks />} />
+        <Route path="pricing" element={<Pricing />} />
+        <Route path="contact" element={<Contact />} />
+        <Route path="blog" element={<Blog />} />
+        <Route path="privacy" element={<Privacy />} />
+        <Route path="terms" element={<Terms />} />
+      </Route>
+
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   )

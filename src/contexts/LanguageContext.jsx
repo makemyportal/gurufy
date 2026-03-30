@@ -167,11 +167,11 @@ const translations = {
 
 export function LanguageProvider({ children }) {
   const [language, setLanguage] = useState(() => {
-    return localStorage.getItem('gurufy-language') || 'english'
+    return localStorage.getItem('ldms-language') || 'english'
   })
 
   useEffect(() => {
-    localStorage.setItem('gurufy-language', language)
+    localStorage.setItem('ldms-language', language)
     // Set html lang attribute
     document.documentElement.lang = language === 'hindi' ? 'hi' : 'en'
   }, [language])

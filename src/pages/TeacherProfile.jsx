@@ -147,6 +147,7 @@ export default function TeacherProfile() {
   const name = userProfile?.name || currentUser?.email?.split('@')[0] || 'Teacher'
   const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   const level = getLevel(stats.xp || 0)
+  const BADGE_COLORS = { blue: 'bg-blue-500', gold: 'bg-yellow-500', emerald: 'bg-emerald-500', purple: 'bg-purple-500' }
 
   const tabs = [
     { id: 'posts', label: `Posts (${myPosts.length})` },
@@ -187,8 +188,11 @@ export default function TeacherProfile() {
             <div className="flex-1 pt-2">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-bold font-display text-surface-900 flex items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl font-bold font-display text-surface-900 flex items-center gap-2 flex-wrap">
                     {name}
+                    {userProfile?.isVerified && (
+                      <span className={`w-4 h-4 text-white rounded-full flex items-center justify-center text-[10px] shadow-sm shrink-0 ${BADGE_COLORS[userProfile.verificationColor] || 'bg-blue-500'}`}>✓</span>
+                    )}
                     <span className="text-sm">{level.emoji}</span>
                   </h1>
                   <p className="text-surface-600 flex items-center gap-2 mt-0.5 text-sm flex-wrap">

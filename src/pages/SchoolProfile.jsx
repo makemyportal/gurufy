@@ -108,6 +108,7 @@ export default function SchoolProfile() {
 
   const schoolName = userProfile?.schoolName || userProfile?.name || 'School'
   const initials = schoolName.slice(0, 2).toUpperCase()
+  const BADGE_COLORS = { blue: 'bg-blue-500', gold: 'bg-yellow-500', emerald: 'bg-emerald-500', purple: 'bg-purple-500' }
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
@@ -137,7 +138,12 @@ export default function SchoolProfile() {
             <div className="flex-1 pt-2">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <h1 className="text-2xl font-bold font-display text-surface-900">{schoolName}</h1>
+                  <h1 className="text-2xl font-bold font-display text-surface-900 flex items-center gap-2 flex-wrap">
+                    {schoolName}
+                    {userProfile?.isVerified && (
+                      <span className={`w-4 h-4 text-white rounded-full flex items-center justify-center text-[10px] shadow-sm shrink-0 ${BADGE_COLORS[userProfile.verificationColor] || 'bg-blue-500'}`}>✓</span>
+                    )}
+                  </h1>
                   <p className="text-surface-600 flex items-center gap-1.5 text-sm">
                     <MapPin className="w-4 h-4" />
                     {userProfile?.location || userProfile?.address || 'Location not set'}

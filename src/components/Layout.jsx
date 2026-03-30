@@ -14,51 +14,52 @@ import {
 } from 'lucide-react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../utils/firebase'
+import AIChatWidget from './AIChatWidget'
 
 // Nav array builders — called inside component to get reactive translations
 function getTeacherNav(t) {
   return [
-    { to: '/', icon: Home, label: t('feed') },
-    { to: '/groups', icon: Users, label: t('groups') },
-    { to: '/jobs', icon: Briefcase, label: t('careers') },
-    { to: '/resources', icon: FolderOpen, label: t('resources') },
-    { to: '/ai-tools', icon: Sparkles, label: t('aiMagic') },
-    { to: '/messaging', icon: MessageSquare, label: t('messages') },
-    { to: '/events', icon: CalendarDays, label: t('events') },
-    { to: '/leaderboard', icon: Trophy, label: t('leaderboard') },
-    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
-    { to: '/profile', icon: User, label: t('myProfile') },
+    { to: '/', icon: Home, label: t('feed'), color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/groups', icon: Users, label: t('groups'), color: 'from-violet-500 to-purple-600', shadow: 'rgba(139,92,246,0.4)' },
+    { to: '/jobs', icon: Briefcase, label: t('careers'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
+    { to: '/resources', icon: FolderOpen, label: t('resources'), color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
+    { to: '/ai-tools', icon: Sparkles, label: t('aiMagic'), color: 'from-pink-500 to-rose-600', shadow: 'rgba(244,63,94,0.4)' },
+    { to: '/messaging', icon: MessageSquare, label: t('messages'), color: 'from-cyan-500 to-sky-600', shadow: 'rgba(6,182,212,0.4)' },
+    { to: '/events', icon: CalendarDays, label: t('events'), color: 'from-fuchsia-500 to-violet-600', shadow: 'rgba(217,70,239,0.4)' },
+    { to: '/leaderboard', icon: Trophy, label: t('leaderboard'), color: 'from-yellow-400 to-amber-500', shadow: 'rgba(251,191,36,0.4)' },
+    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
+    { to: '/profile', icon: User, label: t('myProfile'), color: 'from-indigo-500 to-blue-600', shadow: 'rgba(99,102,241,0.35)' },
   ]
 }
 function getSchoolNav(t) {
   return [
-    { to: '/', icon: Home, label: t('feed') },
-    { to: '/jobs', icon: Briefcase, label: t('jobs') },
-    { to: '/teacher-search', icon: Search, label: t('findTalent') },
-    { to: '/resources', icon: FolderOpen, label: t('resources') },
-    { to: '/messaging', icon: MessageSquare, label: t('messages') },
-    { to: '/events', icon: CalendarDays, label: t('events') },
-    { to: '/leaderboard', icon: Trophy, label: t('leaderboard') },
-    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
-    { to: '/profile', icon: User, label: t('schoolProfile') },
+    { to: '/', icon: Home, label: t('feed'), color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/jobs', icon: Briefcase, label: t('jobs'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
+    { to: '/teacher-search', icon: Search, label: t('findTalent'), color: 'from-violet-500 to-purple-600', shadow: 'rgba(139,92,246,0.4)' },
+    { to: '/resources', icon: FolderOpen, label: t('resources'), color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
+    { to: '/messaging', icon: MessageSquare, label: t('messages'), color: 'from-cyan-500 to-sky-600', shadow: 'rgba(6,182,212,0.4)' },
+    { to: '/events', icon: CalendarDays, label: t('events'), color: 'from-fuchsia-500 to-violet-600', shadow: 'rgba(217,70,239,0.4)' },
+    { to: '/leaderboard', icon: Trophy, label: t('leaderboard'), color: 'from-yellow-400 to-amber-500', shadow: 'rgba(251,191,36,0.4)' },
+    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
+    { to: '/profile', icon: User, label: t('schoolProfile'), color: 'from-indigo-500 to-blue-600', shadow: 'rgba(99,102,241,0.35)' },
   ]
 }
 function getTeacherMobileNav(t) {
   return [
-    { to: '/', icon: Home, label: t('feed') },
-    { to: '/jobs', icon: Briefcase, label: t('careers') },
-    { to: '/ai-tools', icon: Sparkles, label: 'AI' },
-    { to: '/messaging', icon: MessageSquare, label: t('messages') },
-    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
+    { to: '/', icon: Home, label: t('feed'), color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/jobs', icon: Briefcase, label: t('careers'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
+    { to: '/ai-tools', icon: Sparkles, label: 'AI', color: 'from-pink-500 to-rose-600', shadow: 'rgba(244,63,94,0.4)' },
+    { to: '/messaging', icon: MessageSquare, label: t('messages'), color: 'from-cyan-500 to-sky-600', shadow: 'rgba(6,182,212,0.4)' },
+    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
   ]
 }
 function getSchoolMobileNav(t) {
   return [
-    { to: '/', icon: Home, label: t('feed') },
-    { to: '/jobs', icon: Briefcase, label: t('jobs') },
-    { to: '/teacher-search', icon: Search, label: t('findTalent') },
-    { to: '/messaging', icon: MessageSquare, label: t('messages') },
-    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
+    { to: '/', icon: Home, label: t('feed'), color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/jobs', icon: Briefcase, label: t('jobs'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
+    { to: '/teacher-search', icon: Search, label: t('findTalent'), color: 'from-violet-500 to-purple-600', shadow: 'rgba(139,92,246,0.4)' },
+    { to: '/messaging', icon: MessageSquare, label: t('messages'), color: 'from-cyan-500 to-sky-600', shadow: 'rgba(6,182,212,0.4)' },
+    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
   ]
 }
 
@@ -133,6 +134,17 @@ export default function Layout() {
     return () => unsub()
   }, [])
 
+  // Auto-dismiss announcements after 10 seconds to enhance user experience
+  useEffect(() => {
+    let timer
+    if (globalAnnouncement && !dismissedAnnouncement) {
+      timer = setTimeout(() => {
+        handleDismissAnnouncement()
+      }, 10000)
+    }
+    return () => clearTimeout(timer)
+  }, [globalAnnouncement, dismissedAnnouncement])
+
   function handleDismissAnnouncement() {
     setDismissedAnnouncement(true)
     if (globalAnnouncement?.id) {
@@ -174,7 +186,7 @@ export default function Layout() {
 
   const currentPath = location.pathname
   const currentPage = navItems.find(item => item.to === currentPath || (item.to !== '/' && currentPath.startsWith(item.to)))
-  const pageTitle = currentPage ? currentPage.label : 'Gurufy'
+  const pageTitle = currentPage ? currentPage.label : 'LDMS'
 
   return (
     <div className={`min-h-screen text-surface-900 selection:bg-primary-100 selection:text-primary-800 font-sans overflow-x-hidden ${theme === 'dark' ? 'dark bg-[#0f0f14]' : 'bg-surface-50'}`}>
@@ -191,21 +203,19 @@ export default function Layout() {
         }
       </div>
 
-      {/* Global Announcement Banner */}
+      {/* Global Announcement Banner (Premium Floating Pill) */}
       {globalAnnouncement && !dismissedAnnouncement && (
-        <div className="fixed top-0 left-0 right-0 z-[60] bg-gradient-to-r from-primary-600 to-indigo-600 shadow-lg text-white animate-slide-down">
-          <div className="max-w-[1800px] mx-auto px-4 py-2.5 sm:py-3 flex items-center justify-center relative">
-            <div className="flex items-center gap-3 w-full pr-8 max-w-4xl mx-auto sm:justify-center">
-              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0 border border-white/20">
-                <Megaphone className="w-4 h-4 text-white" />
-              </div>
-              <p className="text-[13px] sm:text-sm font-bold text-white leading-tight">
-                {globalAnnouncement.text}
-              </p>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[95%] sm:w-auto max-w-2xl bg-gradient-to-r from-indigo-600 via-violet-600 to-primary-600 shadow-[0_8px_32px_rgba(99,102,241,0.4)] rounded-2xl text-white animate-slide-down overflow-hidden">
+          <div className="px-5 py-3.5 flex items-center gap-4">
+            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0 border border-white/20 shadow-inner">
+              <Megaphone className="w-4 h-4 text-white" />
             </div>
+            <p className="text-sm font-bold text-white leading-snug flex-1 pr-6">
+              {globalAnnouncement.text}
+            </p>
             <button 
               onClick={handleDismissAnnouncement}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-white/20 rounded-full transition-colors shrink-0"
+              className="p-1.5 hover:bg-white/20 rounded-full transition-colors shrink-0"
             >
               <X className="w-4 h-4 text-white" />
             </button>
@@ -214,7 +224,7 @@ export default function Layout() {
       )}
 
       {/* Fixed Top Navbar */}
-      <header className={`fixed left-0 right-0 h-[70px] bg-white/95 backdrop-blur-xl border-b border-surface-200/80 z-50 px-3 sm:px-6 flex items-center justify-between transition-all ${globalAnnouncement && !dismissedAnnouncement ? 'top-[48px] sm:top-[52px]' : 'top-0'}`}>
+      <header className="fixed top-0 left-0 right-0 h-[70px] bg-white/95 backdrop-blur-xl border-b border-surface-200/80 z-50 px-3 sm:px-6 flex items-center justify-between transition-all">
         {/* Logo & Brand + Hamburger */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <button 
@@ -223,10 +233,10 @@ export default function Layout() {
           >
             <Menu className="w-5 h-5 text-surface-700" />
           </button>
-          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-tr from-primary-600 to-accent-500 rounded-xl flex items-center justify-center shadow-lg">
-            <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center overflow-hidden shadow-lg">
+            <img src="/logo.png" alt="LDMS" className="w-[120%] h-[120%] object-contain mix-blend-multiply" />
           </div>
-          <span className="text-[18px] sm:text-[20px] font-extrabold font-display tracking-tight text-surface-900 hidden sm:block">Gurufy</span>
+          <span className="text-[18px] sm:text-[20px] font-extrabold font-display tracking-tight text-surface-900 hidden sm:block">LDMS</span>
         </div>
 
         {/* Global Search (Desktop) */}
@@ -283,7 +293,7 @@ export default function Layout() {
               </button>
 
               {showNotifications && (
-                <div className="absolute top-full mt-3 w-[calc(100vw-24px)] sm:w-96 glass-modal overflow-hidden z-50 animate-slide-down right-0 sm:right-0 max-w-[400px]" style={{ right: 'min(0px, calc(-50vw + 50% + 12px))' }}>
+                <div className="absolute top-full mt-3 w-80 sm:w-96 glass-modal overflow-hidden z-50 animate-slide-down right-0 origin-top-right shadow-2xl">
                   <div className="px-5 py-4 border-b border-surface-100 flex items-center justify-between">
                     <h3 className="font-bold text-surface-900">Notifications</h3>
                     {unreadCount > 0 && (
@@ -418,72 +428,121 @@ export default function Layout() {
       {sidebarOpen && (
         <div className="fixed inset-0 z-[55] xl:hidden">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={() => setSidebarOpen(false)} />
-          <aside className="absolute top-0 left-0 bottom-0 w-[280px] bg-white shadow-2xl z-10 animate-slide-in-right overflow-y-auto no-scrollbar">
-            <div className="p-4 border-b border-surface-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-gradient-to-tr from-primary-600 to-accent-500 rounded-xl flex items-center justify-center">
-                  <GraduationCap className="w-5 h-5 text-white" />
+          <aside className="absolute top-0 left-0 bottom-0 w-[236px] bg-white shadow-2xl z-10 animate-slide-in-right overflow-y-auto no-scrollbar flex flex-col">
+            <div className="px-4 py-3.5 border-b border-surface-100 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center overflow-hidden shadow-md">
+                  <img src="/logo.png" alt="LDMS" className="w-[120%] h-[120%] object-contain mix-blend-multiply" />
                 </div>
-                <span className="text-lg font-extrabold font-display tracking-tight text-surface-900">Gurufy</span>
+                <span className="text-base font-extrabold font-display tracking-tight text-surface-900">LDMS</span>
               </div>
-              <button onClick={() => setSidebarOpen(false)} className="p-2 hover:bg-surface-100 rounded-xl">
-                <X className="w-5 h-5 text-surface-600" />
+              <button onClick={() => setSidebarOpen(false)} className="p-1.5 hover:bg-surface-100 rounded-lg transition-colors">
+                <X className="w-4 h-4 text-surface-400" />
               </button>
             </div>
-            <div className="p-4 space-y-1">
+            <nav className="flex-1 px-3 pt-4 pb-3">
+              <p className="px-2 mb-2 text-[9px] font-black text-surface-300 uppercase tracking-[0.15em]">Menu</p>
               {navItems.map(item => {
                 const isActive = currentPath === item.to || (item.to !== '/' && currentPath.startsWith(item.to))
                 return (
-                  <NavLink 
-                    key={item.to} 
-                    to={item.to} 
-                    end={item.to === '/'} 
-                    className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl font-bold transition-all duration-200 ${
-                      isActive 
-                        ? 'bg-primary-50 text-primary-700 shadow-sm border border-primary-100/50' 
-                        : 'text-surface-600 hover:bg-surface-100/60 hover:text-surface-900 border border-transparent'
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === '/'}
+                    className={`group flex items-center gap-3.5 px-3.5 py-3 rounded-2xl text-[13.5px] font-bold transition-all duration-300 ${
+                      isActive
+                        ? 'bg-primary-600 text-white shadow-[0_4px_16px_-4px_rgba(37,99,235,0.4)]'
+                        : 'text-surface-500 hover:bg-surface-100/80 hover:text-surface-900'
                     }`}
                   >
-                    <item.icon className={`w-5 h-5 ${isActive ? 'text-primary-600' : 'text-surface-400'}`} />
-                    {item.label}
-                    {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-600 shadow-[0_0_8px_rgba(37,99,235,0.6)]" />}
+                    <item.icon className={`w-[18px] h-[18px] transition-transform duration-300 ${
+                      isActive ? 'text-white scale-110 drop-shadow-sm' : 'text-surface-400 group-hover:text-surface-700'
+                    }`} />
+                    <span className="truncate">{item.label}</span>
                   </NavLink>
                 )
               })}
-            </div>
+            </nav>
+            {currentUser && (
+              <div className="px-3 pb-5 pt-3 border-t border-surface-100">
+                <button
+                  onClick={() => { navigate('/profile'); setSidebarOpen(false) }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-surface-100 transition-colors group"
+                >
+                  <div className={`w-8 h-8 rounded-lg shrink-0 overflow-hidden border border-surface-200 flex items-center justify-center text-white text-xs font-black ${userProfile?.profilePhoto ? '' : 'bg-surface-700'}`}>
+                    {userProfile?.profilePhoto
+                      ? <img src={userProfile.profilePhoto} alt="" className="w-full h-full object-cover" />
+                      : (userProfile?.name || currentUser?.email || 'U')[0].toUpperCase()
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-[12px] font-bold text-surface-800 truncate">{userProfile?.name || (['admin', 'superadmin'].includes(userProfile?.role) ? 'Super Admin' : 'User')}</p>
+                    <p className="text-[10px] font-semibold text-surface-400 capitalize">{userProfile?.role || 'Teacher'}</p>
+                  </div>
+                </button>
+              </div>
+            )}
           </aside>
         </div>
       )}
 
-      <div className={`flex max-w-[1800px] mx-auto pt-[70px] ${globalAnnouncement && !dismissedAnnouncement ? 'mt-[48px] sm:mt-[52px]' : ''}`}>
-        {/* Fixed Desktop Sidebar */}
-        <aside className={`hidden xl:block w-[280px] shrink-0 fixed bottom-0 left-0 bg-white/90 backdrop-blur-md border-r border-surface-200/80 z-40 overflow-y-auto no-scrollbar transition-all ${globalAnnouncement && !dismissedAnnouncement ? 'top-[118px] sm:top-[122px]' : 'top-[70px]'}`}>
-          <div className="p-4 space-y-2">
-            <h3 className="px-4 text-xs font-extrabold text-surface-400 uppercase tracking-wider mb-3 mt-4 text-left">Navigation</h3>
+      <div className="flex max-w-[1800px] mx-auto pt-[70px]">
+        {/* Fixed Desktop Sidebar — compact premium */}
+        <aside className="hidden xl:flex flex-col w-[220px] shrink-0 fixed bottom-0 left-0 z-40 overflow-hidden top-[70px]"
+          style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', borderRight: '1px solid rgba(0,0,0,0.06)' }}
+        >
+          {/* Nav links */}
+          <nav className="flex-1 overflow-y-auto no-scrollbar px-3 pt-4 pb-3">
+            <p className="px-2 mb-2 text-[9px] font-black text-surface-300 uppercase tracking-[0.15em]">Menu</p>
             {navItems.map(item => {
               const isActive = currentPath === item.to || (item.to !== '/' && currentPath.startsWith(item.to))
               return (
-                <NavLink 
-                  key={item.to} 
-                  to={item.to} 
-                  end={item.to === '/'} 
-                  className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl font-bold transition-all duration-200 ${
-                    isActive 
-                      ? 'bg-primary-50 text-primary-700 shadow-sm border border-primary-100/50' 
-                      : 'text-surface-600 hover:bg-surface-100/60 hover:text-surface-900 border border-transparent'
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/'}
+                  className={`group flex items-center gap-3.5 px-3.5 py-3 rounded-2xl text-[13.5px] font-bold transition-all duration-300 ${
+                    isActive
+                      ? 'bg-primary-600 text-white shadow-[0_4px_16px_-4px_rgba(37,99,235,0.4)]'
+                      : 'text-surface-500 hover:bg-surface-100/80 hover:text-surface-900'
                   }`}
                 >
-                  <item.icon className={`w-5 h-5 ${isActive ? 'text-primary-600' : 'text-surface-400'}`} />
-                  {item.label}
-                  {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-600 shadow-[0_0_8px_rgba(37,99,235,0.6)]" />}
+                  <item.icon className={`w-[18px] h-[18px] transition-transform duration-300 ${
+                    isActive ? 'text-white scale-110 drop-shadow-sm' : 'text-surface-400 group-hover:text-surface-700 group-hover:scale-110'
+                  }`} />
+                  <span className="truncate">{item.label}</span>
                 </NavLink>
               )
             })}
-          </div>
+          </nav>
+
+          {/* Bottom user card */}
+          {currentUser && (
+            <div className="px-3 pb-5 pt-3 border-t border-surface-100">
+              <button
+                onClick={() => navigate('/profile')}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-surface-100 transition-colors group"
+              >
+                <div className={`w-8 h-8 rounded-lg shrink-0 overflow-hidden border border-surface-200 flex items-center justify-center text-white text-xs font-black ${
+                  userProfile?.profilePhoto ? '' : 'bg-surface-700'
+                }`}>
+                  {userProfile?.profilePhoto
+                    ? <img src={userProfile.profilePhoto} alt="" className="w-full h-full object-cover" />
+                    : (userProfile?.name || 'U')[0].toUpperCase()
+                  }
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                    <p className="text-[12.5px] font-bold text-surface-800 truncate">{userProfile?.name || (['admin', 'superadmin'].includes(userProfile?.role) ? 'Super Admin' : 'User')}</p>
+                  <p className="text-[10px] font-semibold text-surface-400 capitalize truncate">{userProfile?.role || 'Teacher'}</p>
+                </div>
+                <Settings className="w-3.5 h-3.5 text-surface-300 group-hover:text-surface-500 shrink-0 transition-colors" />
+              </button>
+            </div>
+          )}
         </aside>
 
         {/* Main Content Workspace */}
-        <main className="flex-1 min-h-screen xl:ml-[280px] pb-[90px] xl:pb-12 pt-6 px-3 sm:px-4 md:px-8">
+        <main className="flex-1 min-h-screen xl:ml-[220px] pb-[90px] xl:pb-12 pt-6 px-3 sm:px-4 md:px-8">
           <div className="max-w-6xl mx-auto">
             <Outlet />
           </div>
@@ -517,6 +576,7 @@ export default function Layout() {
         </nav>
       </div>
 
+      <AIChatWidget />
     </div>
   )
 }

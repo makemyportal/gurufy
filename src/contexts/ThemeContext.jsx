@@ -8,7 +8,7 @@ export function useTheme() {
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('gurufy-theme') || 'light'
+    return localStorage.getItem('ldms-theme') || 'light'
   })
 
   useEffect(() => {
@@ -18,7 +18,7 @@ export function ThemeProvider({ children }) {
     } else {
       root.classList.remove('dark')
     }
-    localStorage.setItem('gurufy-theme', theme)
+    localStorage.setItem('ldms-theme', theme)
   }, [theme])
 
   function toggleTheme() {

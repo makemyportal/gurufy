@@ -190,7 +190,7 @@ export default function Leaderboard() {
             <div className="p-12 text-center">
               <Trophy className="w-12 h-12 text-surface-300 mx-auto mb-3" />
               <p className="font-semibold text-surface-700">No data yet</p>
-              <p className="text-sm text-surface-500 mt-1">Start using Gurufy to appear on the leaderboard!</p>
+              <p className="text-sm text-surface-500 mt-1">Start using LDMS to appear on the leaderboard!</p>
             </div>
           ) : (
             leaders.map((user, i) => {

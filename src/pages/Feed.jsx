@@ -12,8 +12,10 @@ import {
   Heart, MessageCircle, Share2, Download,
   FileText, Send, MoreHorizontal, Loader2, X,
   ImagePlus, Sparkles, BookOpen, Trash2, PenLine,
-  TrendingUp, Users, Zap, ChevronRight, Award
+  TrendingUp, Users, Zap, ChevronRight, Award, Bot,
+  BarChart2, CheckCircle, Plus, Minus
 } from 'lucide-react'
+import { generateAIContent } from '../utils/aiService'
 import { useNavigate } from 'react-router-dom'
 import { createNotification } from '../utils/notificationHelpers'
 import { useGamification } from '../contexts/GamificationContext'
@@ -59,16 +61,91 @@ export default function Feed() {
   const [deletingId, setDeletingId] = useState(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
   const [composerFocused, setComposerFocused] = useState(false)
+  const [generatingAI, setGeneratingAI] = useState(false)
+  const [postType, setPostType] = useState('text')
+  const [pollOptions, setPollOptions] = useState([{ id: 1, text: '' }, { id: 2, text: '' }])
   const fileInputRef = useRef(null)
 
   useEffect(() => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'))
-    const unsub = onSnapshot(q, snap => {
+    const unsub = onSnapshot(q, async (snap) => {
       setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })))
       setLoading(false)
-    }, () => setLoading(false))
+    })
     return () => unsub()
   }, [])
+
+  // AI Auto-Bot Routine
+  useEffect(() => {
+    if (!currentUser || loading || posts.length === 0) return
+    const aiPosts = posts.filter(p => p.authorName === 'LDMS AI')
+    const latestAIPost = aiPosts.length > 0 ? aiPosts[0] : null
+    
+    const now = new Date()
+    const lastAITime = latestAIPost?.createdAt?.toDate ? latestAIPost.createdAt.toDate() : new Date(0)
+    const hoursSinceLastAI = (now.getTime() - lastAITime.getTime()) / (1000 * 60 * 60)
+    
+    const trigLock = localStorage.getItem('ai_bot_timer')
+    
+    // Trigger if > 4 hours and no recent lock (< 10 mins)
+    if (hoursSinceLastAI > 4 && (!trigLock || (now.getTime() - parseInt(trigLock)) > 1000 * 60 * 10)) {
+      localStorage.setItem('ai_bot_timer', now.getTime().toString())
+      triggerAIBot()
+    }
+  }, [posts, currentUser, loading])
+
+  async function triggerAIBot() {
+    try {
+      const SUBJECTS = ['Space Physics', 'Ancient History', 'Modern Ed-Tech', 'Psychology of Learning', 'Mathematical Tricks', 'English Literature', 'Technology Innovations', 'Mindfulness in classroom', 'General Knowledge Facts']
+      const isPoll = Math.random() > 0.7; // 30% chance for a poll
+      const subject = SUBJECTS[Math.floor(Math.random() * SUBJECTS.length)]
+      
+      let postDoc = {
+        authorId: 'ldms_ai_bot',
+        authorName: 'LDMS AI',
+        authorRole: 'Platform Admin',
+        authorPhoto: 'https://api.dicebear.com/7.x/bottts/svg?seed=LDMSAI&backgroundColor=4f46e5',
+        likes: [], commentsCount: 0,
+        createdAt: serverTimestamp(),
+      }
+
+      if (isPoll) {
+         const prompt = `Generate an engaging multiple-choice poll (with exactly 3 options) about ${subject}. Format EXACTLY as:
+Question?
+Option 1
+Option 2
+Option 3
+NO markdown. NO extra text.`
+         const text = await generateAIContent(prompt)
+         const lines = text.split('\n').map(l => l.trim()).filter(l => l)
+         if (lines.length >= 4) {
+           postDoc.content = lines[0]
+           postDoc.postType = 'poll'
+           postDoc.pollOptions = [
+             { id: 1, text: lines[1].replace(/^[-\d.)]\s*/, '').replace(/^[A-Za-z]\)\s*/, '') },
+             { id: 2, text: lines[2].replace(/^[-\d.)]\s*/, '').replace(/^[A-Za-z]\)\s*/, '') },
+             { id: 3, text: lines[3].replace(/^[-\d.)]\s*/, '').replace(/^[A-Za-z]\)\s*/, '') },
+           ].filter(o => o.text)
+           postDoc.pollVotes = {}
+         } else { postDoc.postType = 'text'; postDoc.content = text; } 
+      } else {
+         const isQuestion = Math.random() > 0.5;
+         const prompt = isQuestion 
+            ? `Ask a short, engaging open-ended question (under 30 words) about ${subject} to inspire a discussion among educators. Use 1 emoji. EXCLUDE MARKDOWN.`
+            : `Share a fascinating, mind-blowing educational fact (under 40 words) about ${subject}. Include 1 or 2 emojis. EXCLUDE MARKDOWN.`
+         
+         const text = await generateAIContent(prompt)
+         let cleanText = text.trim()
+         if (cleanText.startsWith('"') && cleanText.endsWith('"')) cleanText = cleanText.slice(1, -1)
+         postDoc.content = cleanText;
+         postDoc.postType = 'text';
+      }
+
+      await addDoc(collection(db, 'posts'), postDoc)
+    } catch (e) {
+      console.warn('AI Bot silent failure:', e)
+    }
+  }
 
   function loadComments(postId) {
     if (comments[postId]) return
@@ -98,7 +175,14 @@ export default function Feed() {
 
   async function handleCreatePost(e) {
     e.preventDefault()
-    if (!newPost.trim() && !selectedFile) return
+    if (!newPost.trim() && !selectedFile && postType === 'text') return
+    if (postType === 'poll') {
+      const validOptions = pollOptions.filter(o => o.text.trim())
+      if (!newPost.trim() || validOptions.length < 2) {
+        alert('Please add a question and at least 2 options for the poll.')
+        return
+      }
+    }
     setPosting(true)
     try {
       let attachmentUrl = null, attachmentType = null, attachmentName = null
@@ -110,15 +194,20 @@ export default function Feed() {
       }
       await addDoc(collection(db, 'posts'), {
         content: newPost.trim(),
+        postType,
+        pollOptions: postType === 'poll' ? pollOptions.filter(o => o.text.trim()).map((o,i) => ({ id: i+1, text: o.text.trim() })) : null,
+        pollVotes: postType === 'poll' ? {} : null,
         authorId: currentUser.uid,
         authorName: userProfile?.name || currentUser.email,
-        authorRole: userProfile?.subject ? `${userProfile.subject} Teacher` : userProfile?.role === 'school' ? 'School' : 'Teacher',
+        authorRole: ['admin', 'superadmin'].includes(userProfile?.role) ? 'Platform Admin' : userProfile?.subject ? `${userProfile.subject} Teacher` : userProfile?.role === 'school' ? 'School' : 'Teacher',
         authorPhoto: userProfile?.profilePhoto || '',
+        authorVerified: userProfile?.isVerified || false,
+        authorVerificationColor: userProfile?.verificationColor || null,
         attachmentUrl, attachmentType, attachmentName,
         likes: [], commentsCount: 0,
         createdAt: serverTimestamp(),
       })
-      setNewPost(''); clearFile(); setComposerFocused(false)
+      setNewPost(''); clearFile(); setComposerFocused(false); setPostType('text'); setPollOptions([{ id: 1, text: '' }, { id: 2, text: '' }])
       awardXP(XP_VALUES.create_post, 'create_post', (data, badges) => {
         if (!badges.includes('first_post')) return 'first_post'
         if ((data.totalPosts || 0) >= 9 && !badges.includes('ten_posts')) return 'ten_posts'
@@ -135,6 +224,12 @@ export default function Feed() {
     if (!liked && post.authorId !== currentUser.uid) {
       createNotification(post.authorId, { type: 'like', title: `${userProfile?.name || 'Someone'} liked your post`, fromUserId: currentUser.uid, fromUserName: userProfile?.name || '', relatedId: post.id })
     }
+  }
+
+  async function handleVotePoll(postId, optionId) {
+    if (!currentUser) return navigate('/login')
+    const ref = doc(db, 'posts', postId)
+    await updateDoc(ref, { [`pollVotes.${currentUser.uid}`]: optionId })
   }
 
   async function handleComment(postId) {
@@ -175,6 +270,19 @@ export default function Feed() {
     if (!showComments[postId]) loadComments(postId)
   }
 
+  async function handleGenerateAIPost() {
+    setGeneratingAI(true)
+    try {
+      await triggerAIBot() // Manually firing the smarter triggerAIBot routine
+      setNewPost('')
+      setComposerFocused(false)
+    } catch (err) {
+      alert('Failed to generate AI post. Please try again.')
+    } finally {
+      setGeneratingAI(false)
+    }
+  }
+
   const initials = n => n ? n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) : 'U'
   const timeAgo = ts => {
     if (!ts) return 'Just now'
@@ -211,7 +319,7 @@ export default function Feed() {
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight mb-1">
               {currentUser
                 ? <>{t('welcomeBack')}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">{userProfile?.name?.split(' ')[0] || 'Teacher'}</span> 👋</>
-                : <>{t('welcomeTo')} <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">Gurufy</span> 👋</>
+                : <>{t('welcomeTo')} <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">LDMS</span> 👋</>
               }
             </h1>
             <p className="text-slate-400 text-sm font-medium">India's professional knowledge network for educators.</p>
@@ -268,12 +376,40 @@ export default function Feed() {
                     value={newPost}
                     onChange={e => setNewPost(e.target.value)}
                     onFocus={() => setComposerFocused(true)}
-                    onBlur={() => setComposerFocused(false)}
-                    placeholder={t('sharePlaceholder')}
+                    placeholder={postType === 'poll' ? "Ask a question for your poll..." : t('sharePlaceholder')}
                     rows={composerFocused || newPost ? 3 : 1}
-                    className="flex-1 resize-none text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none leading-relaxed pt-2 transition-all duration-300"
+                    className="flex-1 resize-none text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none leading-relaxed pt-2 transition-all duration-300 bg-transparent"
                   />
                 </div>
+
+                {postType === 'poll' && (
+                  <div className="mx-4 mt-3 pl-12 pr-4 space-y-2 animate-fade-in-up">
+                    {pollOptions.map((opt, idx) => (
+                      <div key={opt.id} className="flex items-center gap-2">
+                         <div className="w-2 h-2 rounded-full bg-slate-300 shrink-0" />
+                         <input 
+                           type="text" 
+                           placeholder={`Option ${idx + 1}`} 
+                           value={opt.text}
+                           onChange={(e) => {
+                             const newOpts = [...pollOptions]
+                             newOpts[idx].text = e.target.value
+                             setPollOptions(newOpts)
+                           }}
+                           className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-400"
+                         />
+                         {pollOptions.length > 2 && (
+                           <button type="button" onClick={() => setPollOptions(p => p.filter(o => o.id !== opt.id))} className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-slate-100 transition-colors"><X className="w-4 h-4" /></button>
+                         )}
+                      </div>
+                    ))}
+                    {pollOptions.length < 4 && (
+                      <button type="button" onClick={() => setPollOptions(p => [...p, { id: Date.now(), text: '' }])} className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 pt-1 ml-4 transition-colors">
+                        <Plus className="w-3.5 h-3.5" /> Add Option
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {filePreview && (
                   <div className="mx-4 mt-3 bg-slate-50 rounded-xl p-3 flex items-center gap-3 border border-slate-200">
@@ -285,17 +421,30 @@ export default function Feed() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between px-4 py-3 mt-2 border-t border-slate-100">
-                  <div>
+                <div className="flex items-center justify-between px-4 py-3 mt-2 border-t border-slate-100 relative">
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setPostType(p => p === 'text' ? 'poll' : 'text')} 
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg transition-colors ${postType === 'poll' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50'}`}>
+                      <BarChart2 className="w-4 h-4" /> <span className="hidden sm:inline">Poll</span>
+                    </button>
                     <input ref={fileInputRef} type="file" accept="image/*,application/pdf,.doc,.docx,.ppt,.pptx" onChange={handleFileSelect} className="hidden" id="feed-file" />
                     <label htmlFor="feed-file" className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors">
-                      <ImagePlus className="w-4 h-4" /> {t('attach')}
+                      <ImagePlus className="w-4 h-4" /> <span className="hidden sm:inline">{t('attach')}</span>
                     </label>
+
+                    {/* AI Auto-fetch for Admins */}
+                    {['admin', 'superadmin'].includes(userProfile?.role) && (
+                      <button type="button" onClick={handleGenerateAIPost} disabled={generatingAI}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-fuchsia-600 bg-fuchsia-50 hover:bg-fuchsia-100 rounded-lg transition-colors border border-fuchsia-100 disabled:opacity-50">
+                        {generatingAI ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
+                        <span className="hidden sm:inline">AI Post</span>
+                      </button>
+                    )}
                   </div>
-                  <button type="submit" disabled={posting || (!newPost.trim() && !selectedFile)}
-                    className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-bold rounded-xl transition-all active:scale-[0.97] shadow-sm shadow-indigo-200">
+                  <button type="submit" disabled={posting || (!newPost.trim() && !selectedFile && postType === 'text')}
+                    className="flex items-center gap-2 px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-all active:scale-[0.97] shadow-sm shadow-indigo-200">
                     {posting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PenLine className="w-3.5 h-3.5" />}
-                    {posting ? t('publishing') : t('publish')}
+                    {posting ? 'Posting...' : t('publish')}
                   </button>
                 </div>
               </form>
@@ -342,14 +491,104 @@ export default function Feed() {
             </div>
           )}
 
-          {/* Empty */}
+          {/* Empty State - Engaging Starter Content */}
           {!loading && posts.length === 0 && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-16 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-4">
-                <MessageCircle className="w-7 h-7 text-slate-300" />
-              </div>
-              <h3 className="font-extrabold text-slate-700 mb-1">{t('noPosts')}</h3>
-              <p className="text-sm text-slate-400 font-medium">{t('beFirst')}</p>
+            <div className="space-y-5">
+              {/* Starter Post 1 */}
+              <article className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-slate-300 hover:shadow-md transition-all duration-300">
+                <div className="flex items-start justify-between p-5 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0 shadow-inner">
+                      GT
+                    </div>
+                    <div>
+                      <p className="font-extrabold text-slate-900 text-sm leading-tight flex items-center gap-1.5">
+                        LDMS Team <span className="w-3.5 h-3.5 bg-blue-500 text-white rounded-full flex items-center justify-center text-[8px]">✓</span>
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">Platform Admin</span>
+                        <span className="text-slate-300">·</span>
+                        <span className="text-xs text-slate-400 font-medium">pinned post</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="px-5 pb-4">
+                  <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line mb-4 font-medium">
+                    Welcome to India's fastest-growing professional network for educators! 🚀
+                    <br/><br/>
+                    We built LDMS to give teachers a dedicated space to thrive. Here's what you can do:
+                    <br/>✨ <b>Connect</b> with passionate educators across the country
+                    <br/>📚 <b>Share</b> and discover high-quality teaching resources
+                    <br/>💼 <b>Find</b> your next dream teaching job in top schools
+                    <br/>🤖 <b>Supercharge</b> your lesson planning with our AI Tools
+                    <br/><br/>
+                    Why not start by introducing yourself? Create your first post above and say hello to the community! 👇
+                  </p>
+                  <div className="flex items-center justify-between text-xs text-slate-400 font-medium mb-3">
+                    <span>142 likes</span>
+                    <span>12 comments</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-0 border-t border-slate-100 px-2 opacity-70 pointer-events-none">
+                  <button className="flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold text-rose-500 transition-all rounded-b-none rounded-t-none">
+                    <Heart className="w-4 h-4 fill-rose-500" /> Liked
+                  </button>
+                  <div className="w-px h-6 bg-slate-100" />
+                  <button className="flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold text-slate-500 transition-colors">
+                    <MessageCircle className="w-4 h-4" /> Discuss
+                  </button>
+                  <div className="w-px h-6 bg-slate-100" />
+                  <button className="flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold text-slate-500 transition-colors">
+                    <Share2 className="w-4 h-4" /> Share
+                  </button>
+                </div>
+              </article>
+
+              {/* Starter Post 2 */}
+              <article className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-slate-300 hover:shadow-md transition-all duration-300">
+                <div className="flex items-start justify-between p-5 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0 shadow-inner">
+                      SP
+                    </div>
+                    <div>
+                      <p className="font-extrabold text-slate-900 text-sm leading-tight">Sarah from LDMS</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[11px] font-bold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full">Community Lead</span>
+                        <span className="text-slate-300">·</span>
+                        <span className="text-xs text-slate-400 font-medium">just now</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="px-5 pb-4">
+                  <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line mb-4 font-medium">
+                    <b>Pro Tip:</b> Did you know you can generate complete lesson plans in seconds using our AI Tools? 🪄✨
+                    <br/><br/>
+                    Head over to the <span className="text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.5 rounded">AI Magic</span> section in the sidebar, choose "Lesson Planner", type in your topic and grade level, and let LDMS do the heavy lifting! It even generates worksheets and quiz questions based on the lesson.
+                    <br/><br/>
+                    What topic are you teaching next week? 📝 Let us know!
+                  </p>
+                  <div className="flex items-center justify-between text-xs text-slate-400 font-medium mb-3">
+                    <span>89 likes</span>
+                    <span>4 comments</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-0 border-t border-slate-100 px-2 opacity-70 pointer-events-none">
+                  <button className="flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold text-slate-500 transition-all rounded-b-none rounded-t-none">
+                    <Heart className="w-4 h-4" /> Like
+                  </button>
+                  <div className="w-px h-6 bg-slate-100" />
+                  <button className="flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold text-slate-500 transition-colors">
+                    <MessageCircle className="w-4 h-4" /> Discuss
+                  </button>
+                  <div className="w-px h-6 bg-slate-100" />
+                  <button className="flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold text-slate-500 transition-colors">
+                    <Share2 className="w-4 h-4" /> Share
+                  </button>
+                </div>
+              </article>
             </div>
           )}
 
@@ -358,21 +597,36 @@ export default function Feed() {
             const liked = currentUser && (post.likes || []).includes(currentUser.uid)
             const isOwner = currentUser && post.authorId === currentUser.uid
             const postComments = comments[post.id] || []
+            const isAdminPost = post.authorRole === 'Platform Admin' || post.authorRole?.toLowerCase().includes('admin') || post.authorRole === 'LDMS Team' || post.authorId === 'ldms_ai_bot' || post.authorName === 'LDMS AI'
+            const isVerified = isAdminPost || post.authorVerified
+            const badgeColorStr = { blue: 'bg-blue-500', gold: 'bg-yellow-500', emerald: 'bg-emerald-500', purple: 'bg-purple-500' }[post.authorVerificationColor] || 'bg-blue-500'
+
             return (
               <article key={post.id}
-                className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-slate-300 hover:shadow-md transition-all duration-300 animate-fade-in"
+                className={`bg-white border rounded-2xl overflow-hidden transition-all duration-300 animate-fade-in ${
+                  isAdminPost 
+                    ? 'border-indigo-200 hover:border-indigo-300 shadow-[0_4px_20px_-4px_rgba(99,102,241,0.1)]' 
+                    : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
+                }`}
                 style={{ animationDelay: `${idx * 0.04}s` }}>
 
                 {/* Header */}
-                <div className="flex items-start justify-between p-5 pb-4">
+                <div className={`flex items-start justify-between p-5 pb-4 ${isAdminPost ? 'bg-gradient-to-r from-indigo-50/40 to-violet-50/40' : ''}`}>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0 ${
+                      isAdminPost ? 'bg-gradient-to-br from-indigo-500 to-violet-600 shadow-inner' : 'bg-gradient-to-br from-slate-400 to-slate-500'
+                    }`}>
                       {post.authorPhoto ? <img src={post.authorPhoto} alt="" className="w-full h-full object-cover" /> : initials(post.authorName)}
                     </div>
                     <div>
-                      <p className="font-extrabold text-slate-900 text-sm leading-tight">{post.authorName}</p>
+                      <p className="font-extrabold text-slate-900 text-sm leading-tight flex items-center gap-1.5">
+                        {post.authorName}
+                        {isVerified && <span className={`w-3.5 h-3.5 text-white rounded-full flex items-center justify-center text-[8px] mx-1 mt-0.5 shadow-sm shrink-0 ${badgeColorStr}`}>✓</span>}
+                      </p>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{post.authorRole || 'Educator'}</span>
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isAdminPost ? 'text-indigo-600 bg-indigo-100' : 'text-indigo-600 bg-indigo-50'}`}>
+                          {post.authorRole || 'Educator'}
+                        </span>
                         <span className="text-slate-300">·</span>
                         <span className="text-xs text-slate-400 font-medium">{timeAgo(post.createdAt)}</span>
                       </div>
@@ -401,6 +655,33 @@ export default function Feed() {
                 <div className="px-5 pb-4">
                   {post.content && (
                     <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line mb-4 font-medium">{post.content}</p>
+                  )}
+
+                  {post.postType === 'poll' && post.pollOptions && (
+                    <div className="mb-4 space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-100 animate-fade-in-up">
+                      {post.pollOptions.map((opt) => {
+                         const currentVotes = post.pollVotes ? Object.values(post.pollVotes).filter(v => v === opt.id).length : 0
+                         const totalVotes = post.pollVotes ? Object.keys(post.pollVotes).length : 0
+                         const percent = totalVotes === 0 ? 0 : Math.round((currentVotes / totalVotes) * 100)
+                         const hasVoted = currentUser && post.pollVotes && post.pollVotes[currentUser.uid] === opt.id
+                         return (
+                           <button 
+                             key={opt.id}
+                             onClick={() => handleVotePoll(post.id, opt.id)}
+                             disabled={!currentUser}
+                             className={`group relative w-full overflow-hidden text-left border rounded-xl px-4 py-3 min-h-[48px] flex items-center justify-between transition-all outline-none ${hasVoted ? 'border-primary-400 bg-primary-50/50 hover:bg-primary-50' : 'border-slate-200 hover:border-primary-300 bg-white shadow-sm hover:shadow'}`}
+                           >
+                             <div className={`absolute top-0 left-0 bottom-0 transition-all duration-1000 ease-out ${hasVoted ? 'bg-primary-100/60' : 'bg-slate-100/60'}`} style={{ width: `${percent}%` }} />
+                             <span className={`relative z-10 flex items-center gap-2.5 text-sm font-bold ${hasVoted ? 'text-primary-800' : 'text-slate-700'}`}>
+                               {hasVoted ? <CheckCircle className="w-4 h-4 text-primary-600 shrink-0 shadow-sm rounded-full" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0 group-hover:border-primary-400 transition-colors bg-white" />}
+                               {opt.text}
+                             </span>
+                             {totalVotes > 0 && <span className={`relative z-10 text-xs font-extrabold ${hasVoted ? 'text-primary-600' : 'text-slate-400'}`}>{percent}%</span>}
+                           </button>
+                         )
+                      })}
+                      <p className="text-[11px] font-bold text-slate-400 pt-1.5 text-right tracking-wide uppercase">{post.pollVotes ? Object.keys(post.pollVotes).length : 0} votes</p>
+                    </div>
                   )}
 
                   {post.attachmentType === 'image' && post.attachmentUrl && (
