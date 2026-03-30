@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import { useGamification } from '../contexts/GamificationContext'
 import { getLevel } from '../contexts/GamificationContext'
+import { useTheme } from '../contexts/ThemeContext'
+import { useLanguage } from '../contexts/LanguageContext'
 import {
   BookOpen, Home, User, Briefcase, FolderOpen, Users, Sparkles,
   LayoutDashboard, Bell, Search, Menu, X, LogOut, ChevronDown,
@@ -13,47 +15,52 @@ import {
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../utils/firebase'
 
-const teacherNav = [
-  { to: '/', icon: Home, label: 'Feed' },
-  { to: '/groups', icon: Users, label: 'Groups' },
-  { to: '/jobs', icon: Briefcase, label: 'Careers' },
-  { to: '/resources', icon: FolderOpen, label: 'Resources' },
-  { to: '/ai-tools', icon: Sparkles, label: 'AI Magic' },
-  { to: '/messaging', icon: MessageSquare, label: 'Messages' },
-  { to: '/events', icon: CalendarDays, label: 'Events' },
-  { to: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/profile', icon: User, label: 'My Profile' },
-]
-
-const schoolNav = [
-  { to: '/', icon: Home, label: 'Feed' },
-  { to: '/jobs', icon: Briefcase, label: 'Job Postings' },
-  { to: '/teacher-search', icon: Search, label: 'Find Talent' },
-  { to: '/resources', icon: FolderOpen, label: 'Resources' },
-  { to: '/messaging', icon: MessageSquare, label: 'Messages' },
-  { to: '/events', icon: CalendarDays, label: 'Events' },
-  { to: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/profile', icon: User, label: 'School Profile' },
-]
-
-// Mobile bottom nav (limited items)
-const teacherMobileNav = [
-  { to: '/', icon: Home, label: 'Feed' },
-  { to: '/jobs', icon: Briefcase, label: 'Careers' },
-  { to: '/ai-tools', icon: Sparkles, label: 'AI' },
-  { to: '/messaging', icon: MessageSquare, label: 'Chat' },
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-]
-
-const schoolMobileNav = [
-  { to: '/', icon: Home, label: 'Feed' },
-  { to: '/jobs', icon: Briefcase, label: 'Jobs' },
-  { to: '/teacher-search', icon: Search, label: 'Search' },
-  { to: '/messaging', icon: MessageSquare, label: 'Chat' },
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-]
+// Nav array builders — called inside component to get reactive translations
+function getTeacherNav(t) {
+  return [
+    { to: '/', icon: Home, label: t('feed') },
+    { to: '/groups', icon: Users, label: t('groups') },
+    { to: '/jobs', icon: Briefcase, label: t('careers') },
+    { to: '/resources', icon: FolderOpen, label: t('resources') },
+    { to: '/ai-tools', icon: Sparkles, label: t('aiMagic') },
+    { to: '/messaging', icon: MessageSquare, label: t('messages') },
+    { to: '/events', icon: CalendarDays, label: t('events') },
+    { to: '/leaderboard', icon: Trophy, label: t('leaderboard') },
+    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
+    { to: '/profile', icon: User, label: t('myProfile') },
+  ]
+}
+function getSchoolNav(t) {
+  return [
+    { to: '/', icon: Home, label: t('feed') },
+    { to: '/jobs', icon: Briefcase, label: t('jobs') },
+    { to: '/teacher-search', icon: Search, label: t('findTalent') },
+    { to: '/resources', icon: FolderOpen, label: t('resources') },
+    { to: '/messaging', icon: MessageSquare, label: t('messages') },
+    { to: '/events', icon: CalendarDays, label: t('events') },
+    { to: '/leaderboard', icon: Trophy, label: t('leaderboard') },
+    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
+    { to: '/profile', icon: User, label: t('schoolProfile') },
+  ]
+}
+function getTeacherMobileNav(t) {
+  return [
+    { to: '/', icon: Home, label: t('feed') },
+    { to: '/jobs', icon: Briefcase, label: t('careers') },
+    { to: '/ai-tools', icon: Sparkles, label: 'AI' },
+    { to: '/messaging', icon: MessageSquare, label: t('messages') },
+    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
+  ]
+}
+function getSchoolMobileNav(t) {
+  return [
+    { to: '/', icon: Home, label: t('feed') },
+    { to: '/jobs', icon: Briefcase, label: t('jobs') },
+    { to: '/teacher-search', icon: Search, label: t('findTalent') },
+    { to: '/messaging', icon: MessageSquare, label: t('messages') },
+    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
+  ]
+}
 
 // Map notification type to icon
 function getNotificationIcon(type) {
@@ -84,7 +91,15 @@ export default function Layout() {
   const { currentUser, userProfile, logout } = useAuth()
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications()
   const { stats } = useGamification()
+  const { theme } = useTheme()
+  const { t } = useLanguage()
   const currentLevel = getLevel(stats.xp || 0)
+
+  // Build translated nav arrays
+  const teacherNav = getTeacherNav(t)
+  const schoolNav = getSchoolNav(t)
+  const teacherMobileNav = getTeacherMobileNav(t)
+  const schoolMobileNav = getSchoolMobileNav(t)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
@@ -162,13 +177,18 @@ export default function Layout() {
   const pageTitle = currentPage ? currentPage.label : 'Gurufy'
 
   return (
-    <div className="min-h-screen bg-surface-50 text-surface-900 selection:bg-primary-100 selection:text-primary-800 font-sans overflow-x-hidden">
+    <div className={`min-h-screen text-surface-900 selection:bg-primary-100 selection:text-primary-800 font-sans overflow-x-hidden ${theme === 'dark' ? 'dark bg-[#0f0f14]' : 'bg-surface-50'}`}>
       
       {/* Immersive Animated Background */}
       <div className="fixed inset-0 pointer-events-none -z-10">
-        <div className="absolute inset-0 bg-surface-50" />
-        <div className="absolute inset-0 bg-mesh-gradient opacity-40 animate-pulse-soft" />
-        <div className="absolute inset-0 bg-white/20 backdrop-blur-[100px]" />
+        {theme === 'dark'
+          ? <div className="absolute inset-0 bg-[#0f0f14]" />
+          : <>
+              <div className="absolute inset-0 bg-surface-50" />
+              <div className="absolute inset-0 bg-mesh-gradient opacity-40 animate-pulse-soft" />
+              <div className="absolute inset-0 bg-white/20 backdrop-blur-[100px]" />
+            </>
+        }
       </div>
 
       {/* Global Announcement Banner */}

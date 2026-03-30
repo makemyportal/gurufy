@@ -236,3 +236,357 @@
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+
+   PREMIUM DARK MODE — Aurora, Glow, Frosted Glass
+   Applied when .dark class is on <html>
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Animated Aurora Background ── */
+.dark body {
+  background-color: #0a0a10;
+  color: #e2e8f0;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 10% -10%, rgba(99,102,241,0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 110%, rgba(139,92,246,0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(6,182,212,0.06) 0%, transparent 70%);
+  background-attachment: fixed;
+}
+
+/* Subtle animated glow blobs via pseudo */
+.dark body::before {
+  content: '';
+  position: fixed;
+  top: -20%;
+  left: -10%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  animation: darkAurora1 12s ease-in-out infinite alternate;
+}
+.dark body::after {
+  content: '';
+  position: fixed;
+  bottom: -20%;
+  right: -10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  animation: darkAurora2 15s ease-in-out infinite alternate;
+}
+
+@keyframes darkAurora1 {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0.6; }
+  100% { transform: translate(80px, 60px) scale(1.2); opacity: 1; }
+}
+@keyframes darkAurora2 {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  100% { transform: translate(-60px, -80px) scale(1.15); opacity: 0.85; }
+}
+
+
+/* ── Generic white/light backgrounds → dark surfaces ── */
+.dark [class*="bg-white"] {
+  background-color: #1a1a24 !important;
+}
+.dark [class*="bg-slate-50"] {
+  background-color: #1e1e2a !important;
+}
+.dark [class*="bg-slate-100"] {
+  background-color: #22222e !important;
+}
+.dark [class*="bg-slate-200"] {
+  background-color: #2a2a38 !important;
+}
+.dark [class*="bg-surface-50"] {
+  background-color: #1e1e2a !important;
+}
+.dark [class*="bg-surface-100"] {
+  background-color: #22222e !important;
+}
+
+/* ── Text colors ── */
+.dark [class*="text-slate-900"],
+.dark [class*="text-surface-900"] {
+  color: #f1f5f9 !important;
+}
+.dark [class*="text-slate-800"],
+.dark [class*="text-surface-800"] {
+  color: #e2e8f0 !important;
+}
+.dark [class*="text-slate-700"],
+.dark [class*="text-surface-700"] {
+  color: #cbd5e1 !important;
+}
+.dark [class*="text-slate-600"],
+.dark [class*="text-surface-600"] {
+  color: #94a3b8 !important;
+}
+.dark [class*="text-slate-500"],
+.dark [class*="text-surface-500"] {
+  color: #64748b !important;
+}
+.dark [class*="text-slate-400"],
+.dark [class*="text-surface-400"] {
+  color: #475569 !important;
+}
+
+/* ── Borders ── */
+.dark [class*="border-slate-100"],
+.dark [class*="border-surface-100"] {
+  border-color: rgba(255,255,255,0.04) !important;
+}
+.dark [class*="border-slate-200"],
+.dark [class*="border-surface-200"] {
+  border-color: rgba(255,255,255,0.07) !important;
+}
+.dark [class*="border-slate-300"],
+.dark [class*="border-surface-300"] {
+  border-color: rgba(255,255,255,0.1) !important;
+}
+.dark [class*="border-white"] {
+  border-color: rgba(255,255,255,0.08) !important;
+}
+
+/* ── Divide ── */
+.dark [class*="divide-slate-"],
+.dark [class*="divide-surface-"] {
+  border-color: rgba(255,255,255,0.06) !important;
+}
+
+/* ── Shared component classes ── */
+.dark .glass-card-solid {
+  background-color: #1a1a24 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+  box-shadow: 0 8px 32px -8px rgba(0,0,0,0.5) !important;
+}
+.dark .glass-card {
+  background-color: rgba(26,26,36,0.85) !important;
+  border-color: rgba(255,255,255,0.07) !important;
+}
+.dark .glass-modal {
+  background-color: #1a1a24 !important;
+  border-color: rgba(255,255,255,0.1) !important;
+}
+
+/* ── Input fields ── */
+.dark .input-field {
+  background-color: #25252f !important;
+  border-color: rgba(255,255,255,0.1) !important;
+  color: #f1f5f9 !important;
+}
+.dark .input-field:hover { background-color: #2a2a3a !important; }
+.dark .input-field:focus {
+  background-color: #2d2d3a !important;
+  border-color: #6366f1 !important;
+}
+.dark .input-field::placeholder { color: #3a3a56 !important; }
+
+/* ── Textarea / select / input (raw HTML elements) ── */
+.dark textarea,
+.dark select,
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+  background-color: #25252f;
+  border-color: rgba(255,255,255,0.1);
+  color: #f1f5f9;
+}
+.dark textarea::placeholder,
+.dark input::placeholder { color: #3a3a56; }
+
+/* ── Navigation ── */
+.dark .nav-link { color: #94a3b8; }
+.dark .nav-link:hover { background-color: rgba(255,255,255,0.05); color: #f1f5f9; }
+.dark .nav-link-active { background-color: rgba(99,102,241,0.15); color: #a5b4fc; }
+
+/* ── Fixed Header ── */
+.dark header[class*="fixed"],
+.dark header[class*="bg-white"] {
+  background-color: rgba(15,15,20,0.95) !important;
+  border-color: rgba(255,255,255,0.06) !important;
+}
+
+/* ── Fixed Sidebar ── */
+.dark aside[class*="fixed"],
+.dark aside[class*="bg-white"] {
+  background-color: rgba(15,15,20,0.97) !important;
+  border-color: rgba(255,255,255,0.06) !important;
+}
+
+/* ── Dropdown menus / popover panels ── */
+.dark [class*="absolute"][class*="bg-white"],
+.dark [class*="fixed"][class*="bg-white"] {
+  background-color: #1e1e2a !important;
+  border-color: rgba(255,255,255,0.08) !important;
+}
+
+/* ── Shadow adjustments ── */
+.dark [class*="shadow-sm"],
+.dark [class*="shadow-soft"],
+.dark [class*="shadow-glass"] {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4) !important;
+}
+
+/* ── Section title ── */
+.dark .section-title { color: #f1f5f9; }
+
+/* ── Badges ── */
+.dark .badge-primary { background-color: rgba(99,102,241,0.15); color: #a5b4fc; }
+.dark .badge-accent  { background-color: rgba(168,85,247,0.15);  color: #d8b4fe; }
+.dark .badge-success { background-color: rgba(16,185,129,0.15);  color: #6ee7b7; }
+
+/* ── Skeleton loaders ── */
+.dark .skeleton,
+.dark .skeleton-text,
+.dark .skeleton-circle { background-color: rgba(255,255,255,0.06); }
+
+/* ── Hover states on surface/slate bg ── */
+.dark [class*="hover:bg-slate-50"]:hover { background-color: rgba(255,255,255,0.04) !important; }
+.dark [class*="hover:bg-slate-100"]:hover { background-color: rgba(255,255,255,0.06) !important; }
+.dark [class*="hover:bg-surface-50"]:hover { background-color: rgba(255,255,255,0.04) !important; }
+.dark [class*="hover:bg-surface-100"]:hover { background-color: rgba(255,255,255,0.06) !important; }
+.dark [class*="hover:bg-white"]:hover { background-color: rgba(255,255,255,0.06) !important; }
+
+/* ── Card hover ── */
+.dark .card-hover:hover {
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5) !important;
+}
+
+/* ── Toast ── */
+.dark .toast { background-color: #2a2a3a; }
+
+/* ── Focus rings ── */
+.dark *:focus-visible { outline-color: #6366f1; }
+
+/* ── Secondary buttons ── */
+.dark .btn-secondary {
+  background-color: #25252f !important;
+  border-color: rgba(255,255,255,0.1) !important;
+  color: #e2e8f0 !important;
+}
+.dark .btn-secondary:hover { background-color: #2d2d3a !important; }
+
+/* ── Mobile bottom nav ── */
+.dark [class*="fixed"][class*="bottom-0"][class*="bg-white/"] {
+  background-color: rgba(15,15,20,0.97) !important;
+  border-color: rgba(255,255,255,0.06) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COOL PREMIUM DARK MODE EFFECTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Glowing cards on hover ── */
+.dark [class*="rounded-2xl"]:hover,
+.dark [class*="rounded-xl"]:hover {
+  box-shadow: 0 0 0 1px rgba(99,102,241,0.12), 0 8px 32px rgba(0,0,0,0.4) !important;
+  transition: box-shadow 0.3s ease !important;
+}
+
+/* ── Interactive elements get a glow on active ── */
+.dark button:active,
+.dark a:active {
+  filter: brightness(1.1);
+}
+
+/* ── Frosted glass navbar ── */
+.dark header {
+  background: rgba(10,10,16,0.85) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(99,102,241,0.1) !important;
+  box-shadow: 0 1px 0 rgba(99,102,241,0.08), 0 4px 24px rgba(0,0,0,0.3) !important;
+}
+
+/* ── Frosted glass sidebar ── */
+.dark aside {
+  background: rgba(10,10,16,0.9) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  border-right: 1px solid rgba(99,102,241,0.08) !important;
+}
+
+/* ── Cards — dark glass with subtle indigo tint ── */
+.dark .glass-card-solid {
+  background: rgba(20,20,30,0.9) !important;
+  border: 1px solid rgba(99,102,241,0.12) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+  backdrop-filter: blur(12px) !important;
+}
+.dark .glass-card-solid:hover {
+  border-color: rgba(99,102,241,0.22) !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(99,102,241,0.15), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+}
+
+/* ── bg-white cards get a premium treatment ── */
+.dark [class*="bg-white"] {
+  background: rgba(20,20,30,0.92) !important;
+  border-color: rgba(99,102,241,0.1) !important;
+  backdrop-filter: blur(8px) !important;
+}
+.dark [class*="bg-white"]:hover {
+  border-color: rgba(99,102,241,0.18) !important;
+}
+
+/* ── Indigo accented separators ── */
+.dark hr,
+.dark [class*="border-t"],
+.dark [class*="border-b"] {
+  border-color: rgba(99,102,241,0.08) !important;
+}
+
+/* ── Glowing scrollbar ── */
+.dark ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: #0a0a10;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(99,102,241,0.3);
+  border-radius: 99px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(99,102,241,0.55);
+}
+
+/* ── Text selection glow ── */
+.dark ::selection {
+  background: rgba(99,102,241,0.3);
+  color: #e2e8f0;
+}
+
+/* ── Indigo glow on focused inputs ── */
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: rgba(99,102,241,0.5) !important;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12) !important;
+  background-color: rgba(25,25,40,0.95) !important;
+  outline: none !important;
+}
+
+/* ── Active nav item indigo line ── */
+.dark .nav-link-active {
+  background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1)) !important;
+  border-left: 2px solid #6366f1 !important;
+  color: #a5b4fc !important;
+}
+
+/* ── Gradient badges in dark ── */
+.dark .badge-primary {
+  background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.15));
+  color: #a5b4fc;
+  border: 1px solid rgba(99,102,241,0.2);
+}
+
+/* ── Modal backdrop blur ── */
+.dark [class*="backdrop-blur"] {
+  backdrop-filter: blur(20px) !important;
+}
