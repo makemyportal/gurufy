@@ -325,19 +325,19 @@ export default function AITools() {
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-fade-in-up">
       {/* Header Section */}
-      <div className="relative overflow-hidden rounded-[32px] bg-surface-900 border border-surface-800 p-8 lg:p-12 shadow-2xl">
-        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/3 w-[800px] h-[800px] bg-gradient-to-tr from-accent-600/30 to-primary-600/30 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-0 left-0 translate-y-1/3 -translate-x-1/3 w-[600px] h-[600px] bg-gradient-to-tr from-emerald-600/20 to-teal-600/20 rounded-full blur-[100px] pointer-events-none" />
+      <div className="relative overflow-hidden rounded-[24px] sm:rounded-[32px] bg-surface-900 border border-surface-800 p-5 sm:p-8 lg:p-12 shadow-2xl">
+        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/3 w-[400px] sm:w-[800px] h-[400px] sm:h-[800px] bg-gradient-to-tr from-accent-600/30 to-primary-600/30 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-0 left-0 translate-y-1/3 -translate-x-1/3 w-[300px] sm:w-[600px] h-[300px] sm:h-[600px] bg-gradient-to-tr from-emerald-600/20 to-teal-600/20 rounded-full blur-[100px] pointer-events-none" />
         
         <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-white/90 text-sm font-semibold tracking-wide backdrop-blur-md mb-6 shadow-glow-accent">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-white/90 text-sm font-semibold tracking-wide backdrop-blur-md mb-4 sm:mb-6 shadow-glow-accent">
             <Sparkles className="w-4 h-4 text-accent-400" /> AI Educator Magic
           </div>
-          <h1 className="text-4xl lg:text-5xl font-extrabold font-display text-white tracking-tight leading-tight mb-4">
-            Supercharge your <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-400 to-primary-400 leading-tight">Teaching Workflow</span>
+          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold font-display text-white tracking-tight leading-tight mb-3 sm:mb-4">
+            Supercharge your <br className="hidden sm:block"/><span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-400 to-primary-400 leading-tight">Teaching Workflow</span>
           </h1>
-          <p className="text-lg text-surface-300 font-medium leading-relaxed">
-            Generate pixel-perfect lesson plans, differentiated worksheets, and challenging quizzes in seconds. Engineered for modern educators.
+          <p className="text-sm sm:text-lg text-surface-300 font-medium leading-relaxed">
+            Generate pixel-perfect lesson plans, differentiated worksheets, and challenging quizzes in seconds.
           </p>
         </div>
       </div>

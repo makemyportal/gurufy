@@ -150,9 +150,9 @@ export default function Messaging() {
 
   return (
     <div className="max-w-6xl mx-auto animate-fade-in">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <h1 className="section-title">Messages</h1>
-        <button onClick={() => setShowNewChat(true)} className="btn-primary py-2.5 px-5 text-sm flex items-center gap-2">
+        <button onClick={() => setShowNewChat(true)} className="btn-primary py-2.5 px-5 text-sm flex items-center gap-2 shrink-0 self-start sm:self-auto">
           <Plus className="w-4 h-4" /> New Chat
         </button>
       </div>

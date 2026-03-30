@@ -109,12 +109,12 @@ export default function Events() {
 
   return (
     <div className="max-w-5xl mx-auto animate-fade-in">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="section-title">Events</h1>
           <p className="text-surface-500 text-sm mt-1">Workshops, webinars, and meetups for educators</p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="btn-primary py-2.5 px-5 text-sm flex items-center gap-2">
+        <button onClick={() => setShowCreate(true)} className="btn-primary py-2.5 px-5 text-sm flex items-center gap-2 shrink-0 self-start sm:self-auto">
           <Plus className="w-4 h-4" /> Create Event
         </button>
       </div>

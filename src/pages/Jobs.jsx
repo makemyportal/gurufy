@@ -124,13 +124,13 @@ export default function Jobs() {
 
   return (
     <div className="max-w-6xl mx-auto animate-fade-in">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="section-title">Job Portal</h1>
           {!loading && <p className="text-sm text-surface-500 mt-1">{filteredJobs.length} positions available</p>}
         </div>
         {isSchool && (
-          <button onClick={() => setShowPostJob(true)} className="btn-primary py-2.5 px-5 text-sm flex items-center gap-2">
+          <button onClick={() => setShowPostJob(true)} className="btn-primary py-2.5 px-5 text-sm flex items-center gap-2 shrink-0 self-start sm:self-auto">
             <Plus className="w-4 h-4" /> Post a Job
           </button>
         )}
@@ -158,7 +158,7 @@ export default function Jobs() {
       {!loading && (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Job List */}
-          <div className="lg:col-span-2 space-y-3">
+          <div className={`lg:col-span-2 space-y-3 ${selectedJob ? 'hidden lg:block' : 'block'}`}>
             {filteredJobs.map(job => (
               <button
                 key={job.id}
@@ -167,7 +167,7 @@ export default function Jobs() {
               >
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-semibold text-surface-900 text-sm">{job.title}</h3>
-                  <span className={`badge text-[10px] ${job.type === 'Full-time' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                  <span className={`badge text-[10px] shrink-0 ml-2 ${job.type === 'Full-time' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                     {job.type}
                   </span>
                 </div>
@@ -199,12 +199,16 @@ export default function Jobs() {
           </div>
 
           {/* Job Detail */}
-          <div className="lg:col-span-3">
+          <div className={`lg:col-span-3 ${selectedJob ? 'block' : 'hidden lg:block'}`}>
             {selectedJob ? (
-              <div className="glass-card-solid p-6 sticky top-20 animate-fade-in">
+              <div className="glass-card-solid p-5 sm:p-6 sticky top-20 animate-fade-in">
+                {/* Mobile Back Button */}
+                <button onClick={() => setSelectedJob(null)} className="lg:hidden flex items-center gap-2 text-surface-500 hover:text-surface-800 text-sm font-semibold mb-4 transition-colors">
+                  ← Back to Jobs
+                </button>
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h2 className="text-xl font-bold font-display text-surface-900">{selectedJob.title}</h2>
+                    <h2 className="text-lg sm:text-xl font-bold font-display text-surface-900">{selectedJob.title}</h2>
                     <p className="text-primary-600 font-semibold mt-1">{selectedJob.school}</p>
                   </div>
                 </div>

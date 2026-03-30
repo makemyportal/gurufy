@@ -128,19 +128,22 @@ export default function Settings() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Sidebar Tabs */}
-        <div className="glass-card-solid p-3 h-fit">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === tab.id ? 'bg-primary-50 text-primary-700' : 'text-surface-600 hover:bg-surface-50'
-              }`}
-            >
-              <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-primary-600' : 'text-surface-400'}`} />
-              {tab.label}
-            </button>
-          ))}
+        <div className="glass-card-solid p-2 sm:p-3 h-fit">
+          <div className="flex md:flex-col gap-1 overflow-x-auto no-scrollbar">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === tab.id ? 'bg-primary-50 text-primary-700' : 'text-surface-600 hover:bg-surface-50'
+                }`}
+              >
+                <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-primary-600' : 'text-surface-400'}`} />
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden text-xs">{tab.label.split(' ')[0]}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Content */}
