@@ -86,21 +86,19 @@ export default function App() {
       <Route
         path="/"
         element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
+          <Layout />
         }
       >
         <Route index element={<Feed />} />
-        <Route path="profile" element={<ProfileRouter />} />
+        <Route path="profile" element={<ProtectedRoute><ProfileRouter /></ProtectedRoute>} />
         <Route path="jobs" element={<Jobs />} />
         <Route path="resources" element={<Resources />} />
         <Route path="ai-tools" element={<AITools />} />
         <Route path="groups" element={<Groups />} />
-        <Route path="dashboard" element={<DashboardRouter />} />
+        <Route path="dashboard" element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
         <Route path="teacher-search" element={<TeacherSearch />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="messaging" element={<Messaging />} />
+        <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="messaging" element={<ProtectedRoute><Messaging /></ProtectedRoute>} />
         <Route path="events" element={<Events />} />
         <Route path="leaderboard" element={<Leaderboard />} />
         <Route path="admin" element={

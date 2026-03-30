@@ -9,11 +9,13 @@ import {
   Search, MapPin, DollarSign, Clock, Briefcase, Building2,
   Send, BookmarkPlus, Eye, Loader2, Plus, X, CheckCircle2
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 const SUBJECTS = ['All Subjects', 'Mathematics', 'English', 'Science', 'Computer Science', 'Hindi', 'Social Studies', 'Music', 'Art', 'Physics', 'Chemistry', 'Biology']
 const JOB_TYPES = ['Full-time', 'Part-time', 'Contract']
 
 export default function Jobs() {
+  const navigate = useNavigate()
   const { currentUser, userProfile } = useAuth()
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -49,7 +51,10 @@ export default function Jobs() {
   })
 
   async function handleApply(job) {
-    if (!currentUser) return
+    if (!currentUser) {
+      navigate('/login')
+      return
+    }
     if ((job.applicants || []).includes(currentUser.uid)) return
     setApplyingId(job.id)
     try {
@@ -250,8 +255,8 @@ export default function Jobs() {
                   </div>
                 )}
 
-                {!isSchool && currentUser && (
-                  <div className="flex gap-3">
+                {!isSchool && (
+                  <div className="flex gap-3 mt-4">
                     {hasApplied(selectedJob) ? (
                       <button disabled className="btn-secondary flex-1 py-3 text-emerald-600 border-emerald-300 bg-emerald-50 cursor-default flex items-center justify-center gap-2">
                         <CheckCircle2 className="w-5 h-5" /> Applied Successfully

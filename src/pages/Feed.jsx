@@ -127,7 +127,7 @@ export default function Feed() {
   }
 
   async function toggleLike(post) {
-    if (!currentUser) return
+    if (!currentUser) return navigate('/login')
     const postRef = doc(db, 'posts', post.id)
     const likes = post.likes || []
     if (likes.includes(currentUser.uid)) {
@@ -148,8 +148,9 @@ export default function Feed() {
   }
 
   async function handleComment(postId) {
+    if (!currentUser) return navigate('/login')
     const text = commentText[postId]?.trim()
-    if (!text || !currentUser) return
+    if (!text) return
 
     try {
       await addDoc(collection(db, 'posts', postId, 'comments'), {
@@ -230,7 +231,7 @@ export default function Feed() {
           <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-primary-400/20 rounded-full blur-3xl group-hover:bg-primary-400/30 transition-all duration-700" />
           <div className="relative z-10">
             <h2 className="text-[26px] font-extrabold font-display tracking-tight text-surface-900 mb-1 leading-tight">
-              Welcome back, {userProfile?.name?.split(' ')[0] || 'Teacher'} <span className="inline-block hover:animate-bounce cursor-default">👋</span>
+              {currentUser ? `Welcome back, ${userProfile?.name?.split(' ')[0] || 'Teacher'}` : 'Welcome to Gurufy'} <span className="inline-block hover:animate-bounce cursor-default">👋</span>
             </h2>
             <p className="text-surface-600 font-medium">Ready to inspire your students today?</p>
           </div>
@@ -283,53 +284,63 @@ export default function Feed() {
         <div className="lg:col-span-8 space-y-6">
 
           {/* Create Post */}
-          <div className="glass-card-solid p-5">
-        <form onSubmit={handleCreatePost}>
-          <div className="flex gap-3">
-            <div className="w-10 h-10 rounded-full gradient-bg flex items-center justify-center text-white font-bold text-sm shrink-0 ring-2 ring-white shadow-sm overflow-hidden">
-              {userProfile?.profilePhoto
-                ? <img src={userProfile.profilePhoto} alt="" className="w-full h-full rounded-full object-cover" />
-                : initials(userProfile?.name || currentUser?.email)}
-            </div>
-            <textarea
-              value={newPost}
-              onChange={e => setNewPost(e.target.value)}
-              placeholder="Share a teaching tip, resource, or experience..."
-              className="flex-1 resize-none bg-surface-50 rounded-xl p-3 text-sm border border-surface-200 focus:outline-none focus:ring-2 focus:ring-primary-300 min-h-[80px] transition-all"
-            />
-          </div>
+          {currentUser ? (
+            <div className="glass-card-solid p-5">
+              <form onSubmit={handleCreatePost}>
+                <div className="flex gap-3">
+                  <div className="w-10 h-10 rounded-full gradient-bg flex items-center justify-center text-white font-bold text-sm shrink-0 ring-2 ring-white shadow-sm overflow-hidden">
+                    {userProfile?.profilePhoto
+                      ? <img src={userProfile.profilePhoto} alt="" className="w-full h-full rounded-full object-cover" />
+                      : initials(userProfile?.name || currentUser?.email)}
+                  </div>
+                  <textarea
+                    value={newPost}
+                    onChange={e => setNewPost(e.target.value)}
+                    placeholder="Share a teaching tip, resource, or experience..."
+                    className="flex-1 resize-none bg-surface-50 rounded-xl p-3 text-sm border border-surface-200 focus:outline-none focus:ring-2 focus:ring-primary-300 min-h-[80px] transition-all"
+                  />
+                </div>
 
-          {filePreview && (
-            <div className="mt-3 relative bg-surface-50 rounded-xl p-3 flex items-center gap-3 border border-surface-200">
-              {filePreview.type === 'image'
-                ? <img src={filePreview.url} alt="preview" className="w-16 h-16 rounded-lg object-cover" />
-                : <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center text-primary-700 font-bold text-xs">{filePreview.ext}</div>
-              }
-              <p className="text-sm text-surface-700 font-medium flex-1 truncate">{filePreview.name}</p>
-              <button type="button" onClick={clearFile} className="p-1 hover:bg-surface-200 rounded-lg">
-                <X className="w-4 h-4 text-surface-500" />
+                {filePreview && (
+                  <div className="mt-3 relative bg-surface-50 rounded-xl p-3 flex items-center gap-3 border border-surface-200">
+                    {filePreview.type === 'image'
+                      ? <img src={filePreview.url} alt="preview" className="w-16 h-16 rounded-lg object-cover" />
+                      : <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center text-primary-700 font-bold text-xs">{filePreview.ext}</div>
+                    }
+                    <p className="text-sm text-surface-700 font-medium flex-1 truncate">{filePreview.name}</p>
+                    <button type="button" onClick={clearFile} className="p-1 hover:bg-surface-200 rounded-lg">
+                      <X className="w-4 h-4 text-surface-500" />
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-surface-100">
+                  <div className="flex gap-1">
+                    <input ref={fileInputRef} type="file" accept="image/*,application/pdf,.doc,.docx,.ppt,.pptx" onChange={handleFileSelect} className="hidden" id="post-file" />
+                    <label htmlFor="post-file" className="flex items-center gap-1.5 px-3 py-2 text-sm text-surface-600 hover:bg-surface-100 rounded-lg transition-colors cursor-pointer">
+                      <ImagePlus className="w-4 h-4 text-emerald-500" /> Photo/File
+                    </label>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={posting || (!newPost.trim() && !selectedFile)}
+                    className="btn-primary py-2 px-5 text-sm flex items-center gap-2"
+                  >
+                    {posting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    {posting ? 'Posting...' : 'Post'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <div className="glass-card-solid p-8 text-center border-primary-100 bg-primary-50/40 mt-4 mb-6">
+              <h3 className="font-extrabold text-xl font-display text-primary-900 mb-2">Join the Conversation!</h3>
+              <p className="text-primary-700 text-sm font-medium mb-5 max-w-sm mx-auto leading-relaxed">Log in to create posts, share resources, interact with content, and connect with other top educators.</p>
+              <button onClick={() => navigate('/login')} className="btn-primary py-3 px-8 rounded-full font-bold shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5 text-sm uppercase tracking-wide">
+                Sign In to Participate
               </button>
             </div>
           )}
-
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-surface-100">
-            <div className="flex gap-1">
-              <input ref={fileInputRef} type="file" accept="image/*,application/pdf,.doc,.docx,.ppt,.pptx" onChange={handleFileSelect} className="hidden" id="post-file" />
-              <label htmlFor="post-file" className="flex items-center gap-1.5 px-3 py-2 text-sm text-surface-600 hover:bg-surface-100 rounded-lg transition-colors cursor-pointer">
-                <ImagePlus className="w-4 h-4 text-emerald-500" /> Photo/File
-              </label>
-            </div>
-            <button
-              type="submit"
-              disabled={posting || (!newPost.trim() && !selectedFile)}
-              className="btn-primary py-2 px-5 text-sm flex items-center gap-2"
-            >
-              {posting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              {posting ? 'Posting...' : 'Post'}
-            </button>
-          </div>
-        </form>
-      </div>
 
       {/* Loading Skeleton */}
       {loading && (

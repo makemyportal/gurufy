@@ -9,6 +9,7 @@ import {
   CalendarDays, Plus, MapPin, Clock, Users, Loader2, X,
   CheckCircle2, ExternalLink, Calendar, Video, BookOpen, Award
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 const EVENT_TYPES = ['Workshop', 'Webinar', 'Conference', 'PTM', 'Training', 'Competition', 'Meetup']
 const EVENT_COLORS = {
@@ -31,6 +32,7 @@ const EVENT_ICONS = {
 }
 
 export default function Events() {
+  const navigate = useNavigate()
   const { currentUser, userProfile } = useAuth()
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -81,7 +83,7 @@ export default function Events() {
   }
 
   async function toggleRSVP(event) {
-    if (!currentUser) return
+    if (!currentUser) return navigate('/login')
     const ref = doc(db, 'events', event.id)
     const isAttending = (event.attendees || []).includes(currentUser.uid)
     try {
@@ -114,7 +116,7 @@ export default function Events() {
           <h1 className="section-title">Events</h1>
           <p className="text-surface-500 text-sm mt-1">Workshops, webinars, and meetups for educators</p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="btn-primary py-2.5 px-5 text-sm flex items-center gap-2 shrink-0 self-start sm:self-auto">
+        <button onClick={() => { if (!currentUser) return navigate('/login'); setShowCreate(true) }} className="btn-primary py-2.5 px-5 text-sm flex items-center gap-2 shrink-0 self-start sm:self-auto">
           <Plus className="w-4 h-4" /> Create Event
         </button>
       </div>

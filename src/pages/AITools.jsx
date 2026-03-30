@@ -3,6 +3,8 @@ import { Sparkles, FileText, FileQuestion, BookOpen, Send, Loader2, Copy, CheckC
 import { generateAIContent } from '../utils/aiService'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useAuth } from '../contexts/AuthContext'
+import { useNavigate } from 'react-router-dom'
 
 const tools = [
   {
@@ -147,6 +149,8 @@ YOU MUST STRICTLY USE THIS FORMAT:
 ]
 
 export default function AITools() {
+  const { currentUser } = useAuth()
+  const navigate = useNavigate()
   const [activeTool, setActiveTool] = useState(tools[0])
   const [topic, setTopic] = useState('')
   const [grade, setGrade] = useState('8th Grade')
@@ -158,6 +162,7 @@ export default function AITools() {
 
   async function handleGenerate(e) {
     e.preventDefault()
+    if (!currentUser) return navigate('/login')
     if (!topic.trim()) return
 
     setIsGenerating(true)

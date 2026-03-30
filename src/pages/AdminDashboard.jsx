@@ -207,8 +207,21 @@ export default function AdminDashboard() {
         })
       )
       await Promise.all(batch)
+
+      // Set global broadcast for the UI banner
+      const broadcastPayload = {
+        id: Date.now().toString(),
+        text: announcementText,
+        createdAt: new Date().toISOString()
+      }
+      await setDoc(doc(db, 'platformSettings', 'global'), { 
+        ...platformSettings, 
+        latestBroadcast: broadcastPayload 
+      }, { merge: true })
+      setPlatformSettings(prev => ({ ...prev, latestBroadcast: broadcastPayload }))
+
       setAnnouncementText('')
-      showToast(`Announcement sent to ${usersSnap.docs.length} users`)
+      showToast(`Announcement sent to ${usersSnap.docs.length} users & global banner`)
     } catch (err) { showToast('Failed to send', 'error') }
   }
 

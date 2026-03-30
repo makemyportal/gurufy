@@ -9,6 +9,7 @@ import { uploadToCloudinary, formatFileSize } from '../utils/cloudinary'
 import {
   Search, Download, Upload, Star, X, Loader2, FileText, CheckCircle2
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 const SUBJECTS = ['All', 'Mathematics', 'Science', 'English', 'Computer Science', 'Hindi', 'Social Studies', 'Physics', 'Chemistry', 'Biology']
 const TYPES = ['All', 'Worksheet', 'Lesson Plan', 'PPT', 'Question Paper', 'Activity', 'Notes']
@@ -23,6 +24,7 @@ const FORMAT_STYLES = {
 }
 
 export default function Resources() {
+  const navigate = useNavigate()
   const { currentUser, userProfile } = useAuth()
   const [resources, setResources] = useState([])
   const [loading, setLoading] = useState(true)
@@ -96,6 +98,7 @@ export default function Resources() {
   }
 
   async function handleDownload(resource) {
+    if (!currentUser) return navigate('/login')
     await updateDoc(doc(db, 'resources', resource.id), { downloads: increment(1) }).catch(() => {})
     window.open(resource.fileUrl, '_blank')
   }
@@ -106,7 +109,7 @@ export default function Resources() {
     <div className="max-w-6xl mx-auto animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <h1 className="section-title">Resource Library</h1>
-        <button onClick={() => setShowUpload(true)} className="btn-primary py-2.5 px-5 text-sm flex items-center gap-2 shrink-0 self-start sm:self-auto">
+        <button onClick={() => { if (!currentUser) return navigate('/login'); setShowUpload(true) }} className="btn-primary py-2.5 px-5 text-sm flex items-center gap-2 shrink-0 self-start sm:self-auto">
           <Upload className="w-4 h-4" /> Upload Resource
         </button>
       </div>
