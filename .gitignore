@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+
+# build
+dist/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# secrets / test files
+test-keys.mjs
+test_output.txt
+build-error.log
+tailwind-error.log
