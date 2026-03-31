@@ -328,7 +328,7 @@ export default function AITools() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-fade-in-up">
+    <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 animate-fade-in-up pb-20 sm:pb-0">
       {/* Header Section */}
       <div className="relative overflow-hidden rounded-[24px] sm:rounded-[32px] bg-surface-900 border border-surface-800 p-5 sm:p-8 lg:p-12 shadow-2xl">
         <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/3 w-[400px] sm:w-[800px] h-[400px] sm:h-[800px] bg-gradient-to-tr from-accent-600/30 to-primary-600/30 rounded-full blur-[120px] pointer-events-none" />
@@ -511,7 +511,7 @@ export default function AITools() {
                   </div>
                 </div>
                 
-                <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar flex-1 max-h-[600px] bg-white">
+                <div className="p-4 sm:p-6 md:p-8 overflow-y-auto custom-scrollbar flex-1 max-h-[500px] sm:max-h-[600px] bg-white">
                   <article id="printable-area" className="prose prose-slate prose-sm md:prose-base max-w-none 
                     prose-headings:font-display prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-surface-900
                     prose-p:text-surface-600 prose-p:leading-relaxed prose-li:text-surface-600 

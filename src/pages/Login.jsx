@@ -201,7 +201,7 @@ export default function Login() {
       </div>
 
       {/* ─── RIGHT PANEL (Form) ─── */}
-      <div className="flex-1 flex flex-col justify-center px-6 py-12 sm:px-12 xl:px-20 bg-white overflow-y-auto">
+      <div className="flex-1 flex flex-col justify-center px-5 py-10 sm:px-12 xl:px-20 bg-white overflow-y-auto">
 
         {/* Mobile logo */}
         <div className="flex items-center gap-2 mb-10 lg:hidden">
@@ -211,7 +211,7 @@ export default function Login() {
           <span className="font-extrabold text-slate-900 text-lg tracking-tight">LDMS</span>
         </div>
 
-        <div className="w-full max-w-[400px] mx-auto">
+        <div className="w-full max-w-[420px] mx-auto">
 
           {/* ── FORGOT PASSWORD ── */}
           {showForgotPassword ? (
@@ -256,7 +256,7 @@ export default function Login() {
             <>
               {/* Heading */}
               <div className="mb-8">
-                <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-1">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mb-1">
                   {isLogin ? 'Welcome back' : 'Create account'}
                 </h2>
                 <p className="text-slate-500 text-sm font-medium">
@@ -365,7 +365,7 @@ export default function Login() {
               </p>
 
               {/* Trust badges */}
-              <div className="flex items-center justify-center gap-4 mt-10 pt-8 border-t border-slate-100">
+              <div className="flex items-center justify-center gap-3 sm:gap-4 mt-8 sm:mt-10 pt-6 sm:pt-8 border-t border-slate-100 flex-wrap">
                 <div className="flex items-center gap-1.5 text-slate-400">
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                   <span className="text-[11px] font-bold uppercase tracking-wider">SSL Secured</span>

@@ -5,7 +5,7 @@ import { db } from '../utils/firebase'
 import {
   collection, addDoc, onSnapshot, query, orderBy,
   updateDoc, doc, arrayUnion, arrayRemove, serverTimestamp,
-  deleteDoc, getDocs
+  deleteDoc, getDocs, getDoc, increment
 } from 'firebase/firestore'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import {
@@ -13,7 +13,8 @@ import {
   FileText, Send, MoreHorizontal, Loader2, X,
   ImagePlus, Sparkles, BookOpen, Trash2, PenLine,
   TrendingUp, Users, Zap, ChevronRight, Award, Bot,
-  BarChart2, CheckCircle, Plus, Minus
+  BarChart2, CheckCircle, Plus, Minus, Youtube, Flag, AlertTriangle, ThumbsDown,
+  Link2, HelpCircle, Camera, Megaphone
 } from 'lucide-react'
 import { generateAIContent } from '../utils/aiService'
 import { useNavigate } from 'react-router-dom'
@@ -64,7 +65,12 @@ export default function Feed() {
   const [generatingAI, setGeneratingAI] = useState(false)
   const [postType, setPostType] = useState('text')
   const [pollOptions, setPollOptions] = useState([{ id: 1, text: '' }, { id: 2, text: '' }])
+  const [youtubeLink, setYoutubeLink] = useState('')
+  const [linkUrl, setLinkUrl] = useState('')
+  const [reportingPost, setReportingPost] = useState(null)
+  const [reportReason, setReportReason] = useState('')
   const fileInputRef = useRef(null)
+  const photoInputRef = useRef(null)
 
   useEffect(() => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'))
@@ -104,7 +110,7 @@ export default function Feed() {
         authorId: 'ldms_ai_bot',
         authorName: 'LDMS AI',
         authorRole: 'Platform Admin',
-        authorPhoto: 'https://api.dicebear.com/7.x/bottts/svg?seed=LDMSAI&backgroundColor=4f46e5',
+        authorPhoto: '',
         likes: [], commentsCount: 0,
         createdAt: serverTimestamp(),
       }
@@ -147,6 +153,40 @@ NO markdown. NO extra text.`
     }
   }
 
+  async function triggerAIPostReaction(postId, textContent, pType, aType) {
+    try {
+      let prompt = ''
+      if (textContent) {
+         prompt = `An educator just posted on our social platform: "${textContent}". As a super-smart, highly intelligent AI teaching assistant named 'LDMS AI', write a brilliant and highly insightful reply. KEEP IT EXTREMELY SHORT (Maximum 10-15 words). No markdown. No quotes.`
+      } else if (pType === 'youtube' || aType === 'youtube') {
+         prompt = `An educator just shared a YouTube video. As a super-smart AI, write a brilliant, insightful 1-sentence comment. KEEP IT EXTREMELY SHORT (Maximum 10-15 words). No markdown. No quotes.`
+      } else if (aType === 'image') {
+         prompt = `An educator just shared a photo. As a super-smart AI, write a brilliant 1-sentence comment. KEEP IT EXTREMELY SHORT (Maximum 10 words). No markdown. No quotes.`
+      } else {
+         prompt = `An educator just shared a document. As a super-smart AI, write a brilliant 1-sentence comment thanking them. KEEP IT EXTREMELY SHORT (Maximum 10 words). No markdown. No quotes.`
+      }
+      const aiResponse = await generateAIContent(prompt)
+      let cleanRes = aiResponse.trim().replace(/^["']|["']$/g, '')
+      if (cleanRes.startsWith('"')) cleanRes = cleanRes.substring(1)
+      if (cleanRes.endsWith('"')) cleanRes = cleanRes.slice(0,-1)
+
+      setTimeout(async () => {
+        try {
+          await addDoc(collection(db, 'posts', postId, 'comments'), {
+            text: cleanRes,
+            authorId: 'ldms_ai_bot',
+            authorName: 'LDMS AI',
+            authorPhoto: '',
+            createdAt: serverTimestamp(),
+          })
+          await updateDoc(doc(db, 'posts', postId), { commentsCount: increment(1) })
+        } catch (err) { console.warn('AI comment error', err) }
+      }, 4000)
+    } catch (e) {
+      console.warn('AI reaction failed', e)
+    }
+  }
+
   function loadComments(postId) {
     if (comments[postId]) return
     setLoadingComments(p => ({ ...p, [postId]: true }))
@@ -183,16 +223,26 @@ NO markdown. NO extra text.`
         return
       }
     }
+    if (postType === 'youtube' && !youtubeLink.trim()) {
+      alert('Please enter a valid YouTube link.')
+      return
+    }
     setPosting(true)
     try {
       let attachmentUrl = null, attachmentType = null, attachmentName = null
-      if (selectedFile) {
+      if (postType === 'youtube') {
+        attachmentUrl = youtubeLink.trim()
+        attachmentType = 'youtube'
+      } else if (postType === 'link') {
+        attachmentUrl = linkUrl.trim()
+        attachmentType = 'link'
+      } else if (selectedFile) {
         const r = await uploadToCloudinary(selectedFile)
         attachmentUrl = r.url
         attachmentName = r.originalFilename || selectedFile.name
         attachmentType = selectedFile.type.startsWith('image/') ? 'image' : r.format || 'FILE'
       }
-      await addDoc(collection(db, 'posts'), {
+      const docRef = await addDoc(collection(db, 'posts'), {
         content: newPost.trim(),
         postType,
         pollOptions: postType === 'poll' ? pollOptions.filter(o => o.text.trim()).map((o,i) => ({ id: i+1, text: o.text.trim() })) : null,
@@ -207,12 +257,20 @@ NO markdown. NO extra text.`
         likes: [], commentsCount: 0,
         createdAt: serverTimestamp(),
       })
-      setNewPost(''); clearFile(); setComposerFocused(false); setPostType('text'); setPollOptions([{ id: 1, text: '' }, { id: 2, text: '' }])
+      
+      const capturedText = newPost.trim()
+      const capturedPostType = postType
+      const capturedAttachmentType = attachmentType
+
+      setNewPost(''); clearFile(); setComposerFocused(false); setPostType('text'); setPollOptions([{ id: 1, text: '' }, { id: 2, text: '' }]); setYoutubeLink(''); setLinkUrl('');
       awardXP(XP_VALUES.create_post, 'create_post', (data, badges) => {
         if (!badges.includes('first_post')) return 'first_post'
         if ((data.totalPosts || 0) >= 9 && !badges.includes('ten_posts')) return 'ten_posts'
         return null
       })
+
+      triggerAIPostReaction(docRef.id, capturedText, capturedPostType, capturedAttachmentType)
+
     } catch { alert('Failed to create post.') } finally { setPosting(false) }
   }
 
@@ -220,9 +278,28 @@ NO markdown. NO extra text.`
     if (!currentUser) return navigate('/login')
     const ref = doc(db, 'posts', post.id)
     const liked = (post.likes || []).includes(currentUser.uid)
-    await updateDoc(ref, { likes: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid) })
+    // If user had disliked, remove dislike first
+    const disliked = (post.dislikes || []).includes(currentUser.uid)
+    if (!liked && disliked) {
+      await updateDoc(ref, { likes: arrayUnion(currentUser.uid), dislikes: arrayRemove(currentUser.uid) })
+    } else {
+      await updateDoc(ref, { likes: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid) })
+    }
     if (!liked && post.authorId !== currentUser.uid) {
       createNotification(post.authorId, { type: 'like', title: `${userProfile?.name || 'Someone'} liked your post`, fromUserId: currentUser.uid, fromUserName: userProfile?.name || '', relatedId: post.id })
+    }
+  }
+
+  async function toggleDislike(post) {
+    if (!currentUser) return navigate('/login')
+    const ref = doc(db, 'posts', post.id)
+    const disliked = (post.dislikes || []).includes(currentUser.uid)
+    // If user had liked, remove like first
+    const liked = (post.likes || []).includes(currentUser.uid)
+    if (!disliked && liked) {
+      await updateDoc(ref, { dislikes: arrayUnion(currentUser.uid), likes: arrayRemove(currentUser.uid) })
+    } else {
+      await updateDoc(ref, { dislikes: disliked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid) })
     }
   }
 
@@ -265,6 +342,32 @@ NO markdown. NO extra text.`
     } catch { alert('Failed to delete.') } finally { setDeletingId(null); setShowDeleteConfirm(null) }
   }
 
+  async function handleReportPost(postId) {
+    if (!currentUser || !reportReason) return
+    const post = posts.find(p => p.id === postId)
+    try {
+      await addDoc(collection(db, 'reports'), {
+        type: 'post',
+        contentId: postId,
+        contentPreview: (post?.content || '').substring(0, 200),
+        contentAuthorId: post?.authorId || '',
+        contentAuthorName: post?.authorName || 'Unknown',
+        reason: reportReason,
+        reporter: userProfile?.name || currentUser.email,
+        reporterId: currentUser.uid,
+        status: 'pending',
+        createdAt: serverTimestamp(),
+      })
+      setReportingPost(null)
+      setReportReason('')
+      setShowDeleteConfirm(null)
+      alert('✅ Report submitted. Our team will review this content.')
+    } catch (err) {
+      console.error('Report error:', err)
+      alert('Failed to submit report.')
+    }
+  }
+
   function toggleComments(postId) {
     setShowComments(p => ({ ...p, [postId]: !p[postId] }))
     if (!showComments[postId]) loadComments(postId)
@@ -298,10 +401,10 @@ NO markdown. NO extra text.`
   const totalLikes = posts.reduce((a, p) => a + (p.likes?.length || 0), 0)
 
   return (
-    <div className="max-w-[1200px] mx-auto px-0 animate-fade-in pb-16">
+    <div className="max-w-[1200px] mx-auto px-0 animate-fade-in pb-20 sm:pb-16">
 
       {/* ─── HERO BANNER ─── */}
-      <div className="relative overflow-hidden rounded-[28px] mb-8 mt-1 bg-[#0f0f14] min-h-[180px] flex items-center px-8 sm:px-12">
+      <div className="relative overflow-hidden rounded-[20px] sm:rounded-[28px] mb-6 sm:mb-8 mt-1 bg-[#0f0f14] min-h-[160px] sm:min-h-[180px] flex items-center px-5 sm:px-12">
         {/* Grid */}
         <div className="absolute inset-0 opacity-[0.05]"
           style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)', backgroundSize: '32px 32px' }} />
@@ -316,7 +419,7 @@ NO markdown. NO extra text.`
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-emerald-300 text-[11px] font-bold uppercase tracking-widest">{t('communityFeed')}</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight mb-1">
+            <h1 className="text-xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight mb-1">
               {currentUser
                 ? <>{t('welcomeBack')}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">{userProfile?.name?.split(' ')[0] || 'Teacher'}</span> 👋</>
                 : <>{t('welcomeTo')} <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">LDMS</span> 👋</>
@@ -340,16 +443,16 @@ NO markdown. NO extra text.`
       </div>
 
       {/* ─── QUICK ACTION TILES ─── */}
-      <div className="grid grid-cols-3 gap-3 mb-8">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6 sm:mb-8">
         {QUICK_ACTIONS.map(({ icon: Icon, label, sub, route, from, to }) => (
           <button key={route} onClick={() => navigate(route)}
-            className={`relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 bg-gradient-to-br ${from} ${to} rounded-2xl text-white hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300 group`}>
+            className={`relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-gradient-to-br ${from} ${to} rounded-xl sm:rounded-2xl text-white hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-300 group`}>
             <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-5 transition-opacity" />
-            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-              <Icon className="w-4 h-4" />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-white/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
             <div className="text-left">
-              <p className="font-extrabold text-sm leading-tight">{label}</p>
+              <p className="font-extrabold text-xs sm:text-sm leading-tight">{label}</p>
               <p className="text-white/70 text-[11px] font-medium hidden sm:block">{sub}</p>
             </div>
           </button>
@@ -376,7 +479,7 @@ NO markdown. NO extra text.`
                     value={newPost}
                     onChange={e => setNewPost(e.target.value)}
                     onFocus={() => setComposerFocused(true)}
-                    placeholder={postType === 'poll' ? "Ask a question for your poll..." : t('sharePlaceholder')}
+                    placeholder={postType === 'poll' ? "Ask a question for your poll..." : postType === 'question' ? "Ask your question to the community... ❓" : postType === 'announcement' ? "Write your announcement..." : t('sharePlaceholder')}
                     rows={composerFocused || newPost ? 3 : 1}
                     className="flex-1 resize-none text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none leading-relaxed pt-2 transition-all duration-300 bg-transparent"
                   />
@@ -411,6 +514,20 @@ NO markdown. NO extra text.`
                   </div>
                 )}
 
+                {postType === 'youtube' && (
+                  <div className="mx-4 mt-3 animate-fade-in-up">
+                    <input type="url" placeholder="Paste YouTube Link (e.g. https://youtube.com/watch?v=...)" value={youtubeLink} onChange={e => setYoutubeLink(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:bg-white focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none transition-all placeholder:text-slate-400" />
+                  </div>
+                )}
+
+                {postType === 'link' && (
+                  <div className="mx-4 mt-3 animate-fade-in-up">
+                    <input type="url" placeholder="Paste any URL (e.g. https://example.com/article)" value={linkUrl} onChange={e => setLinkUrl(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all placeholder:text-slate-400" />
+                  </div>
+                )}
+
                 {filePreview && (
                   <div className="mx-4 mt-3 bg-slate-50 rounded-xl p-3 flex items-center gap-3 border border-slate-200">
                     {filePreview.type === 'image'
@@ -421,28 +538,50 @@ NO markdown. NO extra text.`
                   </div>
                 )}
 
-                <div className="flex items-center justify-between px-4 py-3 mt-2 border-t border-slate-100 relative">
-                  <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => setPostType(p => p === 'text' ? 'poll' : 'text')} 
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg transition-colors ${postType === 'poll' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50'}`}>
-                      <BarChart2 className="w-4 h-4" /> <span className="hidden sm:inline">Poll</span>
+                <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-3 mt-2 border-t border-slate-100 relative">
+                  <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+                    <button type="button" onClick={() => setPostType(p => p === 'poll' ? 'text' : 'poll')} 
+                      className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-colors ${postType === 'poll' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50'}`}>
+                      <BarChart2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Poll</span>
                     </button>
+                    <button type="button" onClick={() => setPostType(p => p === 'question' ? 'text' : 'question')} 
+                      className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-colors ${postType === 'question' ? 'bg-amber-100 text-amber-700' : 'text-slate-500 hover:text-amber-600 hover:bg-amber-50'}`}>
+                      <HelpCircle className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Question</span>
+                    </button>
+                    <button type="button" onClick={() => setPostType(p => p === 'youtube' ? 'text' : 'youtube')} 
+                      className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-colors ${postType === 'youtube' ? 'bg-red-100 text-red-700' : 'text-slate-500 hover:text-red-600 hover:bg-red-50'}`}>
+                      <Youtube className="w-3.5 h-3.5" /> <span className="hidden sm:inline">YouTube</span>
+                    </button>
+                    <button type="button" onClick={() => setPostType(p => p === 'link' ? 'text' : 'link')} 
+                      className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-colors ${postType === 'link' ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'}`}>
+                      <Link2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Link</span>
+                    </button>
+                    <input ref={photoInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" id="feed-photo" />
+                    <label htmlFor="feed-photo" className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg cursor-pointer transition-colors">
+                      <Camera className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Photo</span>
+                    </label>
                     <input ref={fileInputRef} type="file" accept="image/*,application/pdf,.doc,.docx,.ppt,.pptx" onChange={handleFileSelect} className="hidden" id="feed-file" />
-                    <label htmlFor="feed-file" className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors">
-                      <ImagePlus className="w-4 h-4" /> <span className="hidden sm:inline">{t('attach')}</span>
+                    <label htmlFor="feed-file" className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors">
+                      <ImagePlus className="w-3.5 h-3.5" /> <span className="hidden sm:inline">File</span>
                     </label>
 
-                    {/* AI Auto-fetch for Admins */}
+                    {/* Admin-only */}
                     {['admin', 'superadmin'].includes(userProfile?.role) && (
-                      <button type="button" onClick={handleGenerateAIPost} disabled={generatingAI}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-fuchsia-600 bg-fuchsia-50 hover:bg-fuchsia-100 rounded-lg transition-colors border border-fuchsia-100 disabled:opacity-50">
-                        {generatingAI ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
-                        <span className="hidden sm:inline">AI Post</span>
-                      </button>
+                      <>
+                        <button type="button" onClick={() => setPostType(p => p === 'announcement' ? 'text' : 'announcement')} 
+                          className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-colors ${postType === 'announcement' ? 'bg-rose-100 text-rose-700' : 'text-slate-500 hover:text-rose-600 hover:bg-rose-50'}`}>
+                          <Megaphone className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Announce</span>
+                        </button>
+                        <button type="button" onClick={handleGenerateAIPost} disabled={generatingAI}
+                          className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs sm:text-sm font-bold text-fuchsia-600 bg-fuchsia-50 hover:bg-fuchsia-100 rounded-lg transition-colors border border-fuchsia-100 disabled:opacity-50">
+                          {generatingAI ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5" />}
+                          <span className="hidden sm:inline">AI Post</span>
+                        </button>
+                      </>
                     )}
                   </div>
-                  <button type="submit" disabled={posting || (!newPost.trim() && !selectedFile && postType === 'text')}
-                    className="flex items-center gap-2 px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-all active:scale-[0.97] shadow-sm shadow-indigo-200">
+                  <button type="submit" disabled={posting || (!newPost.trim() && !selectedFile && postType === 'text' && !youtubeLink.trim() && !linkUrl.trim())}
+                    className="flex items-center gap-2 px-4 sm:px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-all active:scale-[0.97] shadow-sm shadow-indigo-200 shrink-0">
                     {posting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PenLine className="w-3.5 h-3.5" />}
                     {posting ? 'Posting...' : t('publish')}
                   </button>
@@ -595,6 +734,7 @@ NO markdown. NO extra text.`
           {/* ─── POST CARDS ─── */}
           {posts.map((post, idx) => {
             const liked = currentUser && (post.likes || []).includes(currentUser.uid)
+            const disliked = currentUser && (post.dislikes || []).includes(currentUser.uid)
             const isOwner = currentUser && post.authorId === currentUser.uid
             const postComments = comments[post.id] || []
             const isAdminPost = post.authorRole === 'Platform Admin' || post.authorRole?.toLowerCase().includes('admin') || post.authorRole === 'LDMS Team' || post.authorId === 'ldms_ai_bot' || post.authorName === 'LDMS AI'
@@ -614,9 +754,9 @@ NO markdown. NO extra text.`
                 <div className={`flex items-start justify-between p-5 pb-4 ${isAdminPost ? 'bg-gradient-to-r from-indigo-50/40 to-violet-50/40' : ''}`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0 ${
-                      isAdminPost ? 'bg-gradient-to-br from-indigo-500 to-violet-600 shadow-inner' : 'bg-gradient-to-br from-slate-400 to-slate-500'
+                      post.authorId === 'ldms_ai_bot' ? 'bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600 ring-2 ring-pink-300/40' : isAdminPost ? 'bg-gradient-to-br from-indigo-500 to-violet-600 shadow-inner' : 'bg-gradient-to-br from-slate-400 to-slate-500'
                     }`}>
-                      {post.authorPhoto ? <img src={post.authorPhoto} alt="" className="w-full h-full object-cover" /> : initials(post.authorName)}
+                      {post.authorId === 'ldms_ai_bot' ? <span className="text-lg">🤖</span> : post.authorPhoto ? <img src={post.authorPhoto} alt="" className="w-full h-full object-cover" /> : initials(post.authorName)}
                     </div>
                     <div>
                       <p className="font-extrabold text-slate-900 text-sm leading-tight flex items-center gap-1.5">
@@ -639,12 +779,44 @@ NO markdown. NO extra text.`
                         <MoreHorizontal className="w-4 h-4 text-slate-400" />
                       </button>
                       {showDeleteConfirm === post.id && (
-                        <div className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-20 w-40">
+                        <div className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-20 w-44">
                           <button onClick={() => handleDeletePost(post.id)} disabled={deletingId === post.id}
                             className="w-full flex items-center gap-2 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors">
                             {deletingId === post.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                            Delete
+                            Delete Post
                           </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {!isOwner && (
+                    <div className="relative">
+                      <button onClick={() => { setShowDeleteConfirm(showDeleteConfirm === post.id ? null : post.id); setReportingPost(null) }}
+                        className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                        <MoreHorizontal className="w-4 h-4 text-slate-400" />
+                      </button>
+                      {showDeleteConfirm === post.id && (
+                        <div className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-20 w-56">
+                          {reportingPost === post.id ? (
+                            <div className="p-3 space-y-2">
+                              <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> Why are you reporting?</p>
+                              {['Inappropriate Language', 'Spam / Misleading', 'Harassment', 'Misinformation', 'Other'].map(reason => (
+                                <button key={reason} onClick={() => { setReportReason(reason); }}
+                                  className={`w-full text-left px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${reportReason === reason ? 'bg-red-100 text-red-700' : 'text-slate-600 hover:bg-slate-100'}`}>
+                                  {reason}
+                                </button>
+                              ))}
+                              <button disabled={!reportReason} onClick={() => handleReportPost(post.id)}
+                                className="w-full mt-1 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-all disabled:opacity-40">
+                                Submit Report
+                              </button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setReportingPost(post.id)}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-50 transition-colors">
+                              <Flag className="w-4 h-4" /> Report Post
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -653,10 +825,47 @@ NO markdown. NO extra text.`
 
                 {/* Content */}
                 <div className="px-5 pb-4">
-                  {post.content && (
+                  {post.postType === 'question' && post.content && (
+                    <div className="mb-4 p-4 bg-amber-50 border border-amber-200/60 rounded-xl">
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-amber-200 flex items-center justify-center shrink-0 mt-0.5">
+                          <HelpCircle className="w-4 h-4 text-amber-700" />
+                        </div>
+                        <p className="text-slate-800 text-sm leading-relaxed font-semibold whitespace-pre-line">{post.content}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {post.postType === 'announcement' && post.content && (
+                    <div className="mb-4 p-4 bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200/60 rounded-xl">
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-rose-200 flex items-center justify-center shrink-0 mt-0.5">
+                          <Megaphone className="w-4 h-4 text-rose-700" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1">Announcement</p>
+                          <p className="text-slate-800 text-sm leading-relaxed font-semibold whitespace-pre-line">{post.content}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {post.postType !== 'question' && post.postType !== 'announcement' && post.content && (
                     <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line mb-4 font-medium">{post.content}</p>
                   )}
 
+                  {post.attachmentType === 'link' && post.attachmentUrl && (
+                    <a href={post.attachmentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3.5 bg-blue-50 rounded-xl border border-blue-200/60 mb-4 group hover:bg-blue-100/50 transition-colors">
+                      <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0 group-hover:bg-blue-200 transition-colors">
+                        <Link2 className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-blue-800 truncate">{post.attachmentUrl.replace(/^https?:\/\//, '').split('/')[0]}</p>
+                        <p className="text-xs text-blue-500 font-medium truncate">{post.attachmentUrl}</p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-blue-400 shrink-0" />
+                    </a>
+                  )}
                   {post.postType === 'poll' && post.pollOptions && (
                     <div className="mb-4 space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-100 animate-fade-in-up">
                       {post.pollOptions.map((opt) => {
@@ -688,7 +897,24 @@ NO markdown. NO extra text.`
                     <img src={post.attachmentUrl} alt="post" className="w-full rounded-xl max-h-[420px] object-cover mb-4" />
                   )}
 
-                  {post.attachmentType && post.attachmentType !== 'image' && post.attachmentUrl && (
+                  {post.attachmentType === 'youtube' && post.attachmentUrl && (
+                    <div className="relative w-full overflow-hidden rounded-xl mb-4" style={{ paddingTop: '56.25%' }}>
+                      <iframe
+                        className="absolute top-0 left-0 w-full h-full"
+                        src={
+                          post.attachmentUrl.includes('youtube.com/watch?v=') ? post.attachmentUrl.replace('watch?v=', 'embed/').split('&')[0] : 
+                          post.attachmentUrl.includes('youtu.be/') ? post.attachmentUrl.replace('youtu.be/', 'www.youtube.com/embed/').split('?')[0] :
+                          post.attachmentUrl
+                        }
+                        title="YouTube video player"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+                  )}
+
+                  {post.attachmentType && post.attachmentType !== 'image' && post.attachmentType !== 'youtube' && post.attachmentUrl && (
                     <div className="flex items-center gap-3 p-3.5 bg-indigo-50 rounded-xl border border-indigo-100 mb-4">
                       <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
                         <FileText className="w-5 h-5 text-indigo-600" />
@@ -706,7 +932,10 @@ NO markdown. NO extra text.`
 
                   {/* Meta row */}
                   <div className="flex items-center justify-between text-xs text-slate-400 font-medium mb-3">
-                    <span>{(post.likes || []).length} likes</span>
+                    <div className="flex items-center gap-3">
+                      <span>{(post.likes || []).length} likes</span>
+                      {(post.dislikes || []).length > 0 && <span>{(post.dislikes || []).length} dislikes</span>}
+                    </div>
                     <span>{post.commentsCount || 0} comments</span>
                   </div>
                 </div>
@@ -714,19 +943,25 @@ NO markdown. NO extra text.`
                 {/* Actions */}
                 <div className="flex items-center gap-0 border-t border-slate-100 px-2">
                   <button onClick={() => toggleLike(post)}
-                    className={`flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold transition-all rounded-b-none rounded-t-none hover:bg-slate-50 ${liked ? 'text-rose-500' : 'text-slate-500 hover:text-rose-400'}`}>
+                    className={`flex items-center gap-1.5 flex-1 justify-center py-3 text-sm font-semibold transition-all hover:bg-slate-50 ${liked ? 'text-rose-500' : 'text-slate-500 hover:text-rose-400'}`}>
                     <Heart className={`w-4 h-4 transition-transform ${liked ? 'fill-rose-500 scale-110' : ''}`} />
-                    {liked ? t('liked') : t('like')}
+                    <span className="hidden sm:inline">{liked ? t('liked') : t('like')}</span>
+                  </button>
+                  <div className="w-px h-6 bg-slate-100" />
+                  <button onClick={() => toggleDislike(post)}
+                    className={`flex items-center gap-1.5 flex-1 justify-center py-3 text-sm font-semibold transition-all hover:bg-slate-50 ${disliked ? 'text-blue-600' : 'text-slate-500 hover:text-blue-500'}`}>
+                    <ThumbsDown className={`w-4 h-4 transition-transform ${disliked ? 'fill-blue-500 scale-110' : ''}`} />
+                    <span className="hidden sm:inline">{disliked ? 'Disliked' : 'Dislike'}</span>
                   </button>
                   <div className="w-px h-6 bg-slate-100" />
                   <button onClick={() => toggleComments(post.id)}
-                    className={`flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold hover:bg-slate-50 transition-colors ${showComments[post.id] ? 'text-indigo-600' : 'text-slate-500 hover:text-indigo-500'}`}>
-                    <MessageCircle className="w-4 h-4" /> {t('discuss')}
+                    className={`flex items-center gap-1.5 flex-1 justify-center py-3 text-sm font-semibold hover:bg-slate-50 transition-colors ${showComments[post.id] ? 'text-indigo-600' : 'text-slate-500 hover:text-indigo-500'}`}>
+                    <MessageCircle className="w-4 h-4" /> <span className="hidden sm:inline">{t('discuss')}</span>
                   </button>
                   <div className="w-px h-6 bg-slate-100" />
                   <button onClick={() => navigator.share?.({ text: post.content, url: window.location.href })}
-                    className="flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold text-slate-500 hover:text-indigo-500 hover:bg-slate-50 transition-colors">
-                    <Share2 className="w-4 h-4" /> {t('share')}
+                    className="flex items-center gap-1.5 flex-1 justify-center py-3 text-sm font-semibold text-slate-500 hover:text-indigo-500 hover:bg-slate-50 transition-colors">
+                    <Share2 className="w-4 h-4" /> <span className="hidden sm:inline">{t('share')}</span>
                   </button>
                 </div>
 
@@ -735,13 +970,14 @@ NO markdown. NO extra text.`
                   <div className="border-t border-slate-100 p-4 space-y-3 animate-fade-in bg-slate-50/50">
                     {loadingComments[post.id] && <div className="flex justify-center py-2"><Loader2 className="w-4 h-4 animate-spin text-indigo-400" /></div>}
                     {postComments.map(c => (
-                      <div key={c.id} className="flex gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-[10px] shrink-0 overflow-hidden">
-                          {c.authorPhoto ? <img src={c.authorPhoto} alt="" className="w-full h-full object-cover" /> : initials(c.authorName || '')}
-                        </div>
-                        <div className="flex-1 bg-white rounded-xl px-3.5 py-2.5 border border-slate-200">
+                        <div key={c.id} className="flex gap-2.5">
+                         <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 overflow-hidden ${c.authorId === 'ldms_ai_bot' ? 'ring-2 ring-pink-400/50 bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600' : 'bg-indigo-100 text-indigo-700'}`}>
+                          {c.authorId === 'ldms_ai_bot' ? <span className="text-sm">🤖</span> : c.authorPhoto ? <img src={c.authorPhoto} alt="" className="w-full h-full object-cover" /> : initials(c.authorName || '')}
+                         </div>
+                         <div className={`flex-1 rounded-xl px-3.5 py-2.5 border ${c.authorId === 'ldms_ai_bot' ? 'bg-gradient-to-r from-indigo-50 to-pink-50 border-pink-200/50' : 'bg-white border-slate-200'}`}>
                           <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="text-xs font-extrabold text-slate-800">{c.authorName}</span>
+                            <span className={`text-xs font-extrabold ${c.authorId === 'ldms_ai_bot' ? 'bg-gradient-to-r from-pink-600 to-indigo-600 bg-clip-text text-transparent' : 'text-slate-800'}`}>{c.authorName}</span>
+                            {c.authorId === 'ldms_ai_bot' && <span className="text-[8px] font-black bg-gradient-to-r from-pink-500 to-indigo-500 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wider">AI</span>}
                             <span className="text-[10px] text-slate-400">{timeAgo(c.createdAt)}</span>
                           </div>
                           <p className="text-sm text-slate-600 font-medium">{c.text}</p>

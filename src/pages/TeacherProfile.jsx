@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   MapPin, BookOpen, Award, Camera, Mail, Edit3,
   GraduationCap, Clock, Download, Loader2, Save, X, FileText,
-  UserPlus, UserMinus, MessageSquare, Trophy, Flame
+  UserPlus, UserMinus, MessageSquare, Trophy, Flame, FileDown
 } from 'lucide-react'
 
 export default function TeacherProfile() {
@@ -56,26 +56,58 @@ export default function TeacherProfile() {
   // Load my posts from Firestore
   useEffect(() => {
     if (!currentUser) return
-    const postsQ = query(
-      collection(db, 'posts'),
-      where('authorId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
-    )
-    const unsubPosts = onSnapshot(postsQ, snap => {
-      setMyPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-      setLoadingPosts(false)
-    })
+    let unsubPosts, unsubRes
 
-    const resQ = query(
-      collection(db, 'resources'),
-      where('authorId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
-    )
-    const unsubRes = onSnapshot(resQ, snap => {
-      setMyResources(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    })
+    // Posts query - with fallback if composite index not ready
+    try {
+      const postsQ = query(
+        collection(db, 'posts'),
+        where('authorId', '==', currentUser.uid),
+        orderBy('createdAt', 'desc')
+      )
+      unsubPosts = onSnapshot(postsQ, snap => {
+        setMyPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+        setLoadingPosts(false)
+      }, (err) => {
+        console.warn('Posts query fallback (no index):', err.message)
+        // Fallback: query without orderBy
+        const fallbackQ = query(
+          collection(db, 'posts'),
+          where('authorId', '==', currentUser.uid)
+        )
+        unsubPosts = onSnapshot(fallbackQ, snap => {
+          const sorted = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+          setMyPosts(sorted)
+          setLoadingPosts(false)
+        })
+      })
+    } catch (e) { setLoadingPosts(false) }
 
-    return () => { unsubPosts(); unsubRes() }
+    // Resources query - with fallback
+    try {
+      const resQ = query(
+        collection(db, 'resources'),
+        where('authorId', '==', currentUser.uid),
+        orderBy('createdAt', 'desc')
+      )
+      unsubRes = onSnapshot(resQ, snap => {
+        setMyResources(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      }, (err) => {
+        console.warn('Resources query fallback:', err.message)
+        const fallbackQ = query(
+          collection(db, 'resources'),
+          where('authorId', '==', currentUser.uid)
+        )
+        unsubRes = onSnapshot(fallbackQ, snap => {
+          const sorted = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+          setMyResources(sorted)
+        })
+      })
+    } catch (e) { /* silent */ }
+
+    return () => { unsubPosts?.(); unsubRes?.() }
   }, [currentUser])
 
   // Load follow stats
@@ -155,6 +187,116 @@ export default function TeacherProfile() {
     { id: 'about', label: 'About' },
   ]
 
+  function generateResume() {
+    const p = userProfile || {}
+    const email = currentUser?.email || ''
+    const photoUrl = p.profilePhoto || ''
+    const badgeList = (stats.badges || []).map(b => {
+      const labels = { first_post: '🏅 First Post', ten_posts: '🌟 10 Posts', commenter: '💬 Active Commenter', streak_7: '🔥 7-Day Streak', resource_sharer: '📚 Resource Sharer', helpful: '🤝 Helpful', explorer: '🧭 Explorer' }
+      return labels[b] || b
+    })
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${p.name || 'Teacher'} - Resume</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #1e293b; }
+  .page { max-width: 800px; margin: 0 auto; background: white; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%); color: white; padding: 48px 48px 36px; position: relative; overflow: hidden; }
+  .header::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: url("data:image/svg+xml,%3Csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='20' cy='20' r='1.5' fill='white' fill-opacity='0.08'/%3E%3C/svg%3E"); }
+  .header-content { position: relative; z-index: 1; display: flex; gap: 28px; align-items: center; }
+  .avatar { width: 110px; height: 110px; border-radius: 20px; border: 4px solid rgba(255,255,255,0.3); object-fit: cover; flex-shrink: 0; }
+  .avatar-placeholder { width: 110px; height: 110px; border-radius: 20px; border: 4px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: 800; color: white; flex-shrink: 0; }
+  .name { font-size: 32px; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .tagline { font-size: 16px; font-weight: 500; opacity: 0.9; }
+  .contact-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; font-size: 13px; opacity: 0.85; }
+  .contact-item { display: flex; align-items: center; gap: 6px; }
+  .body { padding: 36px 48px 48px; }
+  .section { margin-bottom: 28px; }
+  .section-title { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: #6366f1; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid #e0e7ff; display: flex; align-items: center; gap: 8px; }
+  .section-title::before { content: ''; width: 4px; height: 18px; background: linear-gradient(to bottom, #6366f1, #ec4899); border-radius: 2px; }
+  .summary { font-size: 15px; line-height: 1.7; color: #475569; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .info-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; }
+  .info-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .info-value { font-size: 15px; font-weight: 700; color: #1e293b; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .stat-card { background: linear-gradient(135deg, #eef2ff, #fdf2f8); border: 1px solid #e0e7ff; border-radius: 12px; padding: 16px; text-align: center; }
+  .stat-value { font-size: 24px; font-weight: 900; color: #4f46e5; }
+  .stat-label { font-size: 11px; font-weight: 600; color: #6b7280; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .badge-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .badge { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: #166534; }
+  .footer { text-align: center; padding: 20px; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
+  .print-btn { position: fixed; bottom: 24px; right: 24px; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white; border: none; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 24px rgba(79,70,229,0.4); display: flex; align-items: center; gap: 8px; z-index: 100; }
+  .print-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(79,70,229,0.5); }
+  @media print {
+    body { background: white; }
+    .print-btn { display: none !important; }
+    .page { box-shadow: none; }
+    .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .stat-card, .info-card, .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="header-content">
+      ${photoUrl ? `<img src="${photoUrl}" class="avatar" alt="">` : `<div class="avatar-placeholder">${(p.name || 'T').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2)}</div>`}
+      <div>
+        <div class="name">${p.name || 'Teacher'}</div>
+        <div class="tagline">${p.subject ? p.subject + ' Teacher' : 'Educator'} ${p.qualification ? '• ' + p.qualification : ''}</div>
+        <div class="contact-row">
+          ${email ? '<div class="contact-item">📧 ' + email + '</div>' : ''}
+          ${p.phone ? '<div class="contact-item">📱 ' + p.phone + '</div>' : ''}
+          ${p.location ? '<div class="contact-item">📍 ' + p.location + '</div>' : ''}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="body">
+    ${p.bio ? `<div class="section"><div class="section-title">Professional Summary</div><p class="summary">${p.bio}</p></div>` : ''}
+
+    <div class="section">
+      <div class="section-title">Professional Details</div>
+      <div class="grid-2">
+        ${p.qualification ? '<div class="info-card"><div class="info-label">Qualification</div><div class="info-value">' + p.qualification + '</div></div>' : ''}
+        ${p.experience ? '<div class="info-card"><div class="info-label">Experience</div><div class="info-value">' + p.experience + '</div></div>' : ''}
+        ${p.subject ? '<div class="info-card"><div class="info-label">Subject Expertise</div><div class="info-value">' + p.subject + '</div></div>' : ''}
+        ${p.location ? '<div class="info-card"><div class="info-label">Location</div><div class="info-value">' + p.location + '</div></div>' : ''}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Platform Statistics</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value">${myPosts.length}</div><div class="stat-label">Posts</div></div>
+        <div class="stat-card"><div class="stat-value">${myResources.length}</div><div class="stat-label">Resources</div></div>
+        <div class="stat-card"><div class="stat-value">${followStats.followers || 0}</div><div class="stat-label">Followers</div></div>
+        <div class="stat-card"><div class="stat-value">${stats.xp || 0}</div><div class="stat-label">Total XP</div></div>
+      </div>
+    </div>
+
+    ${badgeList.length > 0 ? `<div class="section"><div class="section-title">Achievements & Badges</div><div class="badge-grid">${badgeList.map(b => '<div class="badge">' + b + '</div>').join('')}</div></div>` : ''}
+
+    ${stats.streak > 0 ? `<div class="section"><div class="section-title">Consistency</div><p class="summary">🔥 Maintained a <strong>${stats.streak}-day</strong> active streak on the platform, demonstrating dedication and consistent engagement with the teaching community.</p></div>` : ''}
+  </div>
+  <div class="footer">Generated from LDMS – Learning & Development Management System • ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+</div>
+<button class="print-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
+</body>
+</html>`
+
+    const win = window.open('', '_blank')
+    win.document.write(html)
+    win.document.close()
+  }
+
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
       {/* Header Card */}
@@ -218,6 +360,9 @@ export default function TeacherProfile() {
                     <>
                       <button onClick={() => setEditing(true)} className="btn-secondary py-2 px-4 text-sm flex items-center gap-2">
                         <Edit3 className="w-4 h-4" /> Edit Profile
+                      </button>
+                      <button onClick={generateResume} className="py-2 px-4 text-sm flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl transition-all shadow-lg" title="Generate Resume">
+                        <FileDown className="w-4 h-4" /> Resume
                       </button>
                       <button onClick={handleStartChat} className="btn-primary py-2 px-3 text-sm flex items-center gap-1.5">
                         <MessageSquare className="w-4 h-4" /> Chat

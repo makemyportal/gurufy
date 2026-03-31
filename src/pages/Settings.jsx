@@ -277,7 +277,7 @@ export default function Settings() {
                       <Field label="Experience">
                         <input value={form.experience} onChange={e => setForm(p => ({ ...p, experience: e.target.value }))} placeholder="e.g. 5 years" className="input-field dark:text-white" />
                       </Field>
-                      <div className="col-span-2">
+                      <div className="md:col-span-2">
                         <Field label="Qualification">
                           <input value={form.qualification} onChange={e => setForm(p => ({ ...p, qualification: e.target.value }))} placeholder="e.g. B.Ed, M.Sc" className="input-field dark:text-white" />
                         </Field>

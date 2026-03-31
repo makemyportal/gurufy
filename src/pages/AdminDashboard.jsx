@@ -3,7 +3,7 @@ import {
   Users, AlertTriangle, Settings, Shield, Activity, TrendingUp, CheckCircle,
   XCircle, Search, Power, Trash2, Edit, BarChart3, Briefcase, FolderOpen,
   CalendarDays, Trophy, Megaphone, Eye, Ban, UserCheck, FileText,
-  MessageSquare, ChevronRight, RefreshCw, Send, X, AlertCircle, Award
+  MessageSquare, ChevronRight, RefreshCw, Send, X, AlertCircle, Award, Plus
 } from 'lucide-react'
 import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, getDoc, setDoc, query, orderBy, limit, where } from 'firebase/firestore'
 import { db } from '../utils/firebase'
@@ -23,6 +23,107 @@ function ConfirmModal({ title, message, onConfirm, onCancel, danger }) {
           <button onClick={onCancel} className="flex-1 px-5 py-3 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold rounded-xl transition-colors">Cancel</button>
           <button onClick={onConfirm} className={`flex-1 px-5 py-3 font-bold rounded-xl transition-all shadow-lg ${danger ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-primary-600 hover:bg-primary-700 text-white'}`}>Confirm</button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function EditorModal({ type, initialData, onSave, onCancel }) {
+  const [formData, setFormData] = useState(initialData || {})
+  const [saving, setSaving] = useState(false)
+
+  const SCHEMAS = {
+    user: [
+      { key: 'name', label: 'Name', type: 'text' },
+      { key: 'role', label: 'Role', type: 'select', options: ['teacher', 'school', 'admin', 'superadmin'] },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'suspended'] }
+    ],
+    post: [
+      { key: 'content', label: 'Content', type: 'textarea' }
+    ],
+    job: [
+      { key: 'title', label: 'Job Title', type: 'text' },
+      { key: 'schoolName', label: 'School Name', type: 'text' },
+      { key: 'location', label: 'Location', type: 'text' },
+      { key: 'salary', label: 'Salary', type: 'text' },
+      { key: 'experience', label: 'Experience Required', type: 'text' },
+      { key: 'type', label: 'Job Type', type: 'select', options: ['Full-time', 'Part-time', 'Contract'] },
+      { key: 'subject', label: 'Subject', type: 'select', options: ['All Subjects', 'Mathematics', 'English', 'Science', 'Computer Science', 'Hindi', 'Social Studies', 'Music', 'Art', 'Physics', 'Chemistry', 'Biology'] },
+      { key: 'status', label: 'Status', type: 'select', options: ['open', 'closed', 'active'] },
+      { key: 'description', label: 'Description', type: 'textarea' },
+      { key: 'requirements', label: 'Requirements', type: 'textarea' },
+    ],
+    resource: [
+      { key: 'title', label: 'Title', type: 'text' },
+      { key: 'subject', label: 'Subject', type: 'text' },
+      { key: 'authorName', label: 'Author Name', type: 'text' },
+      { key: 'fileUrl', label: 'File/Link URL', type: 'text' },
+      { key: 'description', label: 'Description', type: 'textarea' },
+    ],
+    event: [
+      { key: 'title', label: 'Event Title', type: 'text' },
+      { key: 'type', label: 'Event Type', type: 'select', options: ['Workshop', 'Webinar', 'Conference', 'PTM', 'Training', 'Competition', 'Meetup'] },
+      { key: 'date', label: 'Date', type: 'date' },
+      { key: 'time', label: 'Time', type: 'text' },
+      { key: 'location', label: 'Location', type: 'text' },
+      { key: 'link', label: 'Meeting Link', type: 'text' },
+      { key: 'maxAttendees', label: 'Max Attendees', type: 'number' },
+      { key: 'description', label: 'Description', type: 'textarea' },
+    ]
+  }
+
+  const schema = SCHEMAS[type] || []
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setSaving(true)
+    await onSave(formData)
+    setSaving(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4 overflow-y-auto" onClick={onCancel}>
+      <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-lg animate-fade-in-up my-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-extrabold text-surface-900 capitalize">{initialData?.id ? 'Edit' : 'Add'} {type}</h3>
+          <button onClick={onCancel} className="p-2 hover:bg-surface-100 rounded-lg transition-colors"><X className="w-5 h-5 text-surface-500" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4 max-h-[65vh] overflow-y-auto px-1 no-scrollbar">
+          {schema.map(field => (
+            <div key={field.key}>
+              <label className="block text-xs font-bold text-surface-500 uppercase tracking-widest mb-1.5">{field.label}</label>
+              {field.type === 'textarea' ? (
+                <textarea 
+                  value={formData[field.key] || ''} 
+                  onChange={e => setFormData(p => ({...p, [field.key]: e.target.value}))}
+                  className="w-full px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 min-h-[100px] resize-none"
+                />
+              ) : field.type === 'select' ? (
+                <select
+                  value={formData[field.key] || ''} 
+                  onChange={e => setFormData(p => ({...p, [field.key]: e.target.value}))}
+                  className="w-full px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">Select...</option>
+                  {field.options.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input 
+                  type={field.type}
+                  value={formData[field.key] || ''} 
+                  onChange={e => setFormData(p => ({...p, [field.key]: field.type === 'number' ? Number(e.target.value) : e.target.value}))}
+                  className="w-full px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              )}
+            </div>
+          ))}
+          <div className="pt-6 mt-4 border-t border-surface-100 flex justify-end gap-3 sticky bottom-0 bg-white">
+            <button type="button" onClick={onCancel} className="px-5 py-2.5 font-bold text-surface-600 hover:bg-surface-100 rounded-xl transition-colors">Cancel</button>
+            <button type="submit" disabled={saving} className="px-6 py-2.5 font-bold text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-lg transition-all flex items-center gap-2">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Save
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )
@@ -48,6 +149,7 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('')
   const [confirmModal, setConfirmModal] = useState(null)
   const [toast, setToast] = useState(null)
+  const [editingItem, setEditingItem] = useState(null)
 
   // Data states
   const [users, setUsers] = useState([])
@@ -202,8 +304,46 @@ export default function AdminDashboard() {
     try {
       await deleteDoc(doc(db, 'reports', reportId))
       setReports(prev => prev.filter(r => r.id !== reportId))
-      showToast('Report resolved')
+      showToast('Report dismissed')
     } catch (err) { showToast('Failed', 'error') }
+  }
+
+  async function handleTakeDown(report) {
+    setConfirmModal({
+      title: 'Take Down Content', 
+      message: `This will permanently delete the reported ${report.type || 'content'} and remove the report. This cannot be undone.`,
+      danger: true,
+      onConfirm: async () => {
+        try {
+          // Delete the actual content
+          if (report.contentId) {
+            if (report.type === 'post') {
+              // Delete post comments first, then the post
+              const commSnap = await getDocs(collection(db, 'posts', report.contentId, 'comments')).catch(() => ({ docs: [] }))
+              await Promise.all(commSnap.docs.map(d => deleteDoc(d.ref)))
+              await deleteDoc(doc(db, 'posts', report.contentId))
+              setPosts(prev => prev.filter(p => p.id !== report.contentId))
+            } else if (report.type === 'comment') {
+              // For future comment reports
+              if (report.parentId) {
+                await deleteDoc(doc(db, 'posts', report.parentId, 'comments', report.contentId)).catch(() => {})
+              }
+            } else if (report.type === 'resource') {
+              await deleteDoc(doc(db, 'resources', report.contentId))
+              setResources(prev => prev.filter(r => r.id !== report.contentId))
+            }
+          }
+          // Delete the report
+          await deleteDoc(doc(db, 'reports', report.id))
+          setReports(prev => prev.filter(r => r.id !== report.id))
+          showToast('Content removed & report resolved')
+        } catch (err) { 
+          console.error('Take down error:', err)
+          showToast('Failed to take down', 'error') 
+        }
+        setConfirmModal(null)
+      }
+    })
   }
 
   async function handleUpdateXP(userId, newXP) {
@@ -250,6 +390,50 @@ export default function AdminDashboard() {
       setPlatformSettings(prev => ({ ...prev, [key]: newVal }))
       showToast('Setting updated')
     } catch (err) { showToast('Failed', 'error') }
+  }
+
+  async function handleSaveItem(formData) {
+    const { type, data } = editingItem
+    const isNew = !data?.id
+    const colName = type === 'user' ? 'users' : type === 'post' ? 'posts' : type === 'job' ? 'jobs' : type === 'resource' ? 'resources' : 'events'
+    
+    try {
+      if (isNew) {
+        if (type === 'user') {
+          showToast('Cannot add users from Dashboard yet due to Auth requirements. Only edits are supported.', 'error')
+          return
+        }
+        
+        const newDoc = {
+          ...formData,
+          createdAt: new Date().toISOString()
+        }
+        if (type === 'job') newDoc.status = newDoc.status || 'open'
+        if (type === 'resource') newDoc.authorName = newDoc.authorName || 'Platform Admin'
+        
+        const docRef = await addDoc(collection(db, colName), newDoc)
+        newDoc.id = docRef.id
+        
+        if (type === 'job') setJobs([newDoc, ...jobs])
+        if (type === 'resource') setResources([newDoc, ...resources])
+        if (type === 'event') setEvents([newDoc, ...events])
+        showToast(`${type} added successfully`)
+      } else {
+        await updateDoc(doc(db, colName, data.id), formData)
+        
+        const updater = items => items.map(i => i.id === data.id ? { ...i, ...formData } : i)
+        if (type === 'user') setUsers(updater(users))
+        if (type === 'post') setPosts(updater(posts))
+        if (type === 'job') setJobs(updater(jobs))
+        if (type === 'resource') setResources(updater(resources))
+        if (type === 'event') setEvents(updater(events))
+        showToast(`${type} updated successfully`)
+      }
+    } catch (err) {
+      console.error(err)
+      showToast('Action failed', 'error')
+    }
+    setEditingItem(null)
   }
 
   // --- FILTER HELPERS ---
@@ -303,16 +487,19 @@ export default function AdminDashboard() {
       {/* Confirm Modal */}
       {confirmModal && <ConfirmModal title={confirmModal.title} message={confirmModal.message} danger={confirmModal.danger} onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal(null)} />}
 
+      {/* Editor Modal */}
+      {editingItem && <EditorModal type={editingItem.type} initialData={editingItem.data} onSave={handleSaveItem} onCancel={() => setEditingItem(null)} />}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-red-50 to-orange-50 border border-red-100 text-red-700 text-xs font-bold tracking-widest uppercase mb-4">
             <Shield className="w-3.5 h-3.5" /> Super Admin — Full Access
           </div>
-          <h1 className="text-3xl font-extrabold font-display text-surface-900 tracking-tight">Command Center</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold font-display text-surface-900 tracking-tight">Command Center</h1>
           <p className="text-surface-500 font-medium mt-1">Complete platform control & management.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button onClick={loadAllData} className="px-4 py-2.5 bg-white border border-surface-200 rounded-xl shadow-sm text-sm font-bold text-surface-700 flex items-center gap-2 hover:bg-surface-50 transition-colors">
             <RefreshCw className="w-4 h-4" /> Refresh
           </button>
@@ -323,10 +510,10 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Interface */}
-      <div className="bg-white border border-surface-200 rounded-[32px] overflow-hidden shadow-sm flex flex-col lg:flex-row min-h-[700px]">
+      <div className="bg-white border border-surface-200 rounded-[20px] sm:rounded-[32px] overflow-hidden shadow-sm flex flex-col lg:flex-row min-h-[500px] lg:min-h-[700px]">
 
         {/* Sidebar Nav */}
-        <div className="w-full lg:w-60 bg-surface-900 text-white shrink-0 lg:rounded-l-[32px]">
+        <div className="w-full lg:w-60 bg-surface-900 text-white shrink-0 lg:rounded-l-[32px] overflow-hidden">
           <div className="p-5 border-b border-white/10">
             <h3 className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-surface-400">Admin Modules</h3>
           </div>
@@ -335,7 +522,8 @@ export default function AdminDashboard() {
               <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearchQuery('') }}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all text-left text-sm whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-surface-900 shadow-lg' : 'text-surface-300 hover:bg-white/10 hover:text-white'}`}>
                 <tab.icon className="w-4 h-4 shrink-0" />
-                <span className="hidden lg:inline">{tab.label}</span>
+                <span className="hidden sm:inline lg:inline">{tab.label}</span>
+                <span className="sm:hidden lg:hidden text-[10px]">{tab.label.split(' ')[0]}</span>
                 {tab.id === 'moderation' && reports.length > 0 && (
                   <span className="ml-auto w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px] font-bold">{reports.length}</span>
                 )}
@@ -345,7 +533,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 p-5 md:p-8 overflow-x-auto">
+        <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-x-auto">
 
           {/* Search Bar (shown on list tabs) */}
           {['users', 'posts', 'jobs', 'resources', 'events', 'gamification'].includes(activeTab) && (
@@ -447,7 +635,8 @@ export default function AdminDashboard() {
                                 className={`p-2 rounded-lg transition-colors ${user.status === 'suspended' ? 'text-emerald-600 hover:bg-emerald-50' : 'text-amber-600 hover:bg-amber-50'}`}>
                                 {user.status === 'suspended' ? <UserCheck className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
                               </button>
-                              <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                              <button onClick={() => setEditingItem({ type: 'user', data: user })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title="Edit"><Edit className="w-4 h-4" /></button>
+                              <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
                             </div>
                           </td>
                         </tr>
@@ -481,9 +670,14 @@ export default function AdminDashboard() {
                           <span>💬 {post.comments?.length || post.commentsCount || 0}</span>
                         </div>
                       </div>
-                      <button onClick={() => handleDeletePost(post.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex gap-1">
+                        <button onClick={() => setEditingItem({ type: 'post', data: post })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Edit">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeletePost(post.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -495,7 +689,12 @@ export default function AdminDashboard() {
           {/* ====== JOBS TAB ====== */}
           {activeTab === 'jobs' && (
             <div className="animate-fade-in">
-              <h2 className="text-xl font-extrabold text-surface-900 mb-1">💼 Jobs Management</h2>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-xl font-extrabold text-surface-900">💼 Jobs Management</h2>
+                <button onClick={() => setEditingItem({ type: 'job', data: { status: 'open' } })} className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold rounded-lg flex items-center gap-1.5 transition-colors">
+                  <Plus className="w-4 h-4" /> Add Job
+                </button>
+              </div>
               <p className="text-sm text-surface-500 font-medium mb-6">{filteredJobs.length} jobs</p>
               <div className="space-y-3">
                 {filteredJobs.map(job => (
@@ -511,9 +710,14 @@ export default function AdminDashboard() {
                           <span className="text-xs font-medium text-surface-400">{formatDate(job.createdAt)}</span>
                         </div>
                       </div>
-                      <button onClick={() => handleDeleteJob(job.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex gap-1 shrink-0">
+                        <button onClick={() => setEditingItem({ type: 'job', data: job })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Edit">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteJob(job.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -525,7 +729,12 @@ export default function AdminDashboard() {
           {/* ====== RESOURCES TAB ====== */}
           {activeTab === 'resources' && (
             <div className="animate-fade-in">
-              <h2 className="text-xl font-extrabold text-surface-900 mb-1">📚 Resources Management</h2>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-xl font-extrabold text-surface-900">📚 Resources Management</h2>
+                <button onClick={() => setEditingItem({ type: 'resource', data: { authorName: 'Platform Admin' } })} className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold rounded-lg flex items-center gap-1.5 transition-colors">
+                  <Plus className="w-4 h-4" /> Add Resource
+                </button>
+              </div>
               <p className="text-sm text-surface-500 font-medium mb-6">{resources.length} resources</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {resources.filter(r => !searchQuery || r.title?.toLowerCase().includes(searchQuery.toLowerCase())).map(res => (
@@ -536,9 +745,10 @@ export default function AdminDashboard() {
                         <p className="text-xs font-medium text-surface-500 mt-1">{res.subject || 'General'} • by {res.authorName || 'Unknown'}</p>
                         <p className="text-xs text-surface-400 mt-2">{formatDate(res.createdAt)}</p>
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 shrink-0 items-center">
                         {res.fileUrl && <a href={res.fileUrl} target="_blank" rel="noreferrer" className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></a>}
-                        <button onClick={() => handleDeleteResource(res.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => setEditingItem({ type: 'resource', data: res })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Edit"><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteResource(res.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Delete"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
                   </div>
@@ -551,7 +761,12 @@ export default function AdminDashboard() {
           {/* ====== EVENTS TAB ====== */}
           {activeTab === 'events' && (
             <div className="animate-fade-in">
-              <h2 className="text-xl font-extrabold text-surface-900 mb-1">📅 Events Management</h2>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-xl font-extrabold text-surface-900">📅 Events Management</h2>
+                <button onClick={() => setEditingItem({ type: 'event', data: { type: 'Workshop' } })} className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold rounded-lg flex items-center gap-1.5 transition-colors">
+                  <Plus className="w-4 h-4" /> Add Event
+                </button>
+              </div>
               <p className="text-sm text-surface-500 font-medium mb-6">{events.length} events</p>
               <div className="space-y-3">
                 {events.filter(e => !searchQuery || e.title?.toLowerCase().includes(searchQuery.toLowerCase())).map(evt => (
@@ -562,7 +777,10 @@ export default function AdminDashboard() {
                         <p className="text-sm font-medium text-surface-500 mt-1">{evt.date || 'No date'} • {evt.location || 'Online'}</p>
                         <p className="text-xs text-surface-400 mt-2">Attendees: {evt.attendees?.length || 0} • Created by {evt.creatorName || 'Unknown'}</p>
                       </div>
-                      <button onClick={() => handleDeleteEvent(evt.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"><Trash2 className="w-4 h-4" /></button>
+                      <div className="flex gap-1 shrink-0">
+                        <button onClick={() => setEditingItem({ type: 'event', data: evt })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Edit"><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteEvent(evt.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -581,19 +799,35 @@ export default function AdminDashboard() {
               ) : (
                 <div className="space-y-4">
                   {reports.map(report => (
-                    <div key={report.id} className="bg-white border border-surface-200 rounded-2xl p-5 hover:border-rose-200 transition-colors">
-                      <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2.5 py-1 rounded-lg bg-surface-100 text-surface-700 text-xs font-bold uppercase">{report.type || 'Content'}</span>
-                            <span className="text-xs font-bold text-rose-600 uppercase tracking-wider">{report.reason || 'Flagged'}</span>
+                    <div key={report.id} className="bg-white border border-rose-200/50 rounded-2xl overflow-hidden hover:shadow-md transition-all">
+                      {/* Header */}
+                      <div className="flex items-center gap-2 px-5 py-3 bg-rose-50/50 border-b border-rose-100">
+                        <AlertTriangle className="w-4 h-4 text-rose-500" />
+                        <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 text-[10px] font-black uppercase tracking-wider">{report.type || 'Content'}</span>
+                        <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-wider">{report.reason || 'Flagged'}</span>
+                        <span className="text-xs text-surface-400 font-medium ml-auto">{formatDate(report.createdAt)}</span>
+                      </div>
+                      <div className="p-5">
+                        {/* Content Preview */}
+                        {report.contentPreview && (
+                          <div className="mb-4 p-3.5 bg-surface-50 border border-surface-200 rounded-xl">
+                            <p className="text-xs font-bold text-surface-400 uppercase tracking-widest mb-1.5">Reported Content</p>
+                            <p className="text-sm text-surface-700 font-medium leading-relaxed">{report.contentPreview}</p>
                           </div>
-                          <p className="font-bold text-surface-900">Target: {report.target || report.contentId || 'Unknown'}</p>
-                          <p className="text-sm font-medium text-surface-500 mt-1">Reported by {report.reporter || 'Anonymous'} • {formatDate(report.createdAt)}</p>
-                        </div>
-                        <div className="flex gap-2 shrink-0">
-                          <button onClick={() => handleResolveReport(report.id)} className="px-4 py-2 bg-surface-100 hover:bg-surface-200 text-surface-800 text-sm font-bold rounded-xl transition-colors">Dismiss</button>
-                          <button onClick={() => handleResolveReport(report.id)} className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold rounded-xl transition-all">Take Down</button>
+                        )}
+                        <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+                          <div>
+                            <p className="text-sm font-bold text-surface-900">Posted by: <span className="text-surface-600">{report.contentAuthorName || report.target || 'Unknown'}</span></p>
+                            <p className="text-xs font-medium text-surface-400 mt-0.5">Reported by <span className="font-bold text-surface-600">{report.reporter || 'Anonymous'}</span></p>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <button onClick={() => handleResolveReport(report.id)} className="px-4 py-2.5 bg-surface-100 hover:bg-surface-200 text-surface-700 text-sm font-bold rounded-xl transition-colors">
+                              <span className="flex items-center gap-1.5"><CheckCircle className="w-4 h-4" /> Dismiss</span>
+                            </button>
+                            <button onClick={() => handleTakeDown(report)} className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg">
+                              <span className="flex items-center gap-1.5"><Trash2 className="w-4 h-4" /> Take Down</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -682,6 +916,73 @@ export default function AdminDashboard() {
                     <div className="w-11 h-6 bg-surface-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
                   </label>
                 </div>
+
+                {/* AI Bot Profile Management */}
+                <div className="p-6 bg-gradient-to-r from-pink-50 to-indigo-50 border border-pink-200/50 rounded-2xl">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600 flex items-center justify-center text-white text-xl font-black shadow-lg">🤖</div>
+                    <div>
+                      <h4 className="font-extrabold text-surface-900">LDMS AI Bot Profile</h4>
+                      <p className="text-xs font-medium text-surface-500">Manage the AI assistant that auto-replies to posts</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-surface-500 uppercase tracking-widest mb-1.5">Bot Display Name</label>
+                      <input
+                        type="text"
+                        defaultValue={platformSettings.aiBotName || 'LDMS AI'}
+                        id="admin-ai-bot-name"
+                        className="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-pink-300 outline-none"
+                        placeholder="LDMS AI"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-surface-500 uppercase tracking-widest mb-1.5">Bot Bio / Description</label>
+                      <textarea
+                        defaultValue={platformSettings.aiBotBio || 'Your intelligent teaching assistant powered by AI'}
+                        id="admin-ai-bot-bio"
+                        rows={2}
+                        className="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-pink-300 outline-none resize-none"
+                        placeholder="Short description..."
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-surface-200">
+                      <div>
+                        <p className="text-sm font-bold text-surface-900">Auto-Reply to Posts</p>
+                        <p className="text-xs font-medium text-surface-500 mt-0.5">AI bot automatically comments on new posts</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" defaultChecked={platformSettings.aiBotAutoReply !== false} id="admin-ai-bot-autoreply" />
+                        <div className="w-11 h-6 bg-surface-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                      </label>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const name = document.getElementById('admin-ai-bot-name').value.trim()
+                        const bio = document.getElementById('admin-ai-bot-bio').value.trim()
+                        const autoReply = document.getElementById('admin-ai-bot-autoreply').checked
+                        try {
+                          await setDoc(doc(db, 'platformSettings', 'global'), {
+                            ...platformSettings,
+                            aiBotName: name || 'LDMS AI',
+                            aiBotBio: bio,
+                            aiBotAutoReply: autoReply,
+                          }, { merge: true })
+                          setPlatformSettings(p => ({ ...p, aiBotName: name, aiBotBio: bio, aiBotAutoReply: autoReply }))
+                          showToast('AI Bot profile updated!')
+                        } catch (err) {
+                          console.error(err)
+                          showToast('Failed to save', 'error')
+                        }
+                      }}
+                      className="w-full py-3 bg-gradient-to-r from-pink-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
+                    >
+                      <Award className="w-4 h-4" /> Save AI Bot Profile
+                    </button>
+                  </div>
+                </div>
+
                 <div className="mt-8 pt-6 border-t border-surface-200">
                   <button onClick={() => setConfirmModal({ title: 'Force Logout All Users', message: 'This will invalidate all active sessions immediately. Users will need to log in again.', danger: true, onConfirm: async () => { showToast('All sessions invalidated'); setConfirmModal(null) } })}
                     className="flex items-center gap-2 px-6 py-3 bg-red-100 hover:bg-red-200 text-red-700 font-bold rounded-xl transition-colors">

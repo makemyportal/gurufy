@@ -2,42 +2,160 @@ import React, { useState, useRef, useEffect } from 'react'
 import { MessageSquare, X, Send, Bot, Loader2, Minimize2, Maximize2 } from 'lucide-react'
 import { generateAIContent } from '../utils/aiService'
 
+const AUTO_TEXTS = [
+  '✨ May I help you?',
+  '🎓 Need a lesson plan?',
+  '🤖 Ask me anything!',
+  '📝 I can assist you',
+  '💡 Got a question?',
+  '🚀 Let\'s get started!',
+]
+
 const AIBotIcon = ({ className = "w-12 h-12", isPulsing = false }) => (
   <div className={`relative flex items-center justify-center ${className}`}>
-    <div className={`absolute inset-0 bg-blue-500 rounded-full blur-[12px] opacity-40 mix-blend-screen ${isPulsing ? 'animate-pulse' : ''}`} />
-    <svg viewBox="0 0 100 100" fill="none" className="relative z-10 w-full h-full drop-shadow-[0_4px_10px_rgba(79,70,229,0.5)]">
+    <div className={`absolute inset-[-6px] bg-gradient-to-br from-orange-400 via-pink-500 to-cyan-400 rounded-full blur-[18px] opacity-40 mix-blend-screen ${isPulsing ? 'animate-pulse' : ''}`} />
+    <svg viewBox="0 0 100 120" fill="none" className="relative z-10 w-full h-full" style={{ filter: 'drop-shadow(0 6px 14px rgba(236,72,153,0.4)) drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}>
       <defs>
-        <linearGradient id="botGrad" x1="10" y1="20" x2="90" y2="80" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#6366f1" />
-          <stop offset="1" stopColor="#3b82f6" />
+        <linearGradient id="headGrad3d" x1="50" y1="18" x2="50" y2="56" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#fbbf24" />
+          <stop offset="0.3" stopColor="#f97316" />
+          <stop offset="0.7" stopColor="#ec4899" />
+          <stop offset="1" stopColor="#a855f7" />
         </linearGradient>
-        <linearGradient id="visorGrad" x1="20" y1="40" x2="80" y2="60" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#0f172a" />
-          <stop offset="1" stopColor="#1e293b" />
+        <radialGradient id="headHighlight" cx="0.35" cy="0.25" r="0.6">
+          <stop offset="0" stopColor="white" stopOpacity="0.45" />
+          <stop offset="1" stopColor="white" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="visorGrad3d" x1="33" y1="28" x2="67" y2="46" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#164e63" />
+          <stop offset="0.5" stopColor="#0c1222" />
+          <stop offset="1" stopColor="#0f172a" />
+        </linearGradient>
+        <linearGradient id="visorSheen" x1="33" y1="28" x2="67" y2="46" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="white" stopOpacity="0.2" />
+          <stop offset="0.4" stopColor="white" stopOpacity="0" />
+          <stop offset="1" stopColor="#06b6d4" stopOpacity="0.08" />
+        </linearGradient>
+        <linearGradient id="bodyGrad3d" x1="50" y1="62" x2="50" y2="90" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#22d3ee" />
+          <stop offset="0.4" stopColor="#06b6d4" />
+          <stop offset="0.7" stopColor="#0284c7" />
+          <stop offset="1" stopColor="#1e3a8a" />
+        </linearGradient>
+        <radialGradient id="bodyHighlight" cx="0.4" cy="0.2" r="0.6">
+          <stop offset="0" stopColor="white" stopOpacity="0.3" />
+          <stop offset="1" stopColor="white" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="limbGrad3d" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#67e8f9" />
+          <stop offset="0.5" stopColor="#22d3ee" />
+          <stop offset="1" stopColor="#0891b2" />
+        </linearGradient>
+        <linearGradient id="earGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f472b6" />
+          <stop offset="1" stopColor="#db2777" />
+        </linearGradient>
+        <linearGradient id="neckGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f97316" />
+          <stop offset="1" stopColor="#06b6d4" />
+        </linearGradient>
+        <radialGradient id="chestGlow" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#4ade80" stopOpacity="0.7" />
+          <stop offset="1" stopColor="#4ade80" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="handGrad" cx="0.35" cy="0.3" r="0.65">
+          <stop offset="0" stopColor="#fde68a" />
+          <stop offset="0.5" stopColor="#f97316" />
+          <stop offset="1" stopColor="#c2410c" />
+        </radialGradient>
+        <linearGradient id="footGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#67e8f9" />
+          <stop offset="1" stopColor="#0e7490" />
         </linearGradient>
       </defs>
-      
-      {/* Main Casing */}
-      <rect x="25" y="30" width="50" height="46" rx="14" fill="url(#botGrad)" stroke="white" strokeWidth="2.5" />
-      
-      {/* Screen/Visor */}
-      <rect x="30" y="42" width="40" height="20" rx="8" fill="url(#visorGrad)" stroke="#1e1b4b" strokeWidth="1" />
-      
-      {/* Glowing Eyes */}
-      <circle cx="40" cy="52" r="3.5" fill="#38bdf8" className={`${isPulsing ? 'animate-pulse' : ''}`} style={{ filter: 'drop-shadow(0 0 3px #38bdf8)' }} />
-      <circle cx="60" cy="52" r="3.5" fill="#38bdf8" className={`${isPulsing ? 'animate-pulse' : ''}`} style={{ filter: 'drop-shadow(0 0 3px #38bdf8)' }} />
-      
-      {/* Side Earpieces */}
-      <rect x="18" y="45" width="7" height="16" rx="3.5" fill="#818cf8" stroke="white" strokeWidth="2" />
-      <rect x="75" y="45" width="7" height="16" rx="3.5" fill="#818cf8" stroke="white" strokeWidth="2" />
-      
-      {/* Antenna base & stem */}
-      <path d="M48 30 V16" stroke="white" strokeWidth="2" strokeLinecap="round" />
-      <path d="M52 30 V16" stroke="white" strokeWidth="2" strokeLinecap="round" />
-      
-      {/* Antenna Glowing Orb */}
-      <circle cx="50" cy="12" r="4.5" fill="#60a5fa" className="animate-ping" style={{ animationDuration: '3s' }} />
-      <circle cx="50" cy="12" r="4.5" fill="#eff6ff" />
+
+      {/* Ground Shadow */}
+      <ellipse cx="50" cy="114" rx="22" ry="4" fill="#ec4899" opacity="0.12" />
+
+      {/* Antenna */}
+      <path d="M50 18 V7" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="50" cy="4.5" r="3.5" fill="#fbbf24" className="animate-ping" style={{ animationDuration: '3s' }} />
+      <circle cx="50" cy="4.5" r="3.5" fill="#fef3c7" />
+      <circle cx="49" cy="3.5" r="1.2" fill="white" opacity="0.7" />
+
+      {/* Head */}
+      <rect x="28" y="18" width="44" height="38" rx="12" fill="url(#headGrad3d)" />
+      <rect x="28" y="18" width="44" height="38" rx="12" fill="url(#headHighlight)" />
+      <rect x="28" y="18" width="44" height="38" rx="12" stroke="white" strokeWidth="1.2" strokeOpacity="0.6" fill="none" />
+      <path d="M36 55 Q50 58 64 55" stroke="#9f1239" strokeWidth="0.8" opacity="0.2" fill="none" />
+
+      {/* Visor */}
+      <rect x="33" y="28" width="34" height="18" rx="7" fill="url(#visorGrad3d)" />
+      <rect x="33" y="28" width="34" height="18" rx="7" fill="url(#visorSheen)" />
+      <rect x="33" y="28" width="34" height="18" rx="7" stroke="#164e63" strokeWidth="0.6" fill="none" />
+
+      {/* Eyes - neon green */}
+      <circle cx="42" cy="37" r="3.5" fill="#064e3b" />
+      <circle cx="42" cy="37" r="2.5" fill="#4ade80" className={`${isPulsing ? 'animate-pulse' : ''}`} style={{ filter: 'drop-shadow(0 0 6px #4ade80) drop-shadow(0 0 12px #22c55e)' }} />
+      <circle cx="41" cy="35.5" r="1" fill="white" opacity="0.9" />
+      <circle cx="58" cy="37" r="3.5" fill="#064e3b" />
+      <circle cx="58" cy="37" r="2.5" fill="#4ade80" className={`${isPulsing ? 'animate-pulse' : ''}`} style={{ filter: 'drop-shadow(0 0 6px #4ade80) drop-shadow(0 0 12px #22c55e)' }} />
+      <circle cx="57" cy="35.5" r="1" fill="white" opacity="0.9" />
+
+      {/* Smile */}
+      <path d="M44 42.5 Q50 47 56 42.5" stroke="#4ade80" strokeWidth="1.5" strokeLinecap="round" fill="none" style={{ filter: 'drop-shadow(0 0 3px #4ade80)' }} />
+
+      {/* Earpieces - hot pink */}
+      <rect x="20" y="30" width="8" height="14" rx="4" fill="url(#earGrad)" />
+      <rect x="20" y="30" width="8" height="14" rx="4" stroke="white" strokeWidth="1" strokeOpacity="0.5" fill="none" />
+      <rect x="22" y="32" width="3" height="4" rx="1.5" fill="white" opacity="0.25" />
+      <rect x="72" y="30" width="8" height="14" rx="4" fill="url(#earGrad)" />
+      <rect x="72" y="30" width="8" height="14" rx="4" stroke="white" strokeWidth="1" strokeOpacity="0.5" fill="none" />
+      <rect x="74" y="32" width="3" height="4" rx="1.5" fill="white" opacity="0.25" />
+
+      {/* Neck */}
+      <rect x="44" y="55" width="12" height="7" rx="3" fill="url(#neckGrad)" />
+      <rect x="46" y="56" width="4" height="2" rx="1" fill="white" opacity="0.2" />
+
+      {/* Body - cyan */}
+      <rect x="32" y="62" width="36" height="28" rx="8" fill="url(#bodyGrad3d)" />
+      <rect x="32" y="62" width="36" height="28" rx="8" fill="url(#bodyHighlight)" />
+      <rect x="32" y="62" width="36" height="28" rx="8" stroke="white" strokeWidth="1" strokeOpacity="0.45" fill="none" />
+      <circle cx="50" cy="73" r="5.5" fill="url(#chestGlow)" />
+      <circle cx="50" cy="73" r="3.5" fill="#0f172a" stroke="#064e3b" strokeWidth="0.8" />
+      <circle cx="50" cy="73" r="2" fill="#4ade80" className="animate-pulse" style={{ filter: 'drop-shadow(0 0 8px #4ade80)', animationDuration: '2s' }} />
+      <circle cx="49" cy="72" r="0.8" fill="white" opacity="0.7" />
+      <path d="M39 80 H61" stroke="white" strokeWidth="0.5" opacity="0.2" />
+      <path d="M41 83 H59" stroke="white" strokeWidth="0.5" opacity="0.15" />
+      <path d="M43 86 H57" stroke="white" strokeWidth="0.5" opacity="0.1" />
+
+      {/* Left Arm */}
+      <path d="M32 68 L21 74 L19 83" stroke="url(#limbGrad3d)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <path d="M32 68 L21 74 L19 83" stroke="white" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.25" />
+      <circle cx="19" cy="84" r="4" fill="url(#handGrad)" />
+      <circle cx="19" cy="84" r="4" stroke="white" strokeWidth="0.8" strokeOpacity="0.5" fill="none" />
+      <circle cx="18" cy="83" r="1.2" fill="white" opacity="0.4" />
+
+      {/* Right Arm - waving */}
+      <path d="M68 68 L79 60 L83 50" stroke="url(#limbGrad3d)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <path d="M68 68 L79 60 L83 50" stroke="white" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.25" />
+      <circle cx="83" cy="49" r="4" fill="url(#handGrad)" />
+      <circle cx="83" cy="49" r="4" stroke="white" strokeWidth="0.8" strokeOpacity="0.5" fill="none" />
+      <circle cx="82" cy="48" r="1.2" fill="white" opacity="0.4" />
+
+      {/* Left Leg */}
+      <path d="M43 90 L40 104" stroke="url(#limbGrad3d)" strokeWidth="5" strokeLinecap="round" fill="none" />
+      <path d="M43 90 L40 104" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.15" />
+      <ellipse cx="39" cy="107" rx="6" ry="3.5" fill="url(#footGrad)" />
+      <ellipse cx="39" cy="107" rx="6" ry="3.5" stroke="white" strokeWidth="0.8" strokeOpacity="0.4" fill="none" />
+      <ellipse cx="38" cy="106" rx="2.5" ry="1.2" fill="white" opacity="0.2" />
+
+      {/* Right Leg */}
+      <path d="M57 90 L60 104" stroke="url(#limbGrad3d)" strokeWidth="5" strokeLinecap="round" fill="none" />
+      <path d="M57 90 L60 104" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.15" />
+      <ellipse cx="61" cy="107" rx="6" ry="3.5" fill="url(#footGrad)" />
+      <ellipse cx="61" cy="107" rx="6" ry="3.5" stroke="white" strokeWidth="0.8" strokeOpacity="0.4" fill="none" />
+      <ellipse cx="60" cy="106" rx="2.5" ry="1.2" fill="white" opacity="0.2" />
     </svg>
   </div>
 )
@@ -50,7 +168,17 @@ export default function AIChatWidget() {
   ])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  const [autoTextIdx, setAutoTextIdx] = useState(0)
   const messagesEndRef = useRef(null)
+
+  // Auto-cycle helper text
+  useEffect(() => {
+    if (isOpen) return
+    const interval = setInterval(() => {
+      setAutoTextIdx(prev => (prev + 1) % AUTO_TEXTS.length)
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [isOpen])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -99,18 +227,26 @@ Respond to the user in a highly professional and clean manner.`
   }
 
   return (
-    <div className={`fixed z-[90] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isOpen ? 'bottom-4 right-4 sm:bottom-6 sm:right-6' : 'bottom-6 right-6'}`}>
+    <div className={`fixed z-[90] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isOpen ? 'bottom-[76px] xl:bottom-4 right-3 sm:right-6' : 'bottom-[76px] xl:bottom-6 right-4 sm:right-6'}`}>
       
       {/* Floating Action Button */}
       {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="relative group flex items-center justify-center w-[64px] h-[64px] hover:-translate-y-1 transition-all duration-300 animate-fade-in-up"
-        >
-          <AIBotIcon className="w-full h-full" isPulsing={true} />
-          {/* Notification Dot indicator */}
-          <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full animate-pulse shadow-sm" />
-        </button>
+        <div className="flex items-end gap-2 animate-fade-in-up">
+          {/* Auto-cycling text bubble */}
+          <div className="relative mb-2">
+            <div className="bg-white/95 backdrop-blur-xl border border-indigo-100 shadow-lg rounded-2xl rounded-br-sm px-3.5 py-2 animate-fade-in" key={autoTextIdx}>
+              <p className="text-[11px] sm:text-xs font-bold text-indigo-700 whitespace-nowrap">{AUTO_TEXTS[autoTextIdx]}</p>
+            </div>
+            {/* Triangle pointer */}
+            <div className="absolute -bottom-1 right-2 w-3 h-3 bg-white/95 border-r border-b border-indigo-100 rotate-45" />
+          </div>
+          <button
+            onClick={() => setIsOpen(true)}
+            className="relative group flex items-center justify-center w-[56px] h-[56px] sm:w-[64px] sm:h-[64px] hover:-translate-y-1 transition-all duration-300 shrink-0"
+          >
+            <AIBotIcon className="w-full h-full" isPulsing={true} />
+          </button>
+        </div>
       )}
 
       {/* Chat Window Container */}
@@ -118,8 +254,8 @@ Respond to the user in a highly professional and clean manner.`
         <div 
           className={`flex flex-col bg-white/95 backdrop-blur-2xl shadow-[0_16px_64px_rgba(0,0,0,0.15)] rounded-[24px] border border-white/60 overflow-hidden transform-gpu origin-bottom-right transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
             isExpanded 
-              ? 'w-[calc(100vw-32px)] h-[calc(100vh-32px)] sm:w-[500px] sm:h-[800px] max-h-[90vh]' 
-              : 'w-[calc(100vw-32px)] h-[550px] sm:w-[380px] sm:h-[600px] max-h-[85vh]'
+              ? 'w-[calc(100vw-24px)] h-[calc(100vh-100px)] xl:h-[calc(100vh-32px)] sm:w-[500px] sm:h-[700px] max-h-[80vh] xl:max-h-[90vh]' 
+              : 'w-[calc(100vw-24px)] h-[450px] sm:w-[380px] sm:h-[520px] max-h-[70vh] xl:max-h-[85vh]'
           }`}
         >
           {/* Header */}

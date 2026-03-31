@@ -6,6 +6,7 @@
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
+const SARVAM_API_KEY = import.meta.env.VITE_SARVAM_API_KEY || "sk_oha21jef_sB9s7qV1x6W5BE78Cqbi3YtS";
 
 /**
  * Universal system prompt enforcing strict Markdown formatting for all AI tools.
@@ -131,6 +132,42 @@ async function generateWithOpenRouter(prompt) {
 }
 
 /**
+ * Generates content using Sarvam (Sarvam-105b)
+ */
+async function generateWithSarvam(prompt) {
+  if (!SARVAM_API_KEY) throw new Error("Sarvam API key is missing");
+
+  const url = 'https://api.sarvam.ai/v1/chat/completions';
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'api-subscription-key': SARVAM_API_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: "sarvam-105b",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.7
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Sarvam API Error: ${response.status} ${errorData.error?.message || ''}`);
+  }
+
+  const data = await response.json();
+  if (data.choices && data.choices[0]?.message?.content) {
+    return data.choices[0].message.content;
+  }
+  throw new Error("Invalid response format from Sarvam");
+}
+
+/**
  * Main generation function with Triple Fallback logic.
  * Tries Gemini -> Falls back to Groq -> Falls back to OpenRouter.
  * 
@@ -157,8 +194,16 @@ export async function generateAIContent(prompt) {
         const result = await generateWithOpenRouter(prompt);
         return result;
       } catch (orError) {
-        console.error("OpenRouter generation also failed:", orError.message);
-        throw new Error("All AI providers unfortunately failed. Please contact support or try again later.");
+        console.warn("OpenRouter generation failed, falling back to Sarvam:", orError.message);
+        
+        try {
+          console.log("Attempting generation with Sarvam...");
+          const result = await generateWithSarvam(prompt);
+          return result;
+        } catch (sarvamError) {
+          console.error("Sarvam generation also failed:", sarvamError.message);
+          throw new Error("All AI providers unfortunately failed. Please contact support or try again later.");
+        }
       }
     }
   }
