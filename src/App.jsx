@@ -18,6 +18,7 @@ import Messaging from './pages/Messaging'
 import Events from './pages/Events'
 import AdminDashboard from './pages/AdminDashboard'
 import Leaderboard from './pages/Leaderboard'
+import UserProfile from './pages/UserProfile'
 // Public info pages
 import About from './pages/public/About'
 import HowItWorks from './pages/public/HowItWorks'
@@ -99,6 +100,7 @@ export default function App() {
         <Route path="messaging" element={<ProtectedRoute><Messaging /></ProtectedRoute>} />
         <Route path="events" element={<Events />} />
         <Route path="leaderboard" element={<Leaderboard />} />
+        <Route path="user/:userId" element={<UserProfile />} />
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         {/* Redirect /feed → / */}
         <Route path="feed" element={<Navigate to="/" replace />} />

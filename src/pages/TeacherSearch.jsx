@@ -157,7 +157,7 @@ export default function TeacherSearch() {
                 )}
 
                 <div className="flex items-center justify-end mt-4 pt-3 border-t border-surface-100 gap-2">
-                  <button onClick={() => navigate('/profile')} className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1">
+                  <button onClick={() => navigate(`/user/${teacher.uid}`)} className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1">
                     <Eye className="w-3.5 h-3.5" /> Profile
                   </button>
                   <button onClick={() => navigate('/messaging')} className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1">

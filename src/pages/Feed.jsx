@@ -14,13 +14,14 @@ import {
   ImagePlus, Sparkles, BookOpen, Trash2, PenLine,
   TrendingUp, Users, Zap, ChevronRight, Award, Bot,
   BarChart2, CheckCircle, Plus, Minus, Youtube, Flag, AlertTriangle, ThumbsDown,
-  Link2, HelpCircle, Camera, Megaphone
+  Link2, HelpCircle, Camera, Megaphone, UserPlus, UserMinus, Flame
 } from 'lucide-react'
 import { generateAIContent } from '../utils/aiService'
 import { useNavigate } from 'react-router-dom'
 import { createNotification } from '../utils/notificationHelpers'
 import { useGamification } from '../contexts/GamificationContext'
 import { XP_VALUES } from '../contexts/GamificationContext'
+import { followUser, unfollowUser, isFollowing } from '../utils/followHelpers'
 
 const TAGS = ['#STEM', '#EdTech', '#NEP2020', '#ClassroomManagement', '#LessonIdeas', '#AIinEd']
 const QUICK_ACTIONS = [
@@ -46,7 +47,7 @@ function CommentInput({ postId, value, onChange, onSubmit }) {
 export default function Feed() {
   const navigate = useNavigate()
   const { currentUser, userProfile } = useAuth()
-  const { awardXP } = useGamification()
+  const { awardXP, stats, getLevel, getLevelProgress } = useGamification()
   const { t } = useLanguage()
 
   const [posts, setPosts] = useState([])
@@ -57,6 +58,7 @@ export default function Feed() {
   const [commentText, setCommentText] = useState({})
   const [comments, setComments] = useState({})
   const [loadingComments, setLoadingComments] = useState({})
+  const [globalAnnouncement, setGlobalAnnouncement] = useState(null)
   const [selectedFile, setSelectedFile] = useState(null)
   const [filePreview, setFilePreview] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
@@ -69,6 +71,8 @@ export default function Feed() {
   const [linkUrl, setLinkUrl] = useState('')
   const [reportingPost, setReportingPost] = useState(null)
   const [reportReason, setReportReason] = useState('')
+  const [followStatus, setFollowStatus] = useState({})
+  const [followLoading, setFollowLoading] = useState({})
   const fileInputRef = useRef(null)
   const photoInputRef = useRef(null)
 
@@ -80,6 +84,46 @@ export default function Feed() {
     })
     return () => unsub()
   }, [])
+
+  // Listen to Platform Settings for Global Announcements
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().latestBroadcast) {
+        setGlobalAnnouncement(docSnap.data().latestBroadcast)
+      } else {
+        setGlobalAnnouncement(null)
+      }
+    })
+    return () => unsub()
+  }, [])
+
+  // Track follow status for all unique post authors
+  useEffect(() => {
+    if (!currentUser || posts.length === 0) return
+    const authorIds = [...new Set(posts.map(p => p.authorId).filter(id => id && id !== currentUser.uid && id !== 'ldms_ai_bot'))]
+    authorIds.forEach(async (authorId) => {
+      if (followStatus[authorId] !== undefined) return // already checked
+      try {
+        const following = await isFollowing(currentUser.uid, authorId)
+        setFollowStatus(prev => ({ ...prev, [authorId]: following }))
+      } catch {}
+    })
+  }, [currentUser, posts])
+
+  async function handleFollowToggle(authorId, authorName) {
+    if (!currentUser) return
+    setFollowLoading(prev => ({ ...prev, [authorId]: true }))
+    try {
+      if (followStatus[authorId]) {
+        await unfollowUser(currentUser.uid, authorId)
+        setFollowStatus(prev => ({ ...prev, [authorId]: false }))
+      } else {
+        await followUser(currentUser.uid, userProfile?.name || currentUser.email, authorId)
+        setFollowStatus(prev => ({ ...prev, [authorId]: true }))
+      }
+    } catch (err) { console.error('Follow toggle error:', err) }
+    setFollowLoading(prev => ({ ...prev, [authorId]: false }))
+  }
 
   // AI Auto-Bot Routine
   useEffect(() => {
@@ -404,41 +448,57 @@ NO markdown. NO extra text.`
     <div className="max-w-[1200px] mx-auto px-0 animate-fade-in pb-20 sm:pb-16">
 
       {/* ─── HERO BANNER ─── */}
-      <div className="relative overflow-hidden rounded-[20px] sm:rounded-[28px] mb-6 sm:mb-8 mt-1 bg-[#0f0f14] min-h-[160px] sm:min-h-[180px] flex items-center px-5 sm:px-12">
-        {/* Grid */}
-        <div className="absolute inset-0 opacity-[0.05]"
-          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)', backgroundSize: '32px 32px' }} />
-        {/* Glows */}
-        <div className="absolute top-[-40%] left-[-5%] w-64 h-64 bg-indigo-600/30 rounded-full blur-[80px]" />
-        <div className="absolute bottom-[-40%] right-[10%] w-80 h-80 bg-violet-600/20 rounded-full blur-[80px]" />
-        <div className="absolute top-[-20%] right-[30%] w-48 h-48 bg-cyan-500/15 rounded-full blur-[60px]" />
-
-        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full mb-4">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-emerald-300 text-[11px] font-bold uppercase tracking-widest">{t('communityFeed')}</span>
-            </div>
-            <h1 className="text-xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight mb-1">
+      <div className="relative overflow-hidden rounded-[20px] sm:rounded-[32px] mb-6 sm:mb-8 mt-1 bg-white dark:bg-surface-900/40 min-h-[160px] sm:min-h-[200px] flex items-center px-6 sm:px-12 border border-surface-200/60 dark:border-white/5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-none">
+        
+        {/* Subtle Background Pattern */}
+        <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-indigo-50/50 via-transparent to-transparent dark:from-indigo-500/5" />
+        
+        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between w-full gap-8 py-8 lg:py-0">
+          
+          <div className="max-w-xl">
+            {/* Clean Premium Welcome Text */}
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-surface-900 dark:text-white tracking-tight leading-[1.1] mb-2.5">
               {currentUser
-                ? <>{t('welcomeBack')}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">{userProfile?.name?.split(' ')[0] || 'Teacher'}</span> 👋</>
-                : <>{t('welcomeTo')} <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">LDMS</span> 👋</>
+                ? <>{t('welcomeBack')}, <span className="text-indigo-600 dark:text-indigo-400">{userProfile?.name?.split(' ')[0] || 'Teacher'}</span> 👋</>
+                : <>{t('welcomeTo')} <span className="text-indigo-600 dark:text-indigo-400">LDMS</span> 👋</>
               }
             </h1>
-            <p className="text-slate-400 text-sm font-medium">India's professional knowledge network for educators.</p>
+            <p className="text-surface-500 dark:text-surface-400 text-sm sm:text-base font-medium tracking-wide max-w-[480px]">
+              {t('heroDesc', "Connect with educators across the nation. Share resources, discover new opportunities, and elevate your teaching journey together.")}
+            </p>
           </div>
 
-          {/* Mini Stats */}
-          <div className="flex gap-3 shrink-0">
-            <div className="text-center px-5 py-3 bg-white/5 border border-white/10 rounded-2xl">
-              <p className="text-xl font-extrabold text-white">{posts.length}</p>
-              <p className="text-slate-500 text-[11px] font-bold uppercase tracking-wider mt-0.5">Posts</p>
+          {/* Clean Soft Gamification Stats */}
+          {currentUser && stats && (
+            <div className="flex items-center gap-3 shrink-0 self-stretch lg:self-auto overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
+              
+              {/* Level Card */}
+              <div className="bg-surface-50 dark:bg-white/5 border border-surface-200/60 dark:border-white/10 rounded-[24px] p-4 sm:p-5 min-w-[120px] flex flex-col items-center justify-center relative overflow-hidden group/card hover:bg-white dark:hover:bg-white/10 hover:shadow-lg hover:border-indigo-100 dark:hover:border-white/20 transition-all duration-300">
+                <div className="absolute bottom-0 left-0 h-1.5 bg-indigo-100 dark:bg-indigo-500/30 w-full">
+                  <div className="h-full bg-indigo-500 dark:bg-indigo-400 transition-all duration-1000 ease-out" style={{ width: `${getLevelProgress()}%` }}></div>
+                </div>
+                <div className="text-3xl sm:text-4xl mb-1.5 group-hover/card:scale-110 group-hover/card:-translate-y-1 transition-transform duration-500 drop-shadow-sm">{getLevel()?.emoji || '🌱'}</div>
+                <div className="text-xs sm:text-sm font-extrabold text-surface-900 dark:text-white tracking-wide">{getLevel()?.name || 'Beginner'}</div>
+                <div className="text-[10px] font-bold text-surface-400 uppercase tracking-widest mt-1">LvL {getLevelProgress()}%</div>
+              </div>
+
+              {/* Streak Card */}
+              <div className="bg-surface-50 dark:bg-white/5 border border-surface-200/60 dark:border-white/10 rounded-[24px] p-4 sm:p-5 min-w-[100px] flex flex-col items-center justify-center group/card hover:bg-white dark:hover:bg-white/10 hover:shadow-lg hover:border-orange-100 dark:hover:border-white/20 transition-all duration-300">
+                <Flame className="w-7 h-7 sm:w-8 sm:h-8 text-orange-500 mb-2 group-hover/card:scale-110 group-hover/card:-rotate-6 transition-transform duration-300" strokeWidth={2.5} />
+                <div className="text-xl sm:text-2xl font-black text-surface-900 dark:text-white leading-none">{stats?.streak || 0}</div>
+                <div className="text-[10px] font-bold text-surface-400 uppercase tracking-widest mt-1.5">Day Streak</div>
+              </div>
+
+              {/* XP Card */}
+              <div className="bg-surface-50 dark:bg-white/5 border border-surface-200/60 dark:border-white/10 rounded-[24px] p-4 sm:p-5 min-w-[100px] flex flex-col items-center justify-center group/card hover:bg-white dark:hover:bg-white/10 hover:shadow-lg hover:border-yellow-100 dark:hover:border-white/20 transition-all duration-300">
+                <Zap className="w-7 h-7 sm:w-8 sm:h-8 text-yellow-500 mb-2 group-hover/card:scale-110 group-hover/card:rotate-6 transition-transform duration-300" strokeWidth={2.5} />
+                <div className="text-xl sm:text-2xl font-black text-surface-900 dark:text-white leading-none">{(stats?.xp || 0).toLocaleString()}</div>
+                <div className="text-[10px] font-bold text-surface-400 uppercase tracking-widest mt-1.5">Total XP</div>
+              </div>
+
             </div>
-            <div className="text-center px-5 py-3 bg-white/5 border border-white/10 rounded-2xl">
-              <p className="text-xl font-extrabold text-white">{totalLikes}</p>
-              <p className="text-slate-500 text-[11px] font-bold uppercase tracking-wider mt-0.5">Likes</p>
-            </div>
-          </div>
+          )}
+          
         </div>
       </div>
 
@@ -753,16 +813,45 @@ NO markdown. NO extra text.`
                 {/* Header */}
                 <div className={`flex items-start justify-between p-5 pb-4 ${isAdminPost ? 'bg-gradient-to-r from-indigo-50/40 to-violet-50/40' : ''}`}>
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0 ${
+                    <div
+                      onClick={() => post.authorId !== 'ldms_ai_bot' && navigate(`/user/${post.authorId}`)}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0 ${post.authorId !== 'ldms_ai_bot' ? 'cursor-pointer hover:ring-2 hover:ring-indigo-300 transition-all' : ''} ${
                       post.authorId === 'ldms_ai_bot' ? 'bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600 ring-2 ring-pink-300/40' : isAdminPost ? 'bg-gradient-to-br from-indigo-500 to-violet-600 shadow-inner' : 'bg-gradient-to-br from-slate-400 to-slate-500'
                     }`}>
                       {post.authorId === 'ldms_ai_bot' ? <span className="text-lg">🤖</span> : post.authorPhoto ? <img src={post.authorPhoto} alt="" className="w-full h-full object-cover" /> : initials(post.authorName)}
                     </div>
                     <div>
-                      <p className="font-extrabold text-slate-900 text-sm leading-tight flex items-center gap-1.5">
-                        {post.authorName}
-                        {isVerified && <span className={`w-3.5 h-3.5 text-white rounded-full flex items-center justify-center text-[8px] mx-1 mt-0.5 shadow-sm shrink-0 ${badgeColorStr}`}>✓</span>}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-extrabold text-slate-900 text-sm leading-tight flex items-center gap-1.5">
+                          <span
+                            onClick={() => post.authorId !== 'ldms_ai_bot' && navigate(`/user/${post.authorId}`)}
+                            className={post.authorId !== 'ldms_ai_bot' ? 'cursor-pointer hover:text-indigo-600 transition-colors' : ''}
+                          >
+                            {post.authorName?.includes('@') ? post.authorName.split('@')[0] : post.authorName}
+                          </span>
+                          {isVerified && <span className={`w-3.5 h-3.5 text-white rounded-full flex items-center justify-center text-[8px] mx-0.5 shadow-sm shrink-0 ${badgeColorStr}`}>✓</span>}
+                        </p>
+                        {/* Follow/Unfollow Button */}
+                        {currentUser && post.authorId !== currentUser.uid && post.authorId !== 'ldms_ai_bot' && (
+                          <button
+                            onClick={() => handleFollowToggle(post.authorId, post.authorName)}
+                            disabled={followLoading[post.authorId]}
+                            className={`text-[11px] font-extrabold py-0.5 px-2.5 rounded-full transition-all active:scale-95 flex items-center gap-1 shrink-0 ${
+                              followStatus[post.authorId]
+                                ? 'bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600 border border-slate-200'
+                                : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200'
+                            }`}
+                          >
+                            {followLoading[post.authorId] ? (
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                            ) : followStatus[post.authorId] ? (
+                              <><UserMinus className="w-2.5 h-2.5" /> Following</>
+                            ) : (
+                              <><UserPlus className="w-2.5 h-2.5" /> Follow</>
+                            )}
+                          </button>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isAdminPost ? 'text-indigo-600 bg-indigo-100' : 'text-indigo-600 bg-indigo-50'}`}>
                           {post.authorRole || 'Educator'}
@@ -936,7 +1025,12 @@ NO markdown. NO extra text.`
                       <span>{(post.likes || []).length} likes</span>
                       {(post.dislikes || []).length > 0 && <span>{(post.dislikes || []).length} dislikes</span>}
                     </div>
-                    <span>{post.commentsCount || 0} comments</span>
+                    <button 
+                      onClick={() => toggleComments(post.id)} 
+                      className="hover:text-indigo-600 hover:underline transition-colors font-semibold"
+                    >
+                      {post.commentsCount || 0} comments
+                    </button>
                   </div>
                 </div>
 
@@ -969,14 +1063,28 @@ NO markdown. NO extra text.`
                 {showComments[post.id] && (
                   <div className="border-t border-slate-100 p-4 space-y-3 animate-fade-in bg-slate-50/50">
                     {loadingComments[post.id] && <div className="flex justify-center py-2"><Loader2 className="w-4 h-4 animate-spin text-indigo-400" /></div>}
+                    {!loadingComments[post.id] && postComments.length === 0 && (
+                      <div className="text-center py-5 bg-white rounded-xl border border-slate-100 mb-2 shadow-sm">
+                        <MessageCircle className="w-7 h-7 text-indigo-200 mx-auto mb-2" />
+                        <p className="text-sm font-bold text-slate-600">No comments yet</p>
+                        <p className="text-xs font-medium text-slate-400 mt-0.5">Start the conversation by sharing your thoughts!</p>
+                      </div>
+                    )}
                     {postComments.map(c => (
                         <div key={c.id} className="flex gap-2.5">
-                         <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 overflow-hidden ${c.authorId === 'ldms_ai_bot' ? 'ring-2 ring-pink-400/50 bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600' : 'bg-indigo-100 text-indigo-700'}`}>
-                          {c.authorId === 'ldms_ai_bot' ? <span className="text-sm">🤖</span> : c.authorPhoto ? <img src={c.authorPhoto} alt="" className="w-full h-full object-cover" /> : initials(c.authorName || '')}
+                         <div
+                           onClick={() => c.authorId !== 'ldms_ai_bot' && navigate(`/user/${c.authorId}`)}
+                           className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 overflow-hidden ${c.authorId !== 'ldms_ai_bot' ? 'cursor-pointer hover:ring-2 hover:ring-indigo-300 transition-all' : ''} ${c.authorId === 'ldms_ai_bot' ? 'ring-2 ring-pink-400/50 bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600' : 'bg-indigo-100 text-indigo-700'}`}>
+                           {c.authorId === 'ldms_ai_bot' ? <span className="text-sm">🤖</span> : c.authorPhoto ? <img src={c.authorPhoto} alt="" className="w-full h-full object-cover" /> : initials(c.authorName || '')}
                          </div>
                          <div className={`flex-1 rounded-xl px-3.5 py-2.5 border ${c.authorId === 'ldms_ai_bot' ? 'bg-gradient-to-r from-indigo-50 to-pink-50 border-pink-200/50' : 'bg-white border-slate-200'}`}>
                           <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className={`text-xs font-extrabold ${c.authorId === 'ldms_ai_bot' ? 'bg-gradient-to-r from-pink-600 to-indigo-600 bg-clip-text text-transparent' : 'text-slate-800'}`}>{c.authorName}</span>
+                            <span
+                              onClick={() => c.authorId !== 'ldms_ai_bot' && navigate(`/user/${c.authorId}`)}
+                              className={`text-xs font-extrabold ${c.authorId !== 'ldms_ai_bot' ? 'cursor-pointer hover:text-indigo-600 transition-colors' : ''} ${c.authorId === 'ldms_ai_bot' ? 'bg-gradient-to-r from-pink-600 to-indigo-600 bg-clip-text text-transparent' : 'text-slate-800'}`}
+                            >
+                              {c.authorName}
+                            </span>
                             {c.authorId === 'ldms_ai_bot' && <span className="text-[8px] font-black bg-gradient-to-r from-pink-500 to-indigo-500 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wider">AI</span>}
                             <span className="text-[10px] text-slate-400">{timeAgo(c.createdAt)}</span>
                           </div>
@@ -1009,6 +1117,30 @@ NO markdown. NO extra text.`
         {/* ─── RIGHT SIDEBAR ─── */}
         <div className="hidden lg:block space-y-5">
           <div className="sticky top-[90px] space-y-5">
+
+            {/* Super Admin Announcement */}
+            {globalAnnouncement && (
+              <div className="bg-gradient-to-br from-indigo-600 via-violet-600 to-primary-600 rounded-2xl p-5 text-white shadow-[0_8px_30px_rgba(99,102,241,0.3)] relative overflow-hidden animate-fade-in-up">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-10 -mt-10 blur-xl" />
+                <div className="flex items-start gap-3 relative z-10">
+                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0 border border-white/20 shadow-inner">
+                    <Megaphone className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-[13px] tracking-wide mb-1 flex items-center gap-1.5 uppercase">
+                      Admin Update
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                      </span>
+                    </h3>
+                    <p className="text-sm font-semibold text-indigo-50 leading-relaxed">
+                      {globalAnnouncement.text}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Stats Card */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5">

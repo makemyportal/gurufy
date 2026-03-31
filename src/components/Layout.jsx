@@ -15,6 +15,8 @@ import {
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../utils/firebase'
 import AIChatWidget from './AIChatWidget'
+import ChatPanel from './ChatPanel'
+import ProfileCompletion from './ProfileCompletion'
 
 // Nav array builders — called inside component to get reactive translations
 function getTeacherNav(t) {
@@ -24,7 +26,6 @@ function getTeacherNav(t) {
     { to: '/jobs', icon: Briefcase, label: t('careers'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
     { to: '/resources', icon: FolderOpen, label: t('resources'), color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
     { to: '/ai-tools', icon: Sparkles, label: t('aiMagic'), color: 'from-pink-500 to-rose-600', shadow: 'rgba(244,63,94,0.4)' },
-    { to: '/messaging', icon: MessageSquare, label: t('messages'), color: 'from-cyan-500 to-sky-600', shadow: 'rgba(6,182,212,0.4)' },
     { to: '/events', icon: CalendarDays, label: t('events'), color: 'from-fuchsia-500 to-violet-600', shadow: 'rgba(217,70,239,0.4)' },
     { to: '/leaderboard', icon: Trophy, label: t('leaderboard'), color: 'from-yellow-400 to-amber-500', shadow: 'rgba(251,191,36,0.4)' },
     { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
@@ -37,7 +38,6 @@ function getSchoolNav(t) {
     { to: '/jobs', icon: Briefcase, label: t('jobs'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
     { to: '/teacher-search', icon: Search, label: t('findTalent'), color: 'from-violet-500 to-purple-600', shadow: 'rgba(139,92,246,0.4)' },
     { to: '/resources', icon: FolderOpen, label: t('resources'), color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
-    { to: '/messaging', icon: MessageSquare, label: t('messages'), color: 'from-cyan-500 to-sky-600', shadow: 'rgba(6,182,212,0.4)' },
     { to: '/events', icon: CalendarDays, label: t('events'), color: 'from-fuchsia-500 to-violet-600', shadow: 'rgba(217,70,239,0.4)' },
     { to: '/leaderboard', icon: Trophy, label: t('leaderboard'), color: 'from-yellow-400 to-amber-500', shadow: 'rgba(251,191,36,0.4)' },
     { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
@@ -49,7 +49,6 @@ function getTeacherMobileNav(t) {
     { to: '/', icon: Home, label: t('feed'), color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/jobs', icon: Briefcase, label: t('careers'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
     { to: '/ai-tools', icon: Sparkles, label: 'AI', color: 'from-pink-500 to-rose-600', shadow: 'rgba(244,63,94,0.4)' },
-    { to: '/messaging', icon: MessageSquare, label: t('messages'), color: 'from-cyan-500 to-sky-600', shadow: 'rgba(6,182,212,0.4)' },
     { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
   ]
 }
@@ -58,7 +57,6 @@ function getSchoolMobileNav(t) {
     { to: '/', icon: Home, label: t('feed'), color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/jobs', icon: Briefcase, label: t('jobs'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
     { to: '/teacher-search', icon: Search, label: t('findTalent'), color: 'from-violet-500 to-purple-600', shadow: 'rgba(139,92,246,0.4)' },
-    { to: '/messaging', icon: MessageSquare, label: t('messages'), color: 'from-cyan-500 to-sky-600', shadow: 'rgba(6,182,212,0.4)' },
     { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
   ]
 }
@@ -106,51 +104,24 @@ export default function Layout() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showMobileSearch, setShowMobileSearch] = useState(false)
-  const [globalAnnouncement, setGlobalAnnouncement] = useState(null)
-  const [dismissedAnnouncement, setDismissedAnnouncement] = useState(false)
+  const [showChat, setShowChat] = useState(false)
+  const [showProfileCompletion, setShowProfileCompletion] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
   const dropdownRef = useRef(null)
   const notifRef = useRef(null)
 
-  // Listen to Platform Settings for Global Announcements
+  // Detect incomplete profile (Google login with no name or email-as-name)
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (docSnap) => {
-      if (docSnap.exists() && docSnap.data().latestBroadcast) {
-        const broadcast = docSnap.data().latestBroadcast
-        setGlobalAnnouncement(broadcast)
-        // Reset dismiss state if a new broadcast comes in
-        const lastDismissedId = localStorage.getItem('dismissedBroadcastId')
-        if (lastDismissedId !== broadcast.id) {
-          setDismissedAnnouncement(false)
-        } else {
-          setDismissedAnnouncement(true)
-        }
-      } else {
-        setGlobalAnnouncement(null)
-      }
-    })
-    return () => unsub()
-  }, [])
-
-  // Auto-dismiss announcements after 10 seconds to enhance user experience
-  useEffect(() => {
-    let timer
-    if (globalAnnouncement && !dismissedAnnouncement) {
-      timer = setTimeout(() => {
-        handleDismissAnnouncement()
-      }, 10000)
+    if (!currentUser || !userProfile) return
+    const name = userProfile.name || ''
+    const isEmailName = name.includes('@') || !name.trim()
+    const notCompleted = !userProfile.profileCompleted
+    if (isEmailName && notCompleted) {
+      setShowProfileCompletion(true)
     }
-    return () => clearTimeout(timer)
-  }, [globalAnnouncement, dismissedAnnouncement])
-
-  function handleDismissAnnouncement() {
-    setDismissedAnnouncement(true)
-    if (globalAnnouncement?.id) {
-      localStorage.setItem('dismissedBroadcastId', globalAnnouncement.id)
-    }
-  }
+  }, [currentUser, userProfile])
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -202,26 +173,6 @@ export default function Layout() {
             </>
         }
       </div>
-
-      {/* Global Announcement Banner (Premium Floating Pill) */}
-      {globalAnnouncement && !dismissedAnnouncement && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[95%] sm:w-auto max-w-2xl bg-gradient-to-r from-indigo-600 via-violet-600 to-primary-600 shadow-[0_8px_32px_rgba(99,102,241,0.4)] rounded-2xl text-white animate-slide-down overflow-hidden">
-          <div className="px-5 py-3.5 flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0 border border-white/20 shadow-inner">
-              <Megaphone className="w-4 h-4 text-white" />
-            </div>
-            <p className="text-sm font-bold text-white leading-snug flex-1 pr-6">
-              {globalAnnouncement.text}
-            </p>
-            <button 
-              onClick={handleDismissAnnouncement}
-              className="p-1.5 hover:bg-white/20 rounded-full transition-colors shrink-0"
-            >
-              <X className="w-4 h-4 text-white" />
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Fixed Top Navbar */}
       <header className="fixed top-0 left-0 right-0 h-[70px] bg-white/95 backdrop-blur-xl border-b border-surface-200/80 z-50 px-3 sm:px-6 flex items-center justify-between transition-all">
@@ -441,7 +392,7 @@ export default function Layout() {
               </button>
             </div>
             <nav className="flex-1 px-3 pt-4 pb-3">
-              <p className="px-2 mb-2 text-[9px] font-black text-surface-300 uppercase tracking-[0.15em]">Menu</p>
+              <p className="px-3 mb-3 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Menu</p>
               {navItems.map(item => {
                 const isActive = currentPath === item.to || (item.to !== '/' && currentPath.startsWith(item.to))
                 return (
@@ -449,15 +400,16 @@ export default function Layout() {
                     key={item.to}
                     to={item.to}
                     end={item.to === '/'}
-                    className={`group flex items-center gap-3.5 px-3.5 py-3 rounded-2xl text-[13.5px] font-bold transition-all duration-300 ${
+                    className={`relative group flex items-center gap-3.5 px-4 mb-1.5 py-3 rounded-[14px] text-[13.5px] font-bold transition-all duration-300 ${
                       isActive
-                        ? 'bg-primary-600 text-white shadow-[0_4px_16px_-4px_rgba(37,99,235,0.4)]'
-                        : 'text-surface-500 hover:bg-surface-100/80 hover:text-surface-900'
+                        ? 'bg-slate-900 text-white shadow-[0_8px_20px_rgba(0,0,0,0.12)] translate-x-1'
+                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-1'
                     }`}
                   >
-                    <item.icon className={`w-[18px] h-[18px] transition-transform duration-300 ${
-                      isActive ? 'text-white scale-110 drop-shadow-sm' : 'text-surface-400 group-hover:text-surface-700'
-                    }`} />
+                    {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full" />}
+                    <item.icon className={`w-[18px] h-[18px] transition-all duration-300 ${
+                      isActive ? 'text-indigo-400 scale-110 drop-shadow-sm' : 'text-slate-400 group-hover:text-indigo-500 group-hover:scale-110'
+                    }`} strokeWidth={isActive ? 2.5 : 2} />
                     <span className="truncate">{item.label}</span>
                   </NavLink>
                 )
@@ -493,7 +445,7 @@ export default function Layout() {
         >
           {/* Nav links */}
           <nav className="flex-1 overflow-y-auto no-scrollbar px-3 pt-4 pb-3">
-            <p className="px-2 mb-2 text-[9px] font-black text-surface-300 uppercase tracking-[0.15em]">Menu</p>
+            <p className="px-3 mb-3 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Menu</p>
             {navItems.map(item => {
               const isActive = currentPath === item.to || (item.to !== '/' && currentPath.startsWith(item.to))
               return (
@@ -501,15 +453,16 @@ export default function Layout() {
                   key={item.to}
                   to={item.to}
                   end={item.to === '/'}
-                  className={`group flex items-center gap-3.5 px-3.5 py-3 rounded-2xl text-[13.5px] font-bold transition-all duration-300 ${
+                  className={`relative group flex items-center gap-3.5 px-4 mb-1.5 py-3 rounded-[14px] text-[13.5px] font-bold transition-all duration-300 ${
                     isActive
-                      ? 'bg-primary-600 text-white shadow-[0_4px_16px_-4px_rgba(37,99,235,0.4)]'
-                      : 'text-surface-500 hover:bg-surface-100/80 hover:text-surface-900'
+                      ? 'bg-slate-900 text-white shadow-[0_8px_20px_rgba(0,0,0,0.12)] translate-x-1'
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-1'
                   }`}
                 >
-                  <item.icon className={`w-[18px] h-[18px] transition-transform duration-300 ${
-                    isActive ? 'text-white scale-110 drop-shadow-sm' : 'text-surface-400 group-hover:text-surface-700 group-hover:scale-110'
-                  }`} />
+                  {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full" />}
+                  <item.icon className={`w-[18px] h-[18px] transition-all duration-300 ${
+                    isActive ? 'text-indigo-400 scale-110 drop-shadow-sm' : 'text-slate-400 group-hover:text-indigo-500 group-hover:scale-110'
+                  }`} strokeWidth={isActive ? 2.5 : 2} />
                   <span className="truncate">{item.label}</span>
                 </NavLink>
               )
@@ -576,7 +529,23 @@ export default function Layout() {
         </nav>
       </div>
 
-      <AIChatWidget />
+      <AIChatWidget isHidden={showChat} />
+      {!showChat && currentUser && (
+        <button
+          onClick={() => setShowChat(true)}
+          className="fixed bottom-[140px] xl:bottom-[108px] right-4 sm:right-[30px] w-12 h-12 sm:w-[52px] sm:h-[52px] bg-slate-900 hover:bg-slate-800 text-white rounded-full shadow-[0_8px_20px_rgba(0,0,0,0.15)] flex items-center justify-center transition-all duration-200 z-[85] group hover:-translate-y-0.5 border border-slate-700/50"
+          title="Messages"
+        >
+          <div className="relative flex items-center justify-center">
+            <MessageCircle className="w-5 h-5 sm:w-5 sm:h-5 transition-transform group-hover:scale-105" strokeWidth={2} />
+            <span className="absolute -top-[3px] -right-[3px] w-2.5 h-2.5 bg-rose-500 border-2 border-slate-900 rounded-full"></span>
+          </div>
+        </button>
+      )}
+      <ChatPanel isOpen={showChat} onClose={() => setShowChat(false)} />
+      {showProfileCompletion && (
+        <ProfileCompletion onComplete={() => setShowProfileCompletion(false)} />
+      )}
     </div>
   )
 }

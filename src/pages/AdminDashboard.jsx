@@ -383,6 +383,35 @@ export default function AdminDashboard() {
     } catch (err) { showToast('Failed to send', 'error') }
   }
 
+  async function handleUpdateBannerOnly(newText) {
+    if (!newText.trim()) return
+    const broadcastPayload = {
+      ...(platformSettings.latestBroadcast || {}),
+      id: platformSettings.latestBroadcast?.id || Date.now().toString(),
+      text: newText,
+      updatedAt: new Date().toISOString()
+    }
+    try {
+      await setDoc(doc(db, 'platformSettings', 'global'), { 
+        ...platformSettings, 
+        latestBroadcast: broadcastPayload 
+      }, { merge: true })
+      setPlatformSettings(prev => ({ ...prev, latestBroadcast: broadcastPayload }))
+      showToast('Global banner updated')
+    } catch (err) { showToast('Update failed', 'error') }
+  }
+
+  async function handleRemoveBanner() {
+    try {
+      await setDoc(doc(db, 'platformSettings', 'global'), { 
+        ...platformSettings, 
+        latestBroadcast: null 
+      }, { merge: true })
+      setPlatformSettings(prev => ({ ...prev, latestBroadcast: null }))
+      showToast('Global banner removed')
+    } catch (err) { showToast('Remove failed', 'error') }
+  }
+
   async function handleToggleSetting(key) {
     const newVal = !platformSettings[key]
     try {
@@ -880,18 +909,76 @@ export default function AdminDashboard() {
           {activeTab === 'announcements' && (
             <div className="animate-fade-in">
               <h2 className="text-xl font-extrabold text-surface-900 mb-1">📢 Broadcast Announcement</h2>
-              <p className="text-sm text-surface-500 font-medium mb-6">Send a notification to all {users.length} users</p>
-              <div className="max-w-2xl">
-                <div className="bg-surface-50 border border-surface-200 rounded-2xl p-6">
-                  <textarea value={announcementText} onChange={e => setAnnouncementText(e.target.value)} placeholder="Type your announcement message here..." rows={4}
-                    className="w-full bg-white border border-surface-200 rounded-xl p-4 text-sm font-medium focus:ring-2 focus:ring-primary-500 outline-none resize-none" />
-                  <div className="flex items-center justify-between mt-4">
-                    <p className="text-xs font-semibold text-surface-400">This will send a system notification to every user.</p>
-                    <button onClick={handleSendAnnouncement} disabled={!announcementText.trim()}
-                      className="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
-                      <Send className="w-4 h-4" /> Broadcast Now
-                    </button>
+              <p className="text-sm text-surface-500 font-medium mb-6">Send a notification to all {users.length} users and update the global banner</p>
+              
+              <div className="flex flex-col xl:flex-row gap-6 items-start">
+                <div className="w-full xl:w-1/2">
+                  <div className="bg-surface-50 border border-surface-200 rounded-2xl p-6">
+                    <h3 className="text-sm font-extrabold text-surface-900 mb-3">Create New Broadcast</h3>
+                    <textarea value={announcementText} onChange={e => setAnnouncementText(e.target.value)} placeholder="Type your announcement message here..." rows={4}
+                      className="w-full bg-white border border-surface-200 rounded-xl p-4 text-sm font-medium focus:ring-2 focus:ring-primary-500 outline-none resize-none" />
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-4">
+                      <p className="text-[11px] font-semibold text-surface-400 max-w-[200px]">This sends a system notification to ALL users & replaces the global banner.</p>
+                      <button onClick={handleSendAnnouncement} disabled={!announcementText.trim()}
+                        className="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                        <Send className="w-4 h-4" /> Broadcast Now
+                      </button>
+                    </div>
                   </div>
+                </div>
+
+                {/* Active Global Banner Management */}
+                <div className="w-full xl:w-1/2">
+                  <h3 className="text-sm font-extrabold text-surface-900 mb-3">Active Global Banner</h3>
+                  {platformSettings.latestBroadcast ? (
+                    <div className="bg-gradient-to-br from-indigo-600 via-violet-600 to-primary-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-xl" />
+                      <div className="relative z-10">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center border border-white/20">
+                              <Megaphone className="w-4 h-4 text-white" />
+                            </div>
+                            <span className="text-xs font-black uppercase tracking-widest text-indigo-100 flex items-center gap-2">
+                              Live Now
+                              <span className="flex h-2 w-2 relative">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                              </span>
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-indigo-200 font-semibold">{formatDate(platformSettings.latestBroadcast.createdAt)}</span>
+                        </div>
+                        
+                        <textarea 
+                          id="edit-banner-text"
+                          defaultValue={platformSettings.latestBroadcast.text}
+                          className="w-full bg-white/10 border border-white/20 rounded-xl p-3 text-sm font-semibold text-white placeholder-white/50 focus:bg-white/20 focus:outline-none transition-colors resize-none mb-4"
+                          rows={3}
+                        />
+
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+                          <button onClick={() => handleRemoveBanner()} className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/40 text-white text-xs font-bold rounded-lg transition-colors border border-rose-500/30 flex items-center gap-1.5">
+                            <Trash2 className="w-3.5 h-3.5" /> Remove
+                          </button>
+                          <button 
+                            onClick={() => handleUpdateBannerOnly(document.getElementById('edit-banner-text').value)} 
+                            className="px-4 py-2 bg-white hover:bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg transition-colors shadow-sm flex items-center gap-1.5"
+                          >
+                            <Edit className="w-3.5 h-3.5 text-indigo-600" /> Save Edit
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-surface-50 border border-dashed border-surface-300 rounded-2xl p-8 text-center flex flex-col items-center justify-center">
+                      <div className="w-12 h-12 rounded-full bg-surface-100 flex items-center justify-center mb-3 text-surface-400">
+                        <CheckCircle className="w-6 h-6" />
+                      </div>
+                      <p className="text-sm font-bold text-surface-900 mb-1">No Active Banner</p>
+                      <p className="text-xs font-medium text-surface-500">Create a new broadcast to display a banner on the global feed.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -160,7 +160,7 @@ const AIBotIcon = ({ className = "w-12 h-12", isPulsing = false }) => (
   </div>
 )
 
-export default function AIChatWidget() {
+export default function AIChatWidget({ isHidden = false }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [messages, setMessages] = useState([
@@ -227,7 +227,7 @@ Respond to the user in a highly professional and clean manner.`
   }
 
   return (
-    <div className={`fixed z-[90] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isOpen ? 'bottom-[76px] xl:bottom-4 right-3 sm:right-6' : 'bottom-[76px] xl:bottom-6 right-4 sm:right-6'}`}>
+    <div className={`fixed z-[90] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isOpen ? 'bottom-[76px] xl:bottom-4 right-3 sm:right-6' : 'bottom-[76px] xl:bottom-6 right-4 sm:right-6'} ${isHidden ? 'opacity-0 pointer-events-none translate-y-10 scale-95' : 'opacity-100 scale-100 translate-y-0'}`}>
       
       {/* Floating Action Button */}
       {!isOpen && (
