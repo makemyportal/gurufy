@@ -108,11 +108,11 @@ export default function HowItWorks() {
         </div>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
           <span className="inline-block px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-400 text-xs font-bold uppercase tracking-widest mb-6">Simple & Powerful</span>
-          <h1 className="text-5xl sm:text-6xl font-extrabold text-white tracking-tight mb-6 leading-tight">
-            How LDMS<br />
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight mb-6 leading-tight">
+            How LDMS<br className="hidden sm:block" />{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">Works</span>
           </h1>
-          <p className="text-lg text-slate-400 font-medium leading-relaxed max-w-xl mx-auto">
+          <p className="text-base sm:text-lg text-slate-400 font-medium leading-relaxed max-w-xl mx-auto px-2">
             Whether you're a teacher looking to grow or a school seeking talent — LDMS makes it effortlessly powerful.
           </p>
         </div>
@@ -121,8 +121,8 @@ export default function HowItWorks() {
       {/* ── For Teachers ── */}
       <section className="py-16 border-t border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3 mb-12">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+          <div className="flex flex-col sm:flex-row items-center sm:justify-start justify-center text-center sm:text-left gap-3 mb-10 sm:mb-12">
+            <div className="w-10 h-10 rounded-xl mx-auto sm:mx-0 bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
               <GraduationCap className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -135,8 +135,8 @@ export default function HowItWorks() {
               <div key={step.step} className="group relative bg-white/3 border border-white/5 rounded-2xl p-6 sm:p-8 hover:bg-white/5 hover:border-white/10 transition-all duration-300 overflow-hidden">
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl"
                   style={{ background: `radial-gradient(circle at 0% 50%, ${step.glow.replace('0.4', '0.08')} 0%, transparent 50%)` }} />
-                <div className="flex flex-col sm:flex-row gap-6 items-start relative">
-                  <div className={`shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center shadow-lg`}
+                <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start text-center sm:text-left relative">
+                  <div className={`shrink-0 w-14 h-14 rounded-2xl mx-auto sm:mx-0 bg-gradient-to-br ${step.color} flex items-center justify-center shadow-lg`}
                     style={{ boxShadow: `0 4px 20px ${step.glow}` }}>
                     <step.icon className="w-7 h-7 text-white" />
                   </div>
@@ -146,7 +146,7 @@ export default function HowItWorks() {
                     </div>
                     <h3 className="text-xl font-bold text-white mb-2">{step.title}</h3>
                     <p className="text-slate-400 font-medium mb-4 leading-relaxed">{step.desc}</p>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap justify-center sm:justify-start gap-2">
                       {step.perks.map(perk => (
                         <div key={perk} className="flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/5 rounded-full">
                           <CheckCircle className="w-3 h-3 text-emerald-400 shrink-0" />
@@ -165,8 +165,8 @@ export default function HowItWorks() {
       {/* ── For Schools ── */}
       <section className="py-16 border-t border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3 mb-12">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
+          <div className="flex flex-col sm:flex-row items-center sm:justify-start justify-center text-center sm:text-left gap-3 mb-10 sm:mb-12">
+            <div className="w-10 h-10 rounded-xl mx-auto sm:mx-0 bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
               <BookOpen className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -176,8 +176,8 @@ export default function HowItWorks() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {SCHOOL_STEPS.map(step => (
-              <div key={step.step} className="group bg-white/3 border border-white/5 rounded-2xl p-6 hover:bg-white/5 hover:-translate-y-1 transition-all duration-300">
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${step.color} flex items-center justify-center mb-5`}
+              <div key={step.step} className="group bg-white/3 border border-white/5 rounded-2xl p-6 hover:bg-white/5 hover:-translate-y-1 transition-all duration-300 text-center">
+                <div className={`w-12 h-12 rounded-xl mx-auto bg-gradient-to-br ${step.color} flex items-center justify-center mb-5`}
                   style={{ boxShadow: `0 4px 16px ${step.glow}` }}>
                   <step.icon className="w-6 h-6 text-white" />
                 </div>
@@ -211,11 +211,11 @@ export default function HowItWorks() {
       {/* ── CTA ── */}
       <section className="py-20 border-t border-white/5">
         <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-4xl font-extrabold text-white tracking-tight mb-5">Ready to get started?</h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-5 leading-tight">Ready to get started?</h2>
           <p className="text-slate-400 font-medium mb-8">It takes less than 2 minutes to join 12,400+ educators.</p>
           <button
             onClick={() => navigate('/login')}
-            className="inline-flex items-center gap-2 px-10 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-base rounded-2xl shadow-[0_8px_32px_rgba(99,102,241,0.5)] hover:shadow-[0_16px_48px_rgba(99,102,241,0.6)] hover:from-indigo-500 hover:to-violet-500 transition-all duration-300 hover:-translate-y-0.5"
+            className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-10 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-base rounded-2xl shadow-[0_8px_32px_rgba(99,102,241,0.5)] hover:shadow-[0_16px_48px_rgba(99,102,241,0.6)] hover:from-indigo-500 hover:to-violet-500 transition-all duration-300 hover:-translate-y-0.5"
           >
             Join for Free <ArrowRight className="w-5 h-5" />
           </button>

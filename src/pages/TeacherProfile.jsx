@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useGamification } from '../contexts/GamificationContext'
-import { getLevel, XP_VALUES } from '../contexts/GamificationContext'
+import { getLevel, XP_VALUES, BADGE_DEFS } from '../contexts/GamificationContext'
 import { db } from '../utils/firebase'
 import {
   collection, query, where, onSnapshot, orderBy,
@@ -399,15 +399,15 @@ export default function TeacherProfile() {
                   <span className="text-xs font-bold text-orange-700">{stats.streak} day streak</span>
                 </div>
               )}
-              {(stats.badges || []).slice(0, 5).map(badge => (
-                <div key={badge} className="flex items-center gap-1 px-2 py-1 bg-surface-50 rounded-full border border-surface-200/50">
-                  <span className="text-sm">{({
-                    first_post: '📝', ten_posts: '✍️', first_like: '❤️', hundred_likes: '💯',
-                    first_resource: '📚', ai_user: '🤖', streak_7: '🔥', streak_30: '💪',
-                    social_butterfly: '🦋', connector: '🤝', commenter: '💬'
-                  })[badge] || '🏅'}</span>
-                </div>
-              ))}
+              {(stats.badges || []).slice(0, 5).map(badge => {
+                const def = BADGE_DEFS[badge]
+                return (
+                  <div key={badge} title={def?.desc} className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-50 rounded-full border border-surface-200/50 hover:bg-surface-100 transition-colors cursor-help">
+                    <span className="text-sm drop-shadow-sm">{def?.emoji || '🏅'}</span>
+                    <span className="hidden sm:inline-block text-xs font-bold text-surface-700">{def?.name || badge}</span>
+                  </div>
+                )
+              })}
               <button onClick={() => navigate('/leaderboard')} className="text-xs font-bold text-primary-600 hover:text-primary-700 px-2 py-1 rounded-lg hover:bg-primary-50 transition-colors">
                 View All →
               </button>

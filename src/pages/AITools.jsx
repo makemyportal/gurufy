@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Sparkles, FileText, FileQuestion, BookOpen, Send, Loader2, Copy, CheckCircle2, RefreshCw, ListChecks, Mail, Smile, Download } from 'lucide-react'
+import { Sparkles, FileText, FileQuestion, BookOpen, Send, Loader2, Copy, CheckCircle2, RefreshCw, ListChecks, Mail, Smile, Download, BrainCircuit } from 'lucide-react'
 import { generateAIContent } from '../utils/aiService'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -145,6 +145,28 @@ YOU MUST STRICTLY USE THIS FORMAT:
 
 ### 2. [Catchy Activity Name] *(⏳ X mins)*
 ...`
+  },
+  {
+    id: 'doubt-solver',
+    title: 'AI Doubt Solver',
+    description: 'Instantly get student-friendly explanations for complex concepts and hard questions.',
+    icon: BrainCircuit,
+    color: 'from-pink-500 to-rose-600',
+    promptTemplate: (topic, grade) => `You are an expert, friendly teacher for a ${grade} student. They have asked a doubt about: "${topic}".
+Provide a clear, super-engaging, and easy-to-understand explanation.
+YOU MUST STRICTLY USE THIS FORMAT:
+
+### 🧠 The Simple Answer
+[A 2-3 sentence extremely simple explanation]
+
+### 🔍 Let's Dive Deeper
+[A more detailed explanation using a real-world analogy. Break it down beautifully.]
+
+### 📝 Quick Knowledge Check
+[Provide 1 simple question at the end to check if they understood]
+
+---
+> **Tip for Teachers:** [How a teacher can best explain this in class]`
   }
 ]
 

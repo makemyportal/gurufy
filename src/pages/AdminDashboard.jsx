@@ -3,7 +3,8 @@ import {
   Users, AlertTriangle, Settings, Shield, Activity, TrendingUp, CheckCircle,
   XCircle, Search, Power, Trash2, Edit, BarChart3, Briefcase, FolderOpen,
   CalendarDays, Trophy, Megaphone, Eye, Ban, UserCheck, FileText,
-  MessageSquare, ChevronRight, RefreshCw, Send, X, AlertCircle, Award, Plus
+  MessageSquare, ChevronRight, RefreshCw, Send, X, AlertCircle, Award, Plus,
+  ShoppingCart, GraduationCap, Radio, Mic, Star, Play
 } from 'lucide-react'
 import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, getDoc, setDoc, query, orderBy, limit, where } from 'firebase/firestore'
 import { db } from '../utils/firebase'
@@ -29,7 +30,14 @@ function ConfirmModal({ title, message, onConfirm, onCancel, danger }) {
 }
 
 function EditorModal({ type, initialData, onSave, onCancel }) {
-  const [formData, setFormData] = useState(initialData || {})
+  const [formData, setFormData] = useState(() => {
+    if (initialData) {
+      const d = { ...initialData }
+      if (Array.isArray(d.tags)) d.tags = d.tags.join(', ')
+      return d
+    }
+    return {}
+  })
   const [saving, setSaving] = useState(false)
 
   const SCHEMAS = {
@@ -69,6 +77,32 @@ function EditorModal({ type, initialData, onSave, onCancel }) {
       { key: 'link', label: 'Meeting Link', type: 'text' },
       { key: 'maxAttendees', label: 'Max Attendees', type: 'number' },
       { key: 'description', label: 'Description', type: 'textarea' },
+    ],
+    marketplace: [
+      { key: 'title', label: 'Product Title', type: 'text' },
+      { key: 'author', label: 'Author Name', type: 'text' },
+      { key: 'authorLevel', label: 'Author Level', type: 'select', options: ['Expert', 'Guru', 'Contributor', 'Rising Star'] },
+      { key: 'price', label: 'XP Cost', type: 'number' },
+      { key: 'rating', label: 'Rating', type: 'number' },
+      { key: 'type', label: 'Category', type: 'select', options: ['PDF Notes', 'Mock Tests', 'Presentation', 'Worksheets'] },
+      { key: 'image', label: 'Image URL', type: 'text' },
+    ],
+    mentorship: [
+      { key: 'name', label: 'Mentor Name', type: 'text' },
+      { key: 'subject', label: 'Subject', type: 'text' },
+      { key: 'experience', label: 'Experience', type: 'text' },
+      { key: 'price', label: 'XP Cost', type: 'number' },
+      { key: 'rating', label: 'Rating', type: 'number' },
+      { key: 'nextAvailable', label: 'Next Available', type: 'text' },
+      { key: 'image', label: 'Image URL', type: 'text' },
+      { key: 'tags', label: 'Tags (comma separated)', type: 'text' },
+    ],
+    audioRoom: [
+      { key: 'title', label: 'Room Title', type: 'text' },
+      { key: 'host', label: 'Host Name', type: 'text' },
+      { key: 'listeners', label: 'Initial Listeners', type: 'number' },
+      { key: 'speakers', label: 'Initial Speakers', type: 'number' },
+      { key: 'tags', label: 'Tags (comma separated)', type: 'text' }
     ]
   }
 
@@ -136,6 +170,9 @@ const TABS = [
   { id: 'jobs', label: 'Jobs', icon: Briefcase },
   { id: 'resources', label: 'Resources', icon: FolderOpen },
   { id: 'events', label: 'Events', icon: CalendarDays },
+  { id: 'marketplace', label: 'Marketplace', icon: ShoppingCart },
+  { id: 'mentorship', label: 'Mentorship', icon: GraduationCap },
+  { id: 'audioRooms', label: 'Audio Rooms', icon: Radio },
   { id: 'moderation', label: 'Moderation', icon: AlertTriangle },
   { id: 'gamification', label: 'Gamification', icon: Trophy },
   { id: 'announcements', label: 'Announce', icon: Megaphone },
@@ -157,6 +194,9 @@ export default function AdminDashboard() {
   const [jobs, setJobs] = useState([])
   const [resources, setResources] = useState([])
   const [events, setEvents] = useState([])
+  const [marketplace, setMarketplace] = useState([])
+  const [mentorship, setMentorship] = useState([])
+  const [audioRooms, setAudioRooms] = useState([])
   const [reports, setReports] = useState([])
   const [gamificationData, setGamificationData] = useState([])
   const [platformSettings, setPlatformSettings] = useState({ maintenanceMode: false, registrationDisabled: false })
@@ -171,7 +211,7 @@ export default function AdminDashboard() {
   async function loadAllData() {
     setLoading(true)
     try {
-      const [usersSnap, postsSnap, jobsSnap, resourcesSnap, eventsSnap, reportsSnap, gamSnap] = await Promise.all([
+      const [usersSnap, postsSnap, jobsSnap, resourcesSnap, eventsSnap, reportsSnap, gamSnap, marketSnap, mentorSnap, audioSnap] = await Promise.all([
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'posts')).catch(() => ({ docs: [] })),
         getDocs(collection(db, 'jobs')).catch(() => ({ docs: [] })),
@@ -179,6 +219,9 @@ export default function AdminDashboard() {
         getDocs(collection(db, 'events')).catch(() => ({ docs: [] })),
         getDocs(collection(db, 'reports')).catch(() => ({ docs: [] })),
         getDocs(collection(db, 'gamification')).catch(() => ({ docs: [] })),
+        getDocs(collection(db, 'marketplace')).catch(() => ({ docs: [] })),
+        getDocs(collection(db, 'mentorship')).catch(() => ({ docs: [] })),
+        getDocs(collection(db, 'audioRooms')).catch(() => ({ docs: [] })),
       ])
       setUsers(usersSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setPosts(postsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
@@ -187,6 +230,9 @@ export default function AdminDashboard() {
       setEvents(eventsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setReports(reportsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setGamificationData(gamSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setMarketplace(marketSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setMentorship(mentorSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setAudioRooms(audioSnap.docs.map(d => ({ id: d.id, ...d.data() })))
 
       // Load platform settings
       const settingsDoc = await getDoc(doc(db, 'platformSettings', 'global')).catch(() => null)
@@ -294,6 +340,48 @@ export default function AdminDashboard() {
           await deleteDoc(doc(db, 'events', evtId))
           setEvents(prev => prev.filter(e => e.id !== evtId))
           showToast('Event deleted')
+        } catch (err) { showToast('Failed', 'error') }
+        setConfirmModal(null)
+      }
+    })
+  }
+
+  async function handleDeleteMarketplace(id) {
+    setConfirmModal({
+      title: 'Delete Product', message: 'This product will be removed from the Marketplace.', danger: true,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'marketplace', id))
+          setMarketplace(prev => prev.filter(e => e.id !== id))
+          showToast('Product deleted')
+        } catch (err) { showToast('Failed', 'error') }
+        setConfirmModal(null)
+      }
+    })
+  }
+
+  async function handleDeleteMentorship(id) {
+    setConfirmModal({
+      title: 'Delete Mentor', message: 'This mentor profile will be removed.', danger: true,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'mentorship', id))
+          setMentorship(prev => prev.filter(e => e.id !== id))
+          showToast('Mentor deleted')
+        } catch (err) { showToast('Failed', 'error') }
+        setConfirmModal(null)
+      }
+    })
+  }
+
+  async function handleDeleteAudioRoom(id) {
+    setConfirmModal({
+      title: 'Delete Room', message: 'This audio room will be removed.', danger: true,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'audioRooms', id))
+          setAudioRooms(prev => prev.filter(e => e.id !== id))
+          showToast('Room deleted')
         } catch (err) { showToast('Failed', 'error') }
         setConfirmModal(null)
       }
@@ -424,9 +512,14 @@ export default function AdminDashboard() {
   async function handleSaveItem(formData) {
     const { type, data } = editingItem
     const isNew = !data?.id
-    const colName = type === 'user' ? 'users' : type === 'post' ? 'posts' : type === 'job' ? 'jobs' : type === 'resource' ? 'resources' : 'events'
+    const colName = type === 'user' ? 'users' : type === 'post' ? 'posts' : type === 'job' ? 'jobs' : type === 'resource' ? 'resources' : type === 'event' ? 'events' : type === 'marketplace' ? 'marketplace' : type === 'mentorship' ? 'mentorship' : type === 'audioRoom' ? 'audioRooms' : 'reports'
     
     try {
+      const processedData = { ...formData }
+      if (['audioRoom', 'mentorship'].includes(type) && typeof processedData.tags === 'string') {
+        processedData.tags = processedData.tags.split(',').map(t => t.trim()).filter(Boolean)
+      }
+
       if (isNew) {
         if (type === 'user') {
           showToast('Cannot add users from Dashboard yet due to Auth requirements. Only edits are supported.', 'error')
@@ -434,11 +527,12 @@ export default function AdminDashboard() {
         }
         
         const newDoc = {
-          ...formData,
+          ...processedData,
           createdAt: new Date().toISOString()
         }
         if (type === 'job') newDoc.status = newDoc.status || 'open'
         if (type === 'resource') newDoc.authorName = newDoc.authorName || 'Platform Admin'
+        if (type === 'audioRoom') newDoc.live = true
         
         const docRef = await addDoc(collection(db, colName), newDoc)
         newDoc.id = docRef.id
@@ -446,16 +540,22 @@ export default function AdminDashboard() {
         if (type === 'job') setJobs([newDoc, ...jobs])
         if (type === 'resource') setResources([newDoc, ...resources])
         if (type === 'event') setEvents([newDoc, ...events])
+        if (type === 'marketplace') setMarketplace([newDoc, ...marketplace])
+        if (type === 'mentorship') setMentorship([newDoc, ...mentorship])
+        if (type === 'audioRoom') setAudioRooms([newDoc, ...audioRooms])
         showToast(`${type} added successfully`)
       } else {
-        await updateDoc(doc(db, colName, data.id), formData)
+        await updateDoc(doc(db, colName, data.id), processedData)
         
-        const updater = items => items.map(i => i.id === data.id ? { ...i, ...formData } : i)
+        const updater = items => items.map(i => i.id === data.id ? { ...i, ...processedData } : i)
         if (type === 'user') setUsers(updater(users))
         if (type === 'post') setPosts(updater(posts))
         if (type === 'job') setJobs(updater(jobs))
         if (type === 'resource') setResources(updater(resources))
         if (type === 'event') setEvents(updater(events))
+        if (type === 'marketplace') setMarketplace(updater(marketplace))
+        if (type === 'mentorship') setMentorship(updater(mentorship))
+        if (type === 'audioRoom') setAudioRooms(updater(audioRooms))
         showToast(`${type} updated successfully`)
       }
     } catch (err) {
@@ -814,6 +914,99 @@ export default function AdminDashboard() {
                   </div>
                 ))}
                 {events.length === 0 && <div className="p-12 text-center text-surface-400 font-medium">No events found</div>}
+              </div>
+            </div>
+          )}
+
+          {/* ====== MARKETPLACE TAB ====== */}
+          {activeTab === 'marketplace' && (
+            <div className="animate-fade-in">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-xl font-extrabold text-surface-900">🛒 Marketplace Management</h2>
+                <button onClick={() => setEditingItem({ type: 'marketplace', data: { type: 'PDF Notes' } })} className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold rounded-lg flex items-center gap-1.5 transition-colors">
+                  <Plus className="w-4 h-4" /> Add Product
+                </button>
+              </div>
+              <p className="text-sm text-surface-500 font-medium mb-6">{marketplace.length} products</p>
+              <div className="space-y-3">
+                {marketplace.filter(p => !searchQuery || p.title?.toLowerCase().includes(searchQuery.toLowerCase())).map(product => (
+                  <div key={product.id} className="bg-white border border-surface-200 rounded-2xl p-5 hover:border-primary-200 transition-all group">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <h3 className="font-bold text-surface-900">{product.title || 'Untitled'}</h3>
+                        <p className="text-sm font-medium text-surface-500 mt-1">{product.author || 'Unknown'} • ₹{product.price || 0}</p>
+                        <p className="text-xs text-surface-400 mt-2">{product.type || 'Resource'}</p>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <button onClick={() => setEditingItem({ type: 'marketplace', data: product })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteMarketplace(product.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {marketplace.length === 0 && <div className="p-12 text-center text-surface-400 font-medium">No products found</div>}
+              </div>
+            </div>
+          )}
+
+          {/* ====== MENTORSHIP TAB ====== */}
+          {activeTab === 'mentorship' && (
+            <div className="animate-fade-in">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-xl font-extrabold text-surface-900">👩‍🏫 Mentorship Management</h2>
+                <button onClick={() => setEditingItem({ type: 'mentorship', data: {} })} className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold rounded-lg flex items-center gap-1.5 transition-colors">
+                  <Plus className="w-4 h-4" /> Add Mentor
+                </button>
+              </div>
+              <p className="text-sm text-surface-500 font-medium mb-6">{mentorship.length} mentors</p>
+              <div className="space-y-3">
+                {mentorship.filter(p => !searchQuery || p.name?.toLowerCase().includes(searchQuery.toLowerCase())).map(mentor => (
+                  <div key={mentor.id} className="bg-white border border-surface-200 rounded-2xl p-5 hover:border-primary-200 transition-all group">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <h3 className="font-bold text-surface-900">{mentor.name || 'Unknown'}</h3>
+                        <p className="text-sm font-medium text-surface-500 mt-1">{mentor.subject || 'General'} • {mentor.experience || 'No Exp'}</p>
+                        <p className="text-xs text-surface-400 mt-2">Fee: {mentor.price === 0 ? 'Free' : `₹${mentor.price}`} • {(mentor.tags || []).join(', ')}</p>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <button onClick={() => setEditingItem({ type: 'mentorship', data: mentor })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteMentorship(mentor.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {mentorship.length === 0 && <div className="p-12 text-center text-surface-400 font-medium">No mentors found</div>}
+              </div>
+            </div>
+          )}
+
+          {/* ====== AUDIO ROOMS TAB ====== */}
+          {activeTab === 'audioRooms' && (
+            <div className="animate-fade-in">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-xl font-extrabold text-surface-900">🎙️ Audio Rooms Management</h2>
+                <button onClick={() => setEditingItem({ type: 'audioRoom', data: {} })} className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold rounded-lg flex items-center gap-1.5 transition-colors">
+                  <Plus className="w-4 h-4" /> Start Room
+                </button>
+              </div>
+              <p className="text-sm text-surface-500 font-medium mb-6">{audioRooms.length} active rooms</p>
+              <div className="space-y-3">
+                {audioRooms.filter(p => !searchQuery || p.title?.toLowerCase().includes(searchQuery.toLowerCase())).map(room => (
+                  <div key={room.id} className="bg-white border border-surface-200 rounded-2xl p-5 hover:border-primary-200 transition-all group">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <h3 className="font-bold text-surface-900">{room.title || 'Untitled'}</h3>
+                        <p className="text-sm font-medium text-surface-500 mt-1">Host: {room.host || 'Unknown'}</p>
+                        <p className="text-xs text-surface-400 mt-2">Listeners: {room.listeners || 0} • Speakers: {room.speakers || 0}</p>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <button onClick={() => setEditingItem({ type: 'audioRoom', data: room })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteAudioRoom(room.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {audioRooms.length === 0 && <div className="p-12 text-center text-surface-400 font-medium">No live rooms found</div>}
               </div>
             </div>
           )}

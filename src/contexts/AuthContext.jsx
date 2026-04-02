@@ -7,7 +7,7 @@ import {
   onAuthStateChanged,
   updateProfile
 } from 'firebase/auth'
-import { doc, setDoc, getDoc } from 'firebase/firestore'
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../utils/firebase'
 
 const AuthContext = createContext()
@@ -31,6 +31,7 @@ export function AuthProvider({ children }) {
       role,
       profilePhoto: '',
       location: '',
+      xp: 1000,
       createdAt: new Date().toISOString(),
     }
     await setDoc(doc(db, 'users', cred.user.uid), userData)
@@ -77,6 +78,7 @@ export function AuthProvider({ children }) {
         role,
         profilePhoto: cred.user.photoURL || '',
         location: '',
+        xp: 1000,
         createdAt: new Date().toISOString(),
       }
       await setDoc(doc(db, 'users', cred.user.uid), userData)
@@ -133,6 +135,16 @@ export function AuthProvider({ children }) {
     }
   }
 
+  async function updateXP(amount) {
+    if (!currentUser || !userProfile) return false;
+    const newXP = (userProfile.xp || 0) + amount;
+    if (newXP < 0) return false; // Not enough XP
+    
+    await updateDoc(doc(db, 'users', currentUser.uid), { xp: newXP });
+    setUserProfile(prev => ({ ...prev, xp: newXP }));
+    return true;
+  }
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user)
@@ -155,6 +167,7 @@ export function AuthProvider({ children }) {
     loginWithGoogle,
     logout,
     fetchUserProfile,
+    updateXP,
   }
 
   return (

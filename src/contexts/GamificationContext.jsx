@@ -32,6 +32,9 @@ const BADGE_DEFS = {
   social_butterfly: { name: 'Social Butterfly', emoji: '🦋', desc: 'Got 10 followers' },
   connector: { name: 'Connector', emoji: '🤝', desc: 'Following 10 people' },
   commenter: { name: 'Commenter', emoji: '💬', desc: 'Left 20 comments' },
+  top_contributor: { name: 'Top Contributor', emoji: '🌟', desc: 'Consistently provides high-quality content' },
+  subject_expert: { name: 'Subject Expert', emoji: '🔬', desc: 'Recognized expert in their subject' },
+  verified_educator: { name: 'Verified', emoji: '✅', desc: 'Verified School Teacher' },
 }
 
 // XP values for actions

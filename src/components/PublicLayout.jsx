@@ -146,21 +146,21 @@ export default function PublicLayout() {
       {/* ── Footer ── */}
       <footer className="border-t border-white/5 bg-[#05050a]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 text-center lg:text-left">
 
             {/* Brand Column */}
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 flex flex-col items-center lg:items-start">
               <Link to="/" className="flex items-center gap-2.5 mb-4">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden">
                   <img src="/logo.png" alt="LDMS Logo" className="w-[120%] h-[120%] object-contain mix-blend-multiply" />
                 </div>
                 <span className="text-xl font-extrabold tracking-tight">LDMS</span>
               </Link>
-              <p className="text-slate-400 text-sm leading-relaxed max-w-xs mb-6">
+              <p className="text-slate-400 text-sm leading-relaxed max-w-xs mb-6 mx-auto lg:mx-0">
                 India's smartest professional network for educators. Connect, grow, and thrive together.
               </p>
               {/* Social */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center lg:justify-start gap-3">
                 {[Twitter, Linkedin, Instagram, Youtube].map((Icon, i) => (
                   <a key={i} href="#" className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all duration-200">
                     <Icon className="w-4 h-4" />
@@ -190,9 +190,9 @@ export default function PublicLayout() {
           </div>
 
           {/* Bottom Bar */}
-          <div className="mt-12 pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="mt-12 pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
             <p className="text-slate-600 text-xs font-medium">© 2025 LDMS Technologies Pvt. Ltd. All rights reserved.</p>
-            <div className="flex items-center gap-2 text-slate-600 text-xs font-medium">
+            <div className="flex items-center justify-center gap-2 text-slate-600 text-xs font-medium">
               <MapPin className="w-3.5 h-3.5" />
               Made with ❤️ in India
             </div>

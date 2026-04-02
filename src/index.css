@@ -9,13 +9,24 @@
     box-sizing: border-box;
   }
 
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+  }
+
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     background-color: #fafafa;
     color: #18181b;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.01em;
+  }
+
+  #root {
+    overflow-x: hidden;
+    width: 100%;
+    min-height: 100vh;
   }
 
   h1, h2, h3, h4, h5, h6 {

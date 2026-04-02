@@ -94,7 +94,7 @@ export default function Landing() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-[#07070d]">
+    <div className="min-h-screen bg-[#07070d] overflow-x-hidden">
 
       {/* ── HERO ─────────────────────────────────────────────── */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-[70px]">
@@ -118,24 +118,24 @@ export default function Landing() {
           </div>
 
           {/* Headline */}
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-extrabold tracking-tighter text-white leading-none mb-6">
-            Where Great<br />
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-extrabold tracking-tighter text-white leading-tight sm:leading-none mb-6">
+            Where Great<br className="hidden sm:block" />{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-400">
               Teachers
             </span>{' '}
             Thrive.
           </h1>
 
-          <p className="text-lg sm:text-xl text-slate-400 font-medium max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-base sm:text-lg lg:text-xl text-slate-400 font-medium max-w-2xl mx-auto mb-10 leading-relaxed px-2 sm:px-0">
             The all-in-one professional platform built exclusively for India's educators.
             Connect, share resources, find jobs, and supercharge your teaching with AI.
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 w-full max-w-md mx-auto sm:max-w-none px-4 sm:px-0">
             <button
               onClick={() => navigate('/login')}
-              className="group flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-base rounded-2xl
+              className="group flex items-center justify-center w-full sm:w-auto gap-2 px-8 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-base rounded-2xl
                          shadow-[0_8px_32px_rgba(99,102,241,0.4)] hover:shadow-[0_16px_48px_rgba(99,102,241,0.5)]
                          hover:from-indigo-500 hover:to-violet-500 transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
             >
@@ -144,7 +144,7 @@ export default function Landing() {
             </button>
             <button
               onClick={() => navigate('/how-it-works')}
-              className="flex items-center gap-2 px-8 py-4 bg-white/5 border border-white/10 text-white font-bold text-base rounded-2xl
+              className="flex items-center justify-center w-full sm:w-auto gap-2 px-8 py-4 bg-white/5 border border-white/10 text-white font-bold text-base rounded-2xl
                          hover:bg-white/10 hover:border-white/20 transition-all duration-300"
             >
               See How It Works
@@ -169,11 +169,11 @@ export default function Landing() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-3xl mx-auto">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-3xl mx-auto px-4 sm:px-0">
             {STATS.map(stat => (
-              <div key={stat.label} className="bg-white/3 border border-white/5 rounded-2xl p-5 backdrop-blur-sm hover:bg-white/5 transition-all duration-300">
-                <p className="text-3xl font-extrabold text-white mb-1">{stat.value}</p>
-                <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">{stat.label}</p>
+              <div key={stat.label} className="bg-white/3 border border-white/5 rounded-2xl p-4 sm:p-5 backdrop-blur-sm hover:bg-white/5 transition-all duration-300">
+                <p className="text-2xl sm:text-3xl font-extrabold text-white mb-1">{stat.value}</p>
+                <p className="text-slate-500 text-[10px] sm:text-xs font-semibold uppercase tracking-wider">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -186,13 +186,13 @@ export default function Landing() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-indigo-600/5 rounded-full blur-[100px]" />
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12 sm:mb-16">
             <span className="inline-block px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-400 text-xs font-bold uppercase tracking-widest mb-5">Features</span>
-            <h2 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mb-5">
-              Everything you need to<br />
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight mb-5 leading-tight">
+              Everything you need to<br className="hidden sm:block" />{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">level up your career</span>
             </h2>
-            <p className="text-slate-400 text-lg max-w-xl mx-auto font-medium">
+            <p className="text-slate-400 text-base sm:text-lg max-w-xl mx-auto font-medium px-2">
               From networking to AI-powered tools — LDMS has it all built for educators, by educators.
             </p>
           </div>
@@ -283,30 +283,30 @@ export default function Landing() {
       {/* ── CTA SECTION ─────────────────────────────────────── */}
       <section className="py-24 border-t border-white/5">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="relative bg-gradient-to-br from-indigo-600/20 to-violet-600/20 border border-indigo-500/20 rounded-3xl p-12 sm:p-16 overflow-hidden">
+          <div className="relative bg-gradient-to-br from-indigo-600/20 to-violet-600/20 border border-indigo-500/20 rounded-3xl p-8 sm:p-16 overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(99,102,241,0.15),transparent_70%)]" />
             <div className="relative">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full mb-6">
                 <Zap className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="text-indigo-300 text-xs font-bold uppercase tracking-widest">Free Forever</span>
+                <span className="text-indigo-300 text-[10px] sm:text-xs font-bold uppercase tracking-widest">Free Forever</span>
               </div>
-              <h2 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mb-5">
-                Ready to transform<br/>your teaching career?
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight mb-5 leading-tight">
+                Ready to transform<br className="hidden sm:block" />{' '}your teaching career?
               </h2>
-              <p className="text-slate-400 text-lg font-medium mb-8 max-w-lg mx-auto">
+              <p className="text-slate-400 text-base sm:text-lg font-medium mb-8 max-w-lg mx-auto">
                 Join thousands of educators who are already growing with LDMS. No credit card required.
               </p>
               <button
                 onClick={() => navigate('/login')}
-                className="inline-flex items-center gap-2 px-10 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-base rounded-2xl
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-10 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-base rounded-2xl
                            shadow-[0_8px_32px_rgba(99,102,241,0.5)] hover:shadow-[0_16px_48px_rgba(99,102,241,0.6)]
                            hover:from-indigo-500 hover:to-violet-500 transition-all duration-300 hover:-translate-y-0.5"
               >
                 Join LDMS for Free
                 <ArrowRight className="w-5 h-5" />
               </button>
-              <p className="text-slate-600 text-xs font-medium mt-4">No credit card · Cancel anytime · Free forever plan</p>
+              <p className="text-slate-600 text-[10px] sm:text-xs font-medium mt-4">No credit card · Cancel anytime · Free forever plan</p>
             </div>
           </div>
         </div>

@@ -65,8 +65,8 @@ export default function About() {
         </div>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
           <span className="inline-block px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-400 text-xs font-bold uppercase tracking-widest mb-6">Our Story</span>
-          <h1 className="text-5xl sm:text-6xl font-extrabold text-white tracking-tight mb-6 leading-tight">
-            Built by teachers,<br />
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight mb-6 leading-tight">
+            Built by teachers,<br className="hidden sm:block" />{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">for teachers.</span>
           </h1>
           <p className="text-lg text-slate-400 font-medium leading-relaxed max-w-2xl mx-auto">
@@ -78,7 +78,7 @@ export default function About() {
       {/* ── Mission ── */}
       <section className="py-16 border-t border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center text-center lg:text-left">
             <div>
               <span className="inline-block px-3 py-1 bg-violet-500/10 border border-violet-500/20 rounded-full text-violet-400 text-xs font-bold uppercase tracking-widest mb-5">Our Mission</span>
               <h2 className="text-4xl font-extrabold text-white tracking-tight mb-5 leading-tight">
@@ -91,7 +91,7 @@ export default function About() {
                 From a first-year teacher in a small-town school to a veteran principal in a metro — LDMS is built to uplift everyone in the education ecosystem.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
                 { num: '12,400+', label: 'Educators', icon: Users },
                 { num: '2,800+', label: 'Schools', icon: BookOpen },
@@ -121,12 +121,12 @@ export default function About() {
               <div key={v.title} className="group relative bg-white/3 border border-white/5 rounded-2xl p-7 hover:bg-white/5 hover:-translate-y-1 transition-all duration-300 overflow-hidden">
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl"
                   style={{ background: `radial-gradient(circle at 0% 100%, ${v.glow} 0%, transparent 60%)` }} />
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${v.color} flex items-center justify-center mb-5`}
+                <div className={`w-12 h-12 rounded-xl mx-auto bg-gradient-to-br ${v.color} flex items-center justify-center mb-5`}
                   style={{ boxShadow: `0 4px 16px ${v.glow}` }}>
                   <v.icon className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-base font-bold text-white mb-2">{v.title}</h3>
-                <p className="text-slate-400 text-sm leading-relaxed font-medium">{v.desc}</p>
+                <h3 className="text-base font-bold text-white mb-2 text-center">{v.title}</h3>
+                <p className="text-slate-400 text-sm leading-relaxed font-medium text-center">{v.desc}</p>
               </div>
             ))}
           </div>
@@ -187,11 +187,11 @@ export default function About() {
       {/* ── CTA ── */}
       <section className="py-24 border-t border-white/5">
         <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-4xl font-extrabold text-white tracking-tight mb-5">Be part of the story</h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-5 leading-tight">Be part of the story</h2>
           <p className="text-slate-400 font-medium mb-8">Join thousands of educators who are shaping the future of education in India.</p>
           <button
             onClick={() => navigate('/login')}
-            className="inline-flex items-center gap-2 px-10 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-base rounded-2xl shadow-[0_8px_32px_rgba(99,102,241,0.5)] hover:shadow-[0_16px_48px_rgba(99,102,241,0.6)] hover:from-indigo-500 hover:to-violet-500 transition-all duration-300 hover:-translate-y-0.5"
+            className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-10 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-base rounded-2xl shadow-[0_8px_32px_rgba(99,102,241,0.5)] hover:shadow-[0_16px_48px_rgba(99,102,241,0.6)] hover:from-indigo-500 hover:to-violet-500 transition-all duration-300 hover:-translate-y-0.5"
           >
             Join LDMS Free <ArrowRight className="w-5 h-5" />
           </button>

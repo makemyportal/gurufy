@@ -10,7 +10,7 @@ import {
   BookOpen, Home, User, Briefcase, FolderOpen, Users, Sparkles,
   LayoutDashboard, Bell, Search, Menu, X, LogOut, ChevronDown,
   Settings, Shield, HelpCircle, GraduationCap, MessageSquare, CalendarDays,
-  Heart, MessageCircle, UserPlus, Zap, Trophy, Flame, LogIn, Megaphone
+  Heart, MessageCircle, UserPlus, Zap, Trophy, Flame, LogIn, Megaphone, ShoppingCart, Radio
 } from 'lucide-react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../utils/firebase'
@@ -25,7 +25,10 @@ function getTeacherNav(t) {
     { to: '/groups', icon: Users, label: t('groups'), color: 'from-violet-500 to-purple-600', shadow: 'rgba(139,92,246,0.4)' },
     { to: '/jobs', icon: Briefcase, label: t('careers'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
     { to: '/resources', icon: FolderOpen, label: t('resources'), color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
+    { to: '/marketplace', icon: ShoppingCart, label: 'Marketplace', color: 'from-blue-600 to-purple-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/ai-tools', icon: Sparkles, label: t('aiMagic'), color: 'from-pink-500 to-rose-600', shadow: 'rgba(244,63,94,0.4)' },
+    { to: '/mentorship', icon: GraduationCap, label: 'Mentorship', color: 'from-cyan-500 to-blue-600', shadow: 'rgba(6,182,212,0.4)' },
+    { to: '/audio-rooms', icon: Radio, label: 'Audio Rooms', color: 'from-rose-500 to-pink-600', shadow: 'rgba(244,63,94,0.4)' },
     { to: '/events', icon: CalendarDays, label: t('events'), color: 'from-fuchsia-500 to-violet-600', shadow: 'rgba(217,70,239,0.4)' },
     { to: '/leaderboard', icon: Trophy, label: t('leaderboard'), color: 'from-yellow-400 to-amber-500', shadow: 'rgba(251,191,36,0.4)' },
     { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
@@ -39,6 +42,8 @@ function getSchoolNav(t) {
     { to: '/teacher-search', icon: Search, label: t('findTalent'), color: 'from-violet-500 to-purple-600', shadow: 'rgba(139,92,246,0.4)' },
     { to: '/resources', icon: FolderOpen, label: t('resources'), color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
     { to: '/events', icon: CalendarDays, label: t('events'), color: 'from-fuchsia-500 to-violet-600', shadow: 'rgba(217,70,239,0.4)' },
+    { to: '/marketplace', icon: ShoppingCart, label: 'Marketplace', color: 'from-blue-600 to-purple-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/audio-rooms', icon: Radio, label: 'Audio Rooms', color: 'from-rose-500 to-pink-600', shadow: 'rgba(244,63,94,0.4)' },
     { to: '/leaderboard', icon: Trophy, label: t('leaderboard'), color: 'from-yellow-400 to-amber-500', shadow: 'rgba(251,191,36,0.4)' },
     { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
     { to: '/profile', icon: User, label: t('schoolProfile'), color: 'from-indigo-500 to-blue-600', shadow: 'rgba(99,102,241,0.35)' },
@@ -49,6 +54,7 @@ function getTeacherMobileNav(t) {
     { to: '/', icon: Home, label: t('feed'), color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/jobs', icon: Briefcase, label: t('careers'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
     { to: '/ai-tools', icon: Sparkles, label: 'AI', color: 'from-pink-500 to-rose-600', shadow: 'rgba(244,63,94,0.4)' },
+    { to: '/marketplace', icon: ShoppingCart, label: 'Store', color: 'from-blue-600 to-purple-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
   ]
 }
@@ -217,7 +223,7 @@ export default function Layout() {
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200/50 rounded-full transition-all cursor-pointer group"
             >
               <span className="text-sm">{currentLevel.emoji}</span>
-              <span className="text-xs font-extrabold text-amber-700">{stats.xp || 0} XP</span>
+              <span className="text-xs font-extrabold text-amber-700">{userProfile?.xp ?? stats?.xp ?? 0} XP</span>
               {(stats.streak || 0) > 0 && (
                 <>
                   <span className="text-amber-300">·</span>

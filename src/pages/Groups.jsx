@@ -22,7 +22,7 @@ export default function Groups() {
   const [searchTerm, setSearchTerm] = useState('')
   const [form, setForm] = useState({ name: '', description: '', category: 'General' })
 
-  const CATEGORIES = ['General', 'STEM', 'Arts', 'Languages', 'EdTech', 'Administration', 'Exam Prep', 'Special Education']
+  const CATEGORIES = ['General', 'CBSE / State Boards', 'NEET / JEE Prep', 'UPSC / Civil Services', 'Primary Education', 'Languages', 'EdTech Innovators', 'Special Education']
 
   useEffect(() => {
     const q = query(collection(db, 'groups'), orderBy('createdAt', 'desc'))
@@ -126,12 +126,12 @@ export default function Groups() {
 
   const CATEGORY_COLORS = {
     General: 'from-blue-500 to-indigo-600',
-    STEM: 'from-emerald-500 to-teal-600',
-    Arts: 'from-pink-500 to-rose-600',
+    'CBSE / State Boards': 'from-emerald-500 to-teal-600',
+    'NEET / JEE Prep': 'from-red-500 to-pink-600',
+    'UPSC / Civil Services': 'from-amber-500 to-orange-600',
+    'Primary Education': 'from-pink-500 to-rose-600',
     Languages: 'from-amber-500 to-orange-600',
-    EdTech: 'from-violet-500 to-purple-600',
-    Administration: 'from-slate-500 to-gray-600',
-    'Exam Prep': 'from-red-500 to-pink-600',
+    'EdTech Innovators': 'from-violet-500 to-purple-600',
     'Special Education': 'from-cyan-500 to-blue-600',
   }
 
@@ -215,8 +215,8 @@ export default function Groups() {
     <div className="max-w-5xl mx-auto animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="section-title">Communities</h1>
-          <p className="text-surface-500 text-sm mt-1">Connect with educators who share your interests</p>
+          <h1 className="section-title">Subject Communities</h1>
+          <p className="text-surface-500 text-sm mt-1">Join specific subject groups to discuss notes, syllabus, and strategies</p>
         </div>
         <button onClick={() => setShowCreate(true)} className="btn-primary py-2.5 px-5 text-sm flex items-center gap-2">
           <Plus className="w-4 h-4" /> Create Group

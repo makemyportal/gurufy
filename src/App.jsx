@@ -19,6 +19,9 @@ import Events from './pages/Events'
 import AdminDashboard from './pages/AdminDashboard'
 import Leaderboard from './pages/Leaderboard'
 import UserProfile from './pages/UserProfile'
+import Marketplace from './pages/Marketplace'
+import Mentorship from './pages/Mentorship'
+import AudioRooms from './pages/AudioRooms'
 // Public info pages
 import About from './pages/public/About'
 import HowItWorks from './pages/public/HowItWorks'
@@ -100,6 +103,9 @@ export default function App() {
         <Route path="messaging" element={<ProtectedRoute><Messaging /></ProtectedRoute>} />
         <Route path="events" element={<Events />} />
         <Route path="leaderboard" element={<Leaderboard />} />
+        <Route path="marketplace" element={<Marketplace />} />
+        <Route path="mentorship" element={<ProtectedRoute><Mentorship /></ProtectedRoute>} />
+        <Route path="audio-rooms" element={<AudioRooms />} />
         <Route path="user/:userId" element={<UserProfile />} />
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         {/* Redirect /feed → / */}

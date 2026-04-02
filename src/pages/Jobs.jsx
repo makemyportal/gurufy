@@ -12,7 +12,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 
 const SUBJECTS = ['All Subjects', 'Mathematics', 'English', 'Science', 'Computer Science', 'Hindi', 'Social Studies', 'Music', 'Art', 'Physics', 'Chemistry', 'Biology']
-const JOB_TYPES = ['Full-time', 'Part-time', 'Contract']
+const JOB_TYPES = ['Full-time', 'Part-time', 'Contract', 'Freelance / Gig']
 
 export default function Jobs() {
   const navigate = useNavigate()
@@ -21,6 +21,7 @@ export default function Jobs() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedSubject, setSelectedSubject] = useState('All Subjects')
+  const [jobCategory, setJobCategory] = useState('Jobs')
   const [selectedJob, setSelectedJob] = useState(null)
   const [applyingId, setApplyingId] = useState(null)
   const [showPostJob, setShowPostJob] = useState(false)
@@ -43,11 +44,14 @@ export default function Jobs() {
   }, [])
 
   const filteredJobs = jobs.filter(job => {
+    const isGigType = job.type === 'Freelance / Gig'
+    const matchCategory = jobCategory === 'Gigs' ? isGigType : !isGigType
+    
     const matchSearch = job.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         job.school?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         job.location?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchSubject = selectedSubject === 'All Subjects' || job.subject === selectedSubject
-    return matchSearch && matchSubject
+    return matchCategory && matchSearch && matchSubject
   })
 
   async function handleApply(job) {
@@ -139,6 +143,21 @@ export default function Jobs() {
             <Plus className="w-4 h-4" /> Post a Job
           </button>
         )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 bg-surface-100 p-1.5 rounded-xl max-w-[400px] mb-6">
+        {['Jobs', 'Gigs'].map(cat => (
+          <button
+            key={cat}
+            onClick={() => { setJobCategory(cat); setSelectedJob(null); }}
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+              jobCategory === cat ? 'bg-white text-primary-600 shadow-sm' : 'text-surface-500 hover:text-surface-800'
+            }`}
+          >
+            {cat === 'Jobs' ? 'Full-time & Contract' : 'Freelance & Gigs'}
+          </button>
+        ))}
       </div>
 
       {/* Search & Filters */}

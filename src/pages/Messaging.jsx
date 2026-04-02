@@ -29,13 +29,21 @@ export default function Messaging() {
     if (!currentUser) return
     const q = query(
       collection(db, 'conversations'),
-      where('participants', 'array-contains', currentUser.uid),
-      orderBy('lastMessageAt', 'desc')
+      where('participants', 'array-contains', currentUser.uid)
     )
     const unsub = onSnapshot(q, snap => {
-      setConversations(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      docs.sort((a, b) => {
+        const t1 = a.lastMessageAt?.toMillis?.() || Date.now()
+        const t2 = b.lastMessageAt?.toMillis?.() || Date.now()
+        return t2 - t1
+      })
+      setConversations(docs)
       setLoading(false)
-    }, () => setLoading(false))
+    }, (err) => {
+      console.error("Convo fetch error:", err)
+      setLoading(false)
+    })
     return () => unsub()
   }, [currentUser])
 
