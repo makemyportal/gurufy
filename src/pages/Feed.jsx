@@ -15,7 +15,7 @@ import {
   TrendingUp, Users, Zap, ChevronRight, Award, Bot,
   BarChart2, CheckCircle, Plus, Minus, Youtube, Flag, AlertTriangle, ThumbsDown,
   Link2, HelpCircle, Camera, Megaphone, UserPlus, UserMinus, Flame,
-  Newspaper, Briefcase, GraduationCap, ExternalLink, Radio, Clock, MapPin, Eye, ArrowRight
+  Newspaper, Briefcase, GraduationCap, ExternalLink, Radio, Clock, MapPin, Eye, ArrowRight, RefreshCw, Wifi
 } from 'lucide-react'
 import { generateAIContent } from '../utils/aiService'
 import { useNavigate } from 'react-router-dom'
@@ -24,6 +24,7 @@ import { useGamification } from '../contexts/GamificationContext'
 import { XP_VALUES } from '../contexts/GamificationContext'
 import { followUser, unfollowUser, isFollowing } from '../utils/followHelpers'
 import { getAutoFeedItems, getTickerItems, getItemsByCategory, ALL_AUTO_FEED } from '../utils/autoFeedData'
+import { fetchLiveFeed, getMixedFeed, filterLiveByCategory, clearFeedCache } from '../utils/liveFeedService'
 
 const TAGS = ['#STEM', '#EdTech', '#NEP2020', '#ClassroomManagement', '#LessonIdeas', '#AIinEd']
 const QUICK_ACTIONS = [
@@ -299,6 +300,9 @@ export default function Feed() {
   const [tickerItems, setTickerItems] = useState([])
   const [sidebarTrending, setSidebarTrending] = useState([])
   const [activeFilter, setActiveFilter] = useState('all')
+  const [liveData, setLiveData] = useState(null)
+  const [isLiveActive, setIsLiveActive] = useState(false)
+  const [refreshingFeed, setRefreshingFeed] = useState(false)
 
   useEffect(() => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'))
@@ -309,34 +313,94 @@ export default function Feed() {
     return () => unsub()
   }, [])
 
-  // ─── Auto Feed Setup & Rotation ───
+  // ─── Live Feed Setup & Rotation ───
   useEffect(() => {
-    // Initial load
+    // Start with hardcoded data immediately (instant load)
     setAutoFeedItems(getAutoFeedItems(15))
     setTickerItems(getTickerItems(6))
     setSidebarTrending(getAutoFeedItems(4))
 
-    // Rotate auto feed every 30 seconds
-    const rotateInterval = setInterval(() => {
-      setAutoFeedItems(getAutoFeedItems(15))
-      setSidebarTrending(getAutoFeedItems(4))
-    }, 30000)
+    // Then fetch live data in background
+    fetchLiveFeed()
+      .then(live => {
+        if (live && live.length > 0) {
+          setLiveData(live)
+          setIsLiveActive(true)
+          // Replace with mixed live + hardcoded data
+          setAutoFeedItems(getMixedFeed(live, 15))
+          // Update ticker with live news
+          const liveTickerItems = live
+            .filter(i => i.category === 'news' || i.category === 'job' || i.category === 'exam')
+            .slice(0, 6)
+          if (liveTickerItems.length > 0) setTickerItems(liveTickerItems)
+          setSidebarTrending(getMixedFeed(live, 4))
+        }
+      })
+      .catch(() => {
+        console.warn('Live feed failed, using fallback')
+      })
 
     // Rotate ticker every 20 seconds
     const tickerRotate = setInterval(() => {
-      setTickerItems(getTickerItems(6))
+      setTickerItems(prev => {
+        if (liveData && liveData.length > 0) {
+          const ticker = liveData
+            .filter(i => i.category === 'news' || i.category === 'job' || i.category === 'exam')
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 6)
+          return ticker.length > 0 ? ticker : getTickerItems(6)
+        }
+        return getTickerItems(6)
+      })
     }, 20000)
 
+    // Refresh live feed every 15 minutes
+    const liveRefresh = setInterval(() => {
+      clearFeedCache()
+      fetchLiveFeed()
+        .then(live => {
+          if (live && live.length > 0) {
+            setLiveData(live)
+            setIsLiveActive(true)
+            setAutoFeedItems(getMixedFeed(live, 15))
+            setSidebarTrending(getMixedFeed(live, 4))
+          }
+        })
+        .catch(() => {})
+    }, 15 * 60 * 1000)
+
     return () => {
-      clearInterval(rotateInterval)
       clearInterval(tickerRotate)
+      clearInterval(liveRefresh)
     }
   }, [])
 
-  // Filter auto feed items — when filtering by category, pull ALL items of that type
+  // Manual refresh handler
+  async function handleRefreshFeed() {
+    setRefreshingFeed(true)
+    try {
+      clearFeedCache()
+      const live = await fetchLiveFeed()
+      if (live && live.length > 0) {
+        setLiveData(live)
+        setIsLiveActive(true)
+        setAutoFeedItems(getMixedFeed(live, 15))
+        setSidebarTrending(getMixedFeed(live, 4))
+        const liveTickerItems = live
+          .filter(i => i.category === 'news' || i.category === 'job' || i.category === 'exam')
+          .slice(0, 6)
+        if (liveTickerItems.length > 0) setTickerItems(liveTickerItems)
+      }
+    } catch {
+      console.warn('Manual refresh failed')
+    }
+    setRefreshingFeed(false)
+  }
+
+  // Filter auto feed items — when filtering by category, use live data if available
   const filteredAutoFeed = activeFilter === 'all' 
     ? autoFeedItems 
-    : getItemsByCategory(activeFilter)
+    : (liveData ? filterLiveByCategory(liveData, activeFilter).concat(getItemsByCategory(activeFilter)) : getItemsByCategory(activeFilter))
 
   // Listen to Platform Settings for Global Announcements
   useEffect(() => {
@@ -966,10 +1030,30 @@ export default function Feed() {
               <span className="text-sm font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
                 {activeFilter === 'all' ? t('latestCommunity') : `${activeFilter === 'job' ? 'Naukri' : activeFilter === 'meme' ? 'Photos' : activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Updates`}
               </span>
+              {isLiveActive && (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700/40 rounded-full">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                  </span>
+                  <span className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest">Live</span>
+                </span>
+              )}
             </div>
-            <span className="text-xs font-bold text-slate-400">
-              {activeFilter === 'all' ? `${posts.length + filteredAutoFeed.length} ${t('insights')}` : `${filteredAutoFeed.length} results`}
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRefreshFeed}
+                disabled={refreshingFeed}
+                className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg border border-indigo-200/60 dark:border-indigo-700/40 transition-all disabled:opacity-50"
+                title="Refresh live feed"
+              >
+                <RefreshCw className={`w-3 h-3 ${refreshingFeed ? 'animate-spin' : ''}`} />
+                {refreshingFeed ? 'Refreshing...' : 'Refresh'}
+              </button>
+              <span className="text-xs font-bold text-slate-400">
+                {activeFilter === 'all' ? `${posts.length + filteredAutoFeed.length} ${t('insights')}` : `${filteredAutoFeed.length} results`}
+              </span>
+            </div>
           </div>
 
           {/* Skeleton */}
