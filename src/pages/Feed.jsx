@@ -773,7 +773,7 @@ export default function Feed() {
   const totalLikes = posts.reduce((a, p) => a + (p.likes?.length || 0), 0)
 
   return (
-    <div className="max-w-[1200px] mx-auto px-0 animate-fade-in pb-20 sm:pb-16">
+    <div className="max-w-[1200px] mx-auto px-3 sm:px-4 lg:px-0 animate-fade-in pb-20 sm:pb-16">
 
       {/* ─── LIVE NEWS TICKER ─── */}
       <LiveNewsTicker items={tickerItems} />
@@ -851,7 +851,7 @@ export default function Feed() {
       </div>
 
       {/* ─── MAIN LAYOUT ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5 sm:gap-8">
 
         {/* ─── LEFT: FEED ─── */}
         <div className="space-y-5 min-w-0">
