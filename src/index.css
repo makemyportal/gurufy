@@ -601,3 +601,30 @@
 .dark [class*="backdrop-blur"] {
   backdrop-filter: blur(20px) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AUTO FEED — Ticker Animations & Utilities
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Live ticker progress bar */
+@keyframes ticker-progress {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+/* Scrollbar hide utility for filter tabs */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Line clamp utilities */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

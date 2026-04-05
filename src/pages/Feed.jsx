@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { db } from '../utils/firebase'
@@ -14,7 +14,8 @@ import {
   ImagePlus, Sparkles, BookOpen, Trash2, PenLine,
   TrendingUp, Users, Zap, ChevronRight, Award, Bot,
   BarChart2, CheckCircle, Plus, Minus, Youtube, Flag, AlertTriangle, ThumbsDown,
-  Link2, HelpCircle, Camera, Megaphone, UserPlus, UserMinus, Flame
+  Link2, HelpCircle, Camera, Megaphone, UserPlus, UserMinus, Flame,
+  Newspaper, Briefcase, GraduationCap, ExternalLink, Radio, Clock, MapPin, Eye, ArrowRight
 } from 'lucide-react'
 import { generateAIContent } from '../utils/aiService'
 import { useNavigate } from 'react-router-dom'
@@ -22,6 +23,7 @@ import { createNotification } from '../utils/notificationHelpers'
 import { useGamification } from '../contexts/GamificationContext'
 import { XP_VALUES } from '../contexts/GamificationContext'
 import { followUser, unfollowUser, isFollowing } from '../utils/followHelpers'
+import { getAutoFeedItems, getTickerItems, getItemsByCategory, ALL_AUTO_FEED } from '../utils/autoFeedData'
 
 const TAGS = ['#STEM', '#EdTech', '#NEP2020', '#ClassroomManagement', '#LessonIdeas', '#AIinEd']
 const QUICK_ACTIONS = [
@@ -29,6 +31,222 @@ const QUICK_ACTIONS = [
   { icon: BookOpen, label: 'Library', sub: 'Browse resources', route: '/resources', from: 'from-sky-500', to: 'to-blue-600' },
   { icon: Award, label: 'Leaderboard', sub: 'Top educators', route: '/leaderboard', from: 'from-amber-400', to: 'to-orange-500' },
 ]
+
+// ─── Category Icon Helper ───
+function getCategoryIcon(category) {
+  switch(category) {
+    case 'news': return Newspaper
+    case 'job': return Briefcase
+    case 'scheme': return GraduationCap
+    case 'exam': return FileText
+    case 'tip': return Sparkles
+    case 'discussion': return TrendingUp
+    case 'meme': return Camera
+    default: return Newspaper
+  }
+}
+
+function getCategoryLabel(category) {
+  switch(category) {
+    case 'news': return 'Education News'
+    case 'job': return 'Naukri / Job Alert'
+    case 'scheme': return 'Govt Scheme'
+    case 'exam': return 'Exam Update'
+    case 'tip': return 'Teaching Tip'
+    case 'discussion': return 'Trending Discussion'
+    case 'meme': return 'Photo / Meme'
+    default: return 'Update'
+  }
+}
+
+// ─── Live News Ticker Component ───
+function LiveNewsTicker({ items }) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  
+  useEffect(() => {
+    if (!items || items.length === 0) return
+    const interval = setInterval(() => {
+      setCurrentIndex(prev => (prev + 1) % items.length)
+    }, 4000)
+    return () => clearInterval(interval)
+  }, [items])
+
+  if (!items || items.length === 0) return null
+  const item = items[currentIndex]
+
+  return (
+    <div onClick={() => item.url && window.open(item.url, '_blank', 'noopener,noreferrer')} className="relative overflow-hidden bg-gradient-to-r from-red-600 via-rose-600 to-pink-600 rounded-xl sm:rounded-2xl mb-5 shadow-lg shadow-red-100 dark:shadow-red-900/20 cursor-pointer hover:shadow-xl transition-shadow">
+      <div className="flex items-center gap-3 px-4 py-2.5 sm:py-3">
+        {/* LIVE Badge */}
+        <div className="flex items-center gap-1.5 shrink-0 bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+          </span>
+          <span className="text-[10px] font-black text-white uppercase tracking-widest">LIVE</span>
+        </div>
+        
+        {/* Scrolling Text */}
+        <div className="flex-1 overflow-hidden min-w-0">
+          <div key={currentIndex} className="animate-slide-in-right">
+            <p className="text-white text-xs sm:text-sm font-bold truncate">
+              <span className="inline-block mr-2 text-yellow-200">{item.icon}</span>
+              {item.title}
+            </p>
+          </div>
+        </div>
+        
+        {/* Tag */}
+        <span className="hidden sm:inline-flex text-[10px] font-extrabold text-white/80 bg-white/15 px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">
+          {item.tag}
+        </span>
+      </div>
+      
+      {/* Progress bar */}
+      <div className="h-0.5 bg-white/20">
+        <div className="h-full bg-white/60 transition-all duration-[4000ms] ease-linear" 
+          style={{ width: '100%', animation: 'ticker-progress 4s linear infinite' }} 
+        />
+      </div>
+    </div>
+  )
+}
+
+// ─── Auto Feed Card Component ───
+function AutoFeedCard({ item, index }) {
+  const navigate = useNavigate()
+  const CategoryIcon = getCategoryIcon(item.category)
+
+  const bgByCategory = {
+    news: 'from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200/60 dark:border-blue-800/40',
+    job: 'from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border-emerald-200/60 dark:border-emerald-800/40',
+    scheme: 'from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-200/60 dark:border-amber-800/40',
+    exam: 'from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/20 border-rose-200/60 dark:border-rose-800/40',
+    tip: 'from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 border-violet-200/60 dark:border-violet-800/40',
+    discussion: 'from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border-orange-200/60 dark:border-orange-800/40',
+    meme: 'from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 border-pink-200/60 dark:border-pink-800/40',
+  }
+
+  const iconBgByCategory = {
+    news: 'bg-blue-500',
+    job: 'bg-emerald-500',
+    scheme: 'bg-amber-500',
+    exam: 'bg-rose-500',
+    tip: 'bg-violet-500',
+    discussion: 'bg-orange-500',
+    meme: 'bg-pink-500',
+  }
+
+  function handleCardClick() {
+    if (item.url) {
+      window.open(item.url, '_blank', 'noopener,noreferrer')
+    }
+  }
+
+  return (
+    <article 
+      onClick={handleCardClick}
+      className={`relative overflow-hidden bg-gradient-to-br ${bgByCategory[item.category] || bgByCategory.news} border rounded-2xl transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 animate-fade-in group ${item.url ? 'cursor-pointer' : ''}`}
+      style={{ animationDelay: `${index * 0.04}s` }}
+    >
+      {/* Top Ribbon */}
+      <div className="flex items-center justify-between px-5 pt-4 pb-2">
+        <div className="flex items-center gap-2">
+          <div className={`w-7 h-7 rounded-lg ${iconBgByCategory[item.category] || 'bg-blue-500'} flex items-center justify-center shadow-md`}>
+            <CategoryIcon className="w-3.5 h-3.5 text-white" />
+          </div>
+          <span className={`text-[11px] font-black uppercase tracking-wider bg-gradient-to-r ${item.tagColor} bg-clip-text text-transparent`}>
+            {item.tag || getCategoryLabel(item.category)}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 dark:text-slate-500">
+          <Clock className="w-3 h-3" />
+          {item.time}
+        </div>
+      </div>
+
+      {/* Image for meme/photo posts */}
+      {item.image && (
+        <div className="px-5 pb-2">
+          <div className="relative overflow-hidden rounded-xl border border-white/50 dark:border-white/10 shadow-sm">
+            <img 
+              src={item.image} 
+              alt={item.title} 
+              className="w-full max-h-[400px] object-cover hover:scale-[1.02] transition-transform duration-500" 
+              loading="lazy"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="px-5 pb-3">
+        <h3 className="text-sm sm:text-[15px] font-extrabold text-slate-900 dark:text-white leading-snug mb-2 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">
+          <span className="mr-1.5">{item.icon}</span>{item.title}
+        </h3>
+        <p className="text-xs sm:text-[13px] text-slate-600 dark:text-slate-300 leading-relaxed font-medium line-clamp-2 mb-2">
+          {item.summary}
+        </p>
+
+        {/* Job-specific details */}
+        {item.category === 'job' && (
+          <div className="flex flex-wrap gap-2 mt-2 mb-1">
+            {item.location && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-white/70 dark:bg-white/10 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 rounded-lg border border-emerald-200/50 dark:border-emerald-700/30">
+                <MapPin className="w-3 h-3" /> {item.location}
+              </span>
+            )}
+            {item.salary && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-white/70 dark:bg-white/10 text-[11px] font-bold text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200/50 dark:border-blue-700/30">
+                💰 {item.salary}
+              </span>
+            )}
+            {item.deadline && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-white/70 dark:bg-white/10 text-[11px] font-bold text-rose-700 dark:text-rose-300 rounded-lg border border-rose-200/50 dark:border-rose-700/30">
+                ⏰ {item.deadline}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Tip/Meme author */}
+        {(item.category === 'tip' || item.category === 'meme') && item.author && (
+          <div className="flex items-center gap-2 mt-2 mb-1">
+            <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${item.category === 'meme' ? 'from-pink-500 to-rose-600' : 'from-violet-500 to-indigo-600'} flex items-center justify-center text-white text-[8px] font-bold`}>
+              {item.author.split(' ').map(w => w[0]).join('').slice(0, 2)}
+            </div>
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{item.author}</span>
+            {item.authorRole && <span className="text-[10px] font-medium text-slate-400">· {item.authorRole}</span>}
+          </div>
+        )}
+
+        {/* Source */}
+        {item.source && (
+          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-1">
+            Source: {item.source}
+          </p>
+        )}
+      </div>
+
+      {/* Footer - Engagement */}
+      <div className="flex items-center justify-between px-5 py-3 border-t border-white/40 dark:border-white/10 bg-white/30 dark:bg-white/5">
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5 text-xs font-bold text-rose-500">
+            <Heart className="w-3.5 h-3.5 fill-rose-500" /> {item.likes}
+          </span>
+          <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
+            <MessageCircle className="w-3.5 h-3.5" /> {item.comments}
+          </span>
+        </div>
+        {item.url && (
+          <span className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-700 transition-colors">
+            <ExternalLink className="w-3 h-3" /> Open Link
+          </span>
+        )}
+      </div>
+    </article>
+  )
+}
 
 // ─── Outside component for stable ref ───
 function CommentInput({ postId, value, onChange, onSubmit }) {
@@ -76,6 +294,12 @@ export default function Feed() {
   const fileInputRef = useRef(null)
   const photoInputRef = useRef(null)
 
+  // Auto Feed State
+  const [autoFeedItems, setAutoFeedItems] = useState([])
+  const [tickerItems, setTickerItems] = useState([])
+  const [sidebarTrending, setSidebarTrending] = useState([])
+  const [activeFilter, setActiveFilter] = useState('all')
+
   useEffect(() => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'))
     const unsub = onSnapshot(q, async (snap) => {
@@ -84,6 +308,35 @@ export default function Feed() {
     })
     return () => unsub()
   }, [])
+
+  // ─── Auto Feed Setup & Rotation ───
+  useEffect(() => {
+    // Initial load
+    setAutoFeedItems(getAutoFeedItems(15))
+    setTickerItems(getTickerItems(6))
+    setSidebarTrending(getAutoFeedItems(4))
+
+    // Rotate auto feed every 30 seconds
+    const rotateInterval = setInterval(() => {
+      setAutoFeedItems(getAutoFeedItems(15))
+      setSidebarTrending(getAutoFeedItems(4))
+    }, 30000)
+
+    // Rotate ticker every 20 seconds
+    const tickerRotate = setInterval(() => {
+      setTickerItems(getTickerItems(6))
+    }, 20000)
+
+    return () => {
+      clearInterval(rotateInterval)
+      clearInterval(tickerRotate)
+    }
+  }, [])
+
+  // Filter auto feed items — when filtering by category, pull ALL items of that type
+  const filteredAutoFeed = activeFilter === 'all' 
+    ? autoFeedItems 
+    : getItemsByCategory(activeFilter)
 
   // Listen to Platform Settings for Global Announcements
   useEffect(() => {
@@ -146,9 +399,17 @@ export default function Feed() {
 
   async function triggerAIBot() {
     try {
-      const SUBJECTS = ['Space Physics', 'Ancient History', 'Modern Ed-Tech', 'Psychology of Learning', 'Mathematical Tricks', 'English Literature', 'Technology Innovations', 'Mindfulness in classroom', 'General Knowledge Facts']
-      const isPoll = Math.random() > 0.7; // 30% chance for a poll
-      const subject = SUBJECTS[Math.floor(Math.random() * SUBJECTS.length)]
+      const SUBJECTS_EN = ['Space Physics', 'Ancient History', 'Modern Ed-Tech', 'Psychology of Learning', 'Mathematical Tricks', 'English Literature', 'Technology Innovations', 'Mindfulness in classroom', 'General Knowledge Facts', 'Environmental Science', 'Indian Geography', 'World History']
+      const SUBJECTS_HI = ['भारतीय इतिहास', 'विज्ञान और तकनीक', 'गणित', 'हिंदी साहित्य', 'भूगोल', 'पर्यावरण विज्ञान', 'सामान्य ज्ञान', 'भारतीय संविधान', 'खेल और स्वास्थ्य', 'कला और संस्कृति']
+      
+      const isHindi = Math.random() > 0.5 // 50% chance Hindi
+      const subjects = isHindi ? SUBJECTS_HI : SUBJECTS_EN
+      const subject = subjects[Math.floor(Math.random() * subjects.length)]
+      
+      // 40% poll/MCQ, 30% question, 30% fact
+      const rand = Math.random()
+      const isPoll = rand < 0.4
+      const isQuestion = rand >= 0.4 && rand < 0.7
       
       let postDoc = {
         authorId: 'ldms_ai_bot',
@@ -160,30 +421,33 @@ export default function Feed() {
       }
 
       if (isPoll) {
-         const prompt = `Generate an engaging multiple-choice poll (with exactly 3 options) about ${subject}. Format EXACTLY as:
-Question?
-Option 1
-Option 2
-Option 3
-NO markdown. NO extra text.`
+         const prompt = isHindi
+           ? `${subject} विषय पर एक रोचक MCQ (बहुविकल्पीय प्रश्न) बनाएं जिसमें 4 विकल्प हों। Format:\nप्रश्न?\nA) विकल्प 1\nB) विकल्प 2\nC) विकल्प 3\nD) विकल्प 4\nकोई markdown नहीं। सिर्फ प्रश्न और विकल्प लिखें।`
+           : `Create an engaging MCQ (multiple choice question) about ${subject} with exactly 4 options for teachers. Format EXACTLY as:\nQuestion?\nA) Option 1\nB) Option 2\nC) Option 3\nD) Option 4\nNO markdown. NO extra text.`
          const text = await generateAIContent(prompt)
          const lines = text.split('\n').map(l => l.trim()).filter(l => l)
          if (lines.length >= 4) {
            postDoc.content = lines[0]
            postDoc.postType = 'poll'
-           postDoc.pollOptions = [
-             { id: 1, text: lines[1].replace(/^[-\d.)]\s*/, '').replace(/^[A-Za-z]\)\s*/, '') },
-             { id: 2, text: lines[2].replace(/^[-\d.)]\s*/, '').replace(/^[A-Za-z]\)\s*/, '') },
-             { id: 3, text: lines[3].replace(/^[-\d.)]\s*/, '').replace(/^[A-Za-z]\)\s*/, '') },
-           ].filter(o => o.text)
+           postDoc.pollOptions = lines.slice(1, 5).map((line, i) => ({
+             id: i + 1,
+             text: line.replace(/^[A-Da-d]\)\s*/, '').replace(/^[A-Da-d]\.\s*/, '').replace(/^[-\d.)]\s*/, '').trim()
+           })).filter(o => o.text)
            postDoc.pollVotes = {}
          } else { postDoc.postType = 'text'; postDoc.content = text; } 
+      } else if (isQuestion) {
+         const prompt = isHindi
+           ? `${subject} के बारे में एक छोटा, रोचक सवाल पूछें (30 शब्दों से कम) जो शिक्षकों के बीच चर्चा शुरू करे। 1 emoji इस्तेमाल करें। कोई markdown नहीं।`
+           : `Ask a short, engaging open-ended question (under 30 words) about ${subject} to inspire a discussion among educators. Use 1 emoji. EXCLUDE MARKDOWN.`
+         const text = await generateAIContent(prompt)
+         let cleanText = text.trim()
+         if (cleanText.startsWith('"') && cleanText.endsWith('"')) cleanText = cleanText.slice(1, -1)
+         postDoc.content = cleanText;
+         postDoc.postType = 'text';
       } else {
-         const isQuestion = Math.random() > 0.5;
-         const prompt = isQuestion 
-            ? `Ask a short, engaging open-ended question (under 30 words) about ${subject} to inspire a discussion among educators. Use 1 emoji. EXCLUDE MARKDOWN.`
-            : `Share a fascinating, mind-blowing educational fact (under 40 words) about ${subject}. Include 1 or 2 emojis. EXCLUDE MARKDOWN.`
-         
+         const prompt = isHindi
+           ? `${subject} के बारे में एक रोचक, दिलचस्प तथ्य बताएं (40 शब्दों से कम)। 1-2 emoji इस्तेमाल करें। कोई markdown नहीं।`
+           : `Share a fascinating, mind-blowing educational fact (under 40 words) about ${subject}. Include 1 or 2 emojis. EXCLUDE MARKDOWN.`
          const text = await generateAIContent(prompt)
          let cleanText = text.trim()
          if (cleanText.startsWith('"') && cleanText.endsWith('"')) cleanText = cleanText.slice(1, -1)
@@ -447,6 +711,9 @@ NO markdown. NO extra text.`
   return (
     <div className="max-w-[1200px] mx-auto px-0 animate-fade-in pb-20 sm:pb-16">
 
+      {/* ─── LIVE NEWS TICKER ─── */}
+      <LiveNewsTicker items={tickerItems} />
+
       {/* ─── HERO BANNER ─── */}
       <div className="relative overflow-hidden rounded-[20px] sm:rounded-[32px] mb-6 sm:mb-8 mt-1 bg-white dark:bg-surface-900/40 min-h-[160px] sm:min-h-[200px] flex items-center px-6 sm:px-12 border border-surface-200/60 dark:border-white/5 shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-none">
         
@@ -666,13 +933,43 @@ NO markdown. NO extra text.`
             </div>
           )}
 
+          {/* ─── FEED FILTER TABS ─── */}
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 px-1">
+            {[
+              { key: 'all', label: '🔥 All', emoji: '' },
+              { key: 'news', label: '📰 News', emoji: '' },
+              { key: 'job', label: '💼 Naukri', emoji: '' },
+              { key: 'scheme', label: '🏛️ Schemes', emoji: '' },
+              { key: 'exam', label: '📝 Exams', emoji: '' },
+              { key: 'tip', label: '✨ Tips', emoji: '' },
+              { key: 'meme', label: '📸 Photos', emoji: '' },
+              { key: 'discussion', label: '💬 Trending', emoji: '' },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveFilter(tab.key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition-all shrink-0 ${
+                  activeFilter === tab.key
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-indigo-900/30 scale-105'
+                    : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/10'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           {/* ─── POSTS SECTION HEADER ─── */}
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-indigo-500" />
-              <span className="text-sm font-extrabold text-slate-700 uppercase tracking-wider">{t('latestCommunity')}</span>
+              <span className="text-sm font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                {activeFilter === 'all' ? t('latestCommunity') : `${activeFilter === 'job' ? 'Naukri' : activeFilter === 'meme' ? 'Photos' : activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)} Updates`}
+              </span>
             </div>
-            <span className="text-xs font-bold text-slate-400">{posts.length} {t('insights')}</span>
+            <span className="text-xs font-bold text-slate-400">
+              {activeFilter === 'all' ? `${posts.length + filteredAutoFeed.length} ${t('insights')}` : `${filteredAutoFeed.length} results`}
+            </span>
           </div>
 
           {/* Skeleton */}
@@ -791,8 +1088,17 @@ NO markdown. NO extra text.`
             </div>
           )}
 
-          {/* ─── POST CARDS ─── */}
-          {posts.map((post, idx) => {
+          {/* ─── FILTERED AUTO FEED (when a specific category is selected) ─── */}
+          {activeFilter !== 'all' && filteredAutoFeed.length > 0 && (
+            <div className="space-y-4">
+              {filteredAutoFeed.map((item, idx) => (
+                <AutoFeedCard key={`filter-${item.category}-${idx}`} item={item} index={idx} />
+              ))}
+            </div>
+          )}
+
+          {/* ─── POST CARDS (only shown when "All" filter is active) ─── */}
+          {activeFilter === 'all' && posts.map((post, idx) => {
             const liked = currentUser && (post.likes || []).includes(currentUser.uid)
             const disliked = currentUser && (post.dislikes || []).includes(currentUser.uid)
             const isOwner = currentUser && post.authorId === currentUser.uid
@@ -801,8 +1107,17 @@ NO markdown. NO extra text.`
             const isVerified = isAdminPost || post.authorVerified
             const badgeColorStr = { blue: 'bg-blue-500', gold: 'bg-yellow-500', emerald: 'bg-emerald-500', purple: 'bg-purple-500' }[post.authorVerificationColor] || 'bg-blue-500'
 
+            // Interleave auto feed cards between real posts (every 2 posts, insert 1 auto card)
+            const autoCardIndex = Math.floor(idx / 2)
+            const showAutoCard = activeFilter === 'all' && idx > 0 && idx % 2 === 0 && autoCardIndex - 1 < filteredAutoFeed.length
+            const autoItem = showAutoCard ? filteredAutoFeed[autoCardIndex - 1] : null
+
             return (
-              <article key={post.id}
+              <React.Fragment key={post.id}>
+              {autoItem && (
+                <AutoFeedCard item={autoItem} index={autoCardIndex - 1} />
+              )}
+              <article
                 className={`bg-white border rounded-2xl overflow-hidden transition-all duration-300 animate-fade-in ${
                   isAdminPost 
                     ? 'border-indigo-200 hover:border-indigo-300 shadow-[0_4px_20px_-4px_rgba(99,102,241,0.1)]' 
@@ -1110,8 +1425,12 @@ NO markdown. NO extra text.`
                   </div>
                 )}
               </article>
+              </React.Fragment>
             )
           })}
+
+
+
         </div>
 
         {/* ─── RIGHT SIDEBAR ─── */}
@@ -1142,34 +1461,112 @@ NO markdown. NO extra text.`
               </div>
             )}
 
+            {/* ─── SIDEBAR TRENDING UPDATES ─── */}
+            <div className="bg-white dark:bg-surface-900/40 border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden">
+              <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-red-500 flex items-center justify-center">
+                    <Radio className="w-3 h-3 text-white" />
+                  </div>
+                  <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-widest">Trending Now</p>
+                </div>
+                <span className="flex h-2 w-2 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+              </div>
+              <div className="divide-y divide-slate-100 dark:divide-white/5">
+                {sidebarTrending.map((item, idx) => (
+                  <div key={`sidebar-${idx}`} onClick={() => item.url && window.open(item.url, '_blank', 'noopener,noreferrer')} className="px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer group">
+                    <div className="flex items-start gap-3">
+                      <span className="text-lg mt-0.5 shrink-0">{item.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-extrabold text-slate-800 dark:text-white leading-tight line-clamp-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
+                          {item.title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className={`text-[9px] font-black uppercase tracking-wider bg-gradient-to-r ${item.tagColor} bg-clip-text text-transparent`}>
+                            {item.tag}
+                          </span>
+                          <span className="text-[10px] text-slate-400">·</span>
+                          <span className="text-[10px] font-bold text-slate-400">{item.time}</span>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-[10px] font-bold text-rose-500 flex items-center gap-0.5">
+                            <Heart className="w-2.5 h-2.5 fill-rose-500" /> {item.likes}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400 flex items-center gap-0.5">
+                            <MessageCircle className="w-2.5 h-2.5" /> {item.comments}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="px-5 py-3 border-t border-slate-100 dark:border-white/5">
+                <button className="w-full text-center text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors">
+                  View All Updates →
+                </button>
+              </div>
+            </div>
+
+            {/* ─── TOP NAUKRI / JOBS SIDEBAR ─── */}
+            <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border border-emerald-200/60 dark:border-emerald-800/40 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 rounded-lg bg-emerald-500 flex items-center justify-center">
+                  <Briefcase className="w-3 h-3 text-white" />
+                </div>
+                <p className="text-[11px] font-black text-emerald-800 dark:text-emerald-200 uppercase tracking-widest">Latest Naukri</p>
+              </div>
+              <div className="space-y-3">
+                {getItemsByCategory('job').slice(0, 3).map((job, idx) => (
+                  <div key={`sidebar-job-${idx}`} onClick={() => job.url && window.open(job.url, '_blank', 'noopener,noreferrer')} className="bg-white/70 dark:bg-white/5 rounded-xl p-3 border border-emerald-100 dark:border-emerald-800/30 hover:shadow-md transition-all cursor-pointer group">
+                    <p className="text-xs font-extrabold text-slate-800 dark:text-white leading-tight mb-1 group-hover:text-emerald-600 transition-colors line-clamp-1">
+                      {job.icon} {job.title}
+                    </p>
+                    {job.salary && <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{job.salary}</p>}
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-[10px] text-slate-400 font-medium">{job.location}</span>
+                      <span className="text-[10px] font-bold text-rose-500">{job.likes} ❤️</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => navigate('/jobs')} className="w-full mt-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5">
+                <Briefcase className="w-3 h-3" /> View All Jobs
+              </button>
+            </div>
+
             {/* Stats Card */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+            <div className="bg-white dark:bg-surface-900/40 border border-slate-200 dark:border-white/10 rounded-2xl p-5">
               <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-4">Platform Activity</p>
               <div className="space-y-3">
                 {[
-                  { icon: FileText, label: 'Knowledge Posts', val: posts.length, color: 'text-indigo-500 bg-indigo-50' },
-                  { icon: Heart, label: 'Total Likes', val: totalLikes, color: 'text-rose-500 bg-rose-50' },
-                  { icon: Users, label: 'Contributors', val: [...new Set(posts.map(p => p.authorId))].length, color: 'text-emerald-500 bg-emerald-50' },
+                  { icon: FileText, label: 'Knowledge Posts', val: posts.length, color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-500/20' },
+                  { icon: Heart, label: 'Total Likes', val: totalLikes, color: 'text-rose-500 bg-rose-50 dark:bg-rose-500/20' },
+                  { icon: Users, label: 'Contributors', val: [...new Set(posts.map(p => p.authorId))].length, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/20' },
+                  { icon: Newspaper, label: 'Daily Updates', val: ALL_AUTO_FEED.length, color: 'text-blue-500 bg-blue-50 dark:bg-blue-500/20' },
                 ].map(({ icon: Icon, label, val, color }) => (
                   <div key={label} className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${color}`}>
                         <Icon className="w-3.5 h-3.5" />
                       </div>
-                      <span className="text-sm font-semibold text-slate-600">{label}</span>
+                      <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">{label}</span>
                     </div>
-                    <span className="text-sm font-extrabold text-slate-900">{val}</span>
+                    <span className="text-sm font-extrabold text-slate-900 dark:text-white">{val}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Tags */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+            <div className="bg-white dark:bg-surface-900/40 border border-slate-200 dark:border-white/10 rounded-2xl p-5">
               <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-4">Trending Topics</p>
               <div className="flex flex-wrap gap-2">
                 {TAGS.map(tag => (
-                  <span key={tag} className="px-3 py-1.5 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 cursor-pointer rounded-xl text-xs font-bold text-slate-600 transition-colors border border-slate-200">
+                  <span key={tag} className="px-3 py-1.5 bg-slate-50 dark:bg-white/5 hover:bg-indigo-50 dark:hover:bg-indigo-500/20 hover:text-indigo-700 dark:hover:text-indigo-300 hover:border-indigo-200 dark:hover:border-indigo-700 cursor-pointer rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 transition-colors border border-slate-200 dark:border-white/10">
                     {tag}
                   </span>
                 ))}
