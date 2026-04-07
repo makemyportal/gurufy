@@ -48,7 +48,7 @@ export default function Mentorship() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8 animate-fade-in pb-20 sm:pb-0">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8 animate-fade-in pb-20 sm:pb-0">
       
       {/* Header */}
       <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-tr from-cyan-900 to-blue-900 border border-blue-800 p-8 sm:p-12 shadow-2xl">

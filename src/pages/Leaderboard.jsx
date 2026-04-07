@@ -83,7 +83,7 @@ export default function Leaderboard() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto animate-fade-in space-y-6">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in space-y-6">
 
       {/* Hero Stats */}
       <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-surface-900 via-surface-800 to-surface-900 p-6 sm:p-8 shadow-2xl border border-surface-700/50">
@@ -118,9 +118,9 @@ export default function Leaderboard() {
                 <span className="font-bold text-white text-sm sm:text-base">{currentLevel.name}</span>
               </div>
               {nextLevel && (
-                <div className="flex items-center gap-2 text-surface-400 text-xs sm:text-sm font-medium">
+                <div className="flex flex-wrap items-center justify-end gap-1.5 text-surface-400 text-[10px] sm:text-xs font-medium">
                   <span>{nextLevel.min - stats.xp} XP to</span>
-                  <span className="text-base sm:text-lg">{nextLevel.emoji}</span>
+                  <span className="text-sm sm:text-base">{nextLevel.emoji}</span>
                   <span className="font-bold text-white">{nextLevel.name}</span>
                 </div>
               )}

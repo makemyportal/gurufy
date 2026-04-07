@@ -146,12 +146,12 @@ export default function Jobs() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 bg-surface-100 p-1.5 rounded-xl max-w-[400px] mb-6">
+      <div className="flex flex-wrap sm:flex-nowrap gap-2 bg-surface-100 p-1.5 rounded-xl mb-6">
         {['Jobs', 'Gigs'].map(cat => (
           <button
             key={cat}
             onClick={() => { setJobCategory(cat); setSelectedJob(null); }}
-            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+            className={`flex-1 min-w-[140px] py-2 text-xs sm:text-sm font-bold rounded-lg transition-all ${
               jobCategory === cat ? 'bg-white text-primary-600 shadow-sm' : 'text-surface-500 hover:text-surface-800'
             }`}
           >
