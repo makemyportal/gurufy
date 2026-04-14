@@ -35,7 +35,7 @@ const QUICK_ACTIONS = [
 
 // ─── Category Icon Helper ───
 function getCategoryIcon(category) {
-  switch(category) {
+  switch (category) {
     case 'news': return Newspaper
     case 'job': return Briefcase
     case 'scheme': return GraduationCap
@@ -48,7 +48,7 @@ function getCategoryIcon(category) {
 }
 
 function getCategoryLabel(category) {
-  switch(category) {
+  switch (category) {
     case 'news': return 'Education News'
     case 'job': return 'Naukri / Job Alert'
     case 'scheme': return 'Govt Scheme'
@@ -63,7 +63,7 @@ function getCategoryLabel(category) {
 // ─── Live News Ticker Component ───
 function LiveNewsTicker({ items }) {
   const [currentIndex, setCurrentIndex] = useState(0)
-  
+
   useEffect(() => {
     if (!items || items.length === 0) return
     const interval = setInterval(() => {
@@ -76,7 +76,7 @@ function LiveNewsTicker({ items }) {
   const item = items[currentIndex]
 
   return (
-    <div onClick={() => item.url && window.open(item.url, '_blank', 'noopener,noreferrer')} className="relative overflow-hidden bg-white/70 dark:bg-[#1a1a24]/60 backdrop-blur-xl border border-rose-100 dark:border-rose-900/30 rounded-2xl mb-6 shadow-sm hover:shadow-md transition-all cursor-pointer group">
+    <div onClick={() => item.url && window.open(item.url, '_blank', 'noopener,noreferrer')} className="relative overflow-hidden bg-white dark:bg-[#1a1a24] border-b border-rose-100/60 dark:border-rose-900/30 sm:border sm:rounded-2xl sm:mb-6 mb-0 sm:shadow-sm hover:bg-rose-50/30 dark:hover:bg-rose-950/10 transition-all cursor-pointer group">
       <div className="flex items-center gap-3 px-4 py-3 w-full min-w-0">
         <div className="flex items-center gap-1.5 shrink-0 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 px-2.5 py-1 rounded-full">
           <span className="relative flex h-2 w-2">
@@ -85,7 +85,7 @@ function LiveNewsTicker({ items }) {
           </span>
           <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest leading-none">LIVE</span>
         </div>
-        
+
         <div className="flex-1 overflow-hidden min-w-0">
           <div key={currentIndex} className="animate-slide-in-right opacity-0" style={{ animationFillMode: 'forwards' }}>
             <p className="text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-semibold truncate group-hover:text-indigo-600 transition-colors">
@@ -94,15 +94,15 @@ function LiveNewsTicker({ items }) {
             </p>
           </div>
         </div>
-        
+
         <span className="hidden sm:inline-flex text-[10px] font-extrabold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">
           {item.tag}
         </span>
       </div>
-      
+
       <div className="h-[2px] bg-slate-100 dark:bg-slate-800 w-full absolute bottom-0 left-0">
-        <div className="h-full bg-gradient-to-r from-rose-400 to-pink-500 transition-all duration-[5000ms] ease-linear" 
-          style={{ width: '100%', animation: 'ticker-progress 5s linear infinite' }} 
+        <div className="h-full bg-gradient-to-r from-rose-400 to-pink-500 transition-all duration-[5000ms] ease-linear"
+          style={{ width: '100%', animation: 'ticker-progress 5s linear infinite' }}
         />
       </div>
     </div>
@@ -141,9 +141,9 @@ function AutoFeedCard({ item, index }) {
   }
 
   return (
-    <article 
+    <article
       onClick={handleCardClick}
-      className={`relative overflow-hidden bg-gradient-to-br ${bgByCategory[item.category] || bgByCategory.news} border rounded-2xl shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 animate-fade-in group ${item.url ? 'cursor-pointer' : ''}`}
+      className={`relative overflow-hidden bg-gradient-to-br ${bgByCategory[item.category] || bgByCategory.news} border-b sm:border sm:rounded-2xl sm:shadow-sm transition-all duration-300 sm:hover:shadow-md sm:hover:-translate-y-0.5 animate-fade-in group ${item.url ? 'cursor-pointer' : ''}`}
       style={{ animationDelay: `${index * 0.04}s` }}
     >
       {/* Top Ribbon */}
@@ -166,10 +166,10 @@ function AutoFeedCard({ item, index }) {
       {item.image && (
         <div className="px-5 pb-2">
           <div className="relative overflow-hidden rounded-xl border border-white/50 dark:border-white/10 shadow-sm">
-            <img 
-              src={item.image} 
-              alt={item.title} 
-              className="w-full max-h-[400px] object-cover hover:scale-[1.02] transition-transform duration-500" 
+            <img
+              src={item.image}
+              alt={item.title}
+              className="w-full max-h-[400px] object-cover hover:scale-[1.02] transition-transform duration-500"
               loading="lazy"
             />
           </div>
@@ -178,10 +178,10 @@ function AutoFeedCard({ item, index }) {
 
       {/* Content */}
       <div className="px-5 pb-3">
-        <h3 className="text-sm sm:text-[15px] font-extrabold text-slate-900 dark:text-white leading-snug mb-2 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">
+        <h3 className="text-sm sm:text-[15px] font-extrabold text-slate-900 dark:text-white leading-snug mb-2 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors break-words w-full">
           <span className="mr-1.5">{item.icon}</span>{item.title}
         </h3>
-        <p className="text-xs sm:text-[13px] text-slate-600 dark:text-slate-300 leading-relaxed font-medium line-clamp-2 mb-2">
+        <p className="text-xs sm:text-[13px] text-slate-600 dark:text-slate-300 leading-relaxed font-medium line-clamp-2 mb-2 break-words w-full">
           {item.summary}
         </p>
 
@@ -362,7 +362,7 @@ export default function Feed() {
             setSidebarTrending(getMixedFeed(live, 4))
           }
         })
-        .catch(() => {})
+        .catch(() => { })
     }, 15 * 60 * 1000)
 
     return () => {
@@ -394,8 +394,8 @@ export default function Feed() {
   }
 
   // Filter auto feed items — when filtering by category, use live data if available
-  const filteredAutoFeed = activeFilter === 'all' 
-    ? autoFeedItems 
+  const filteredAutoFeed = activeFilter === 'all'
+    ? autoFeedItems
     : (liveData ? filterLiveByCategory(liveData, activeFilter).concat(getItemsByCategory(activeFilter)) : getItemsByCategory(activeFilter))
 
   // Listen to Platform Settings for Global Announcements
@@ -419,7 +419,7 @@ export default function Feed() {
       try {
         const following = await isFollowing(currentUser.uid, authorId)
         setFollowStatus(prev => ({ ...prev, [authorId]: following }))
-      } catch {}
+      } catch { }
     })
   }, [currentUser, posts])
 
@@ -443,13 +443,13 @@ export default function Feed() {
     if (!currentUser || loading || posts.length === 0) return
     const aiPosts = posts.filter(p => p.authorName === 'LDMS AI')
     const latestAIPost = aiPosts.length > 0 ? aiPosts[0] : null
-    
+
     const now = new Date()
     const lastAITime = latestAIPost?.createdAt?.toDate ? latestAIPost.createdAt.toDate() : new Date(0)
     const hoursSinceLastAI = (now.getTime() - lastAITime.getTime()) / (1000 * 60 * 60)
-    
+
     const trigLock = localStorage.getItem('ai_bot_timer')
-    
+
     // Trigger if > 4 hours and no recent lock (< 10 mins)
     if (hoursSinceLastAI > 4 && (!trigLock || (now.getTime() - parseInt(trigLock)) > 1000 * 60 * 10)) {
       localStorage.setItem('ai_bot_timer', now.getTime().toString())
@@ -461,16 +461,16 @@ export default function Feed() {
     try {
       const SUBJECTS_EN = ['Space Physics', 'Ancient History', 'Modern Ed-Tech', 'Psychology of Learning', 'Mathematical Tricks', 'English Literature', 'Technology Innovations', 'Mindfulness in classroom', 'General Knowledge Facts', 'Environmental Science', 'Indian Geography', 'World History']
       const SUBJECTS_HI = ['भारतीय इतिहास', 'विज्ञान और तकनीक', 'गणित', 'हिंदी साहित्य', 'भूगोल', 'पर्यावरण विज्ञान', 'सामान्य ज्ञान', 'भारतीय संविधान', 'खेल और स्वास्थ्य', 'कला और संस्कृति']
-      
+
       const isHindi = Math.random() > 0.5 // 50% chance Hindi
       const subjects = isHindi ? SUBJECTS_HI : SUBJECTS_EN
       const subject = subjects[Math.floor(Math.random() * subjects.length)]
-      
+
       // 40% poll/MCQ, 30% question, 30% fact
       const rand = Math.random()
       const isPoll = rand < 0.4
       const isQuestion = rand >= 0.4 && rand < 0.7
-      
+
       let postDoc = {
         authorId: 'ldms_ai_bot',
         authorName: 'LDMS AI',
@@ -481,38 +481,38 @@ export default function Feed() {
       }
 
       if (isPoll) {
-         const prompt = isHindi
-           ? `${subject} विषय पर एक रोचक MCQ (बहुविकल्पीय प्रश्न) बनाएं जिसमें 4 विकल्प हों। Format:\nप्रश्न?\nA) विकल्प 1\nB) विकल्प 2\nC) विकल्प 3\nD) विकल्प 4\nकोई markdown नहीं। सिर्फ प्रश्न और विकल्प लिखें।`
-           : `Create an engaging MCQ (multiple choice question) about ${subject} with exactly 4 options for teachers. Format EXACTLY as:\nQuestion?\nA) Option 1\nB) Option 2\nC) Option 3\nD) Option 4\nNO markdown. NO extra text.`
-         const text = await generateAIContent(prompt)
-         const lines = text.split('\n').map(l => l.trim()).filter(l => l)
-         if (lines.length >= 4) {
-           postDoc.content = lines[0]
-           postDoc.postType = 'poll'
-           postDoc.pollOptions = lines.slice(1, 5).map((line, i) => ({
-             id: i + 1,
-             text: line.replace(/^[A-Da-d]\)\s*/, '').replace(/^[A-Da-d]\.\s*/, '').replace(/^[-\d.)]\s*/, '').trim()
-           })).filter(o => o.text)
-           postDoc.pollVotes = {}
-         } else { postDoc.postType = 'text'; postDoc.content = text; } 
+        const prompt = isHindi
+          ? `${subject} विषय पर एक रोचक MCQ (बहुविकल्पीय प्रश्न) बनाएं जिसमें 4 विकल्प हों। Format:\nप्रश्न?\nA) विकल्प 1\nB) विकल्प 2\nC) विकल्प 3\nD) विकल्प 4\nकोई markdown नहीं। सिर्फ प्रश्न और विकल्प लिखें।`
+          : `Create an engaging MCQ (multiple choice question) about ${subject} with exactly 4 options for teachers. Format EXACTLY as:\nQuestion?\nA) Option 1\nB) Option 2\nC) Option 3\nD) Option 4\nNO markdown. NO extra text.`
+        const text = await generateAIContent(prompt)
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l)
+        if (lines.length >= 4) {
+          postDoc.content = lines[0]
+          postDoc.postType = 'poll'
+          postDoc.pollOptions = lines.slice(1, 5).map((line, i) => ({
+            id: i + 1,
+            text: line.replace(/^[A-Da-d]\)\s*/, '').replace(/^[A-Da-d]\.\s*/, '').replace(/^[-\d.)]\s*/, '').trim()
+          })).filter(o => o.text)
+          postDoc.pollVotes = {}
+        } else { postDoc.postType = 'text'; postDoc.content = text; }
       } else if (isQuestion) {
-         const prompt = isHindi
-           ? `${subject} के बारे में एक छोटा, रोचक सवाल पूछें (30 शब्दों से कम) जो शिक्षकों के बीच चर्चा शुरू करे। 1 emoji इस्तेमाल करें। कोई markdown नहीं।`
-           : `Ask a short, engaging open-ended question (under 30 words) about ${subject} to inspire a discussion among educators. Use 1 emoji. EXCLUDE MARKDOWN.`
-         const text = await generateAIContent(prompt)
-         let cleanText = text.trim()
-         if (cleanText.startsWith('"') && cleanText.endsWith('"')) cleanText = cleanText.slice(1, -1)
-         postDoc.content = cleanText;
-         postDoc.postType = 'text';
+        const prompt = isHindi
+          ? `${subject} के बारे में एक छोटा, रोचक सवाल पूछें (30 शब्दों से कम) जो शिक्षकों के बीच चर्चा शुरू करे। 1 emoji इस्तेमाल करें। कोई markdown नहीं।`
+          : `Ask a short, engaging open-ended question (under 30 words) about ${subject} to inspire a discussion among educators. Use 1 emoji. EXCLUDE MARKDOWN.`
+        const text = await generateAIContent(prompt)
+        let cleanText = text.trim()
+        if (cleanText.startsWith('"') && cleanText.endsWith('"')) cleanText = cleanText.slice(1, -1)
+        postDoc.content = cleanText;
+        postDoc.postType = 'text';
       } else {
-         const prompt = isHindi
-           ? `${subject} के बारे में एक रोचक, दिलचस्प तथ्य बताएं (40 शब्दों से कम)। 1-2 emoji इस्तेमाल करें। कोई markdown नहीं।`
-           : `Share a fascinating, mind-blowing educational fact (under 40 words) about ${subject}. Include 1 or 2 emojis. EXCLUDE MARKDOWN.`
-         const text = await generateAIContent(prompt)
-         let cleanText = text.trim()
-         if (cleanText.startsWith('"') && cleanText.endsWith('"')) cleanText = cleanText.slice(1, -1)
-         postDoc.content = cleanText;
-         postDoc.postType = 'text';
+        const prompt = isHindi
+          ? `${subject} के बारे में एक रोचक, दिलचस्प तथ्य बताएं (40 शब्दों से कम)। 1-2 emoji इस्तेमाल करें। कोई markdown नहीं।`
+          : `Share a fascinating, mind-blowing educational fact (under 40 words) about ${subject}. Include 1 or 2 emojis. EXCLUDE MARKDOWN.`
+        const text = await generateAIContent(prompt)
+        let cleanText = text.trim()
+        if (cleanText.startsWith('"') && cleanText.endsWith('"')) cleanText = cleanText.slice(1, -1)
+        postDoc.content = cleanText;
+        postDoc.postType = 'text';
       }
 
       await addDoc(collection(db, 'posts'), postDoc)
@@ -525,18 +525,18 @@ export default function Feed() {
     try {
       let prompt = ''
       if (textContent) {
-         prompt = `An educator just posted on our social platform: "${textContent}". As a super-smart, highly intelligent AI teaching assistant named 'LDMS AI', write a brilliant and highly insightful reply. KEEP IT EXTREMELY SHORT (Maximum 10-15 words). No markdown. No quotes.`
+        prompt = `An educator just posted on our social platform: "${textContent}". As a super-smart, highly intelligent AI teaching assistant named 'LDMS AI', write a brilliant and highly insightful reply. KEEP IT EXTREMELY SHORT (Maximum 10-15 words). No markdown. No quotes.`
       } else if (pType === 'youtube' || aType === 'youtube') {
-         prompt = `An educator just shared a YouTube video. As a super-smart AI, write a brilliant, insightful 1-sentence comment. KEEP IT EXTREMELY SHORT (Maximum 10-15 words). No markdown. No quotes.`
+        prompt = `An educator just shared a YouTube video. As a super-smart AI, write a brilliant, insightful 1-sentence comment. KEEP IT EXTREMELY SHORT (Maximum 10-15 words). No markdown. No quotes.`
       } else if (aType === 'image') {
-         prompt = `An educator just shared a photo. As a super-smart AI, write a brilliant 1-sentence comment. KEEP IT EXTREMELY SHORT (Maximum 10 words). No markdown. No quotes.`
+        prompt = `An educator just shared a photo. As a super-smart AI, write a brilliant 1-sentence comment. KEEP IT EXTREMELY SHORT (Maximum 10 words). No markdown. No quotes.`
       } else {
-         prompt = `An educator just shared a document. As a super-smart AI, write a brilliant 1-sentence comment thanking them. KEEP IT EXTREMELY SHORT (Maximum 10 words). No markdown. No quotes.`
+        prompt = `An educator just shared a document. As a super-smart AI, write a brilliant 1-sentence comment thanking them. KEEP IT EXTREMELY SHORT (Maximum 10 words). No markdown. No quotes.`
       }
       const aiResponse = await generateAIContent(prompt)
       let cleanRes = aiResponse.trim().replace(/^["']|["']$/g, '')
       if (cleanRes.startsWith('"')) cleanRes = cleanRes.substring(1)
-      if (cleanRes.endsWith('"')) cleanRes = cleanRes.slice(0,-1)
+      if (cleanRes.endsWith('"')) cleanRes = cleanRes.slice(0, -1)
 
       setTimeout(async () => {
         try {
@@ -613,7 +613,7 @@ export default function Feed() {
       const docRef = await addDoc(collection(db, 'posts'), {
         content: newPost.trim(),
         postType,
-        pollOptions: postType === 'poll' ? pollOptions.filter(o => o.text.trim()).map((o,i) => ({ id: i+1, text: o.text.trim() })) : null,
+        pollOptions: postType === 'poll' ? pollOptions.filter(o => o.text.trim()).map((o, i) => ({ id: i + 1, text: o.text.trim() })) : null,
         pollVotes: postType === 'poll' ? {} : null,
         authorId: currentUser.uid,
         authorName: userProfile?.name || currentUser.email,
@@ -625,7 +625,7 @@ export default function Feed() {
         likes: [], commentsCount: 0,
         createdAt: serverTimestamp(),
       })
-      
+
       const capturedText = newPost.trim()
       const capturedPostType = postType
       const capturedAttachmentType = attachmentType
@@ -769,26 +769,51 @@ export default function Feed() {
   const totalLikes = posts.reduce((a, p) => a + (p.likes?.length || 0), 0)
 
   return (
-    <div className="w-full max-w-[1200px] mx-auto animate-fade-in pb-20 sm:pb-16">
+    <div className="w-full max-w-full animate-fade-in pb-20 sm:pb-16 overflow-x-hidden">
 
       {/* ─── LIVE NEWS TICKER ─── */}
       <LiveNewsTicker items={tickerItems} />
 
-      {/* ─── HERO BANNER ─── */}
-      <div className="relative overflow-hidden rounded-2xl mb-6 sm:mb-8 mt-2 bg-white/40 dark:bg-[#111118]/60 backdrop-blur-3xl min-h-[140px] sm:min-h-[180px] flex items-center px-4 sm:px-10 border border-white/60 dark:border-white/10 shadow-sm">
-        
-        {/* Modern Ambient Mesh */}
+      {/* ─── HERO BANNER (desktop only — mobile uses compact stats strip) ─── */}
+      {/* Mobile: Compact welcome + stats strip */}
+      <div className="sm:hidden bg-white dark:bg-[#1a1a24] border-b border-slate-100 dark:border-white/5 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="min-w-0">
+            <h1 className="text-lg font-black text-slate-800 dark:text-white tracking-tight truncate">
+              {currentUser
+                ? <>{t('welcomeBack')}, <span className="text-indigo-600 dark:text-indigo-400">{userProfile?.name?.split(' ')[0] || 'Teacher'}</span></>
+                : <>{t('welcomeTo')} <span className="text-indigo-600 dark:text-indigo-400">LDMS</span></>
+              }
+            </h1>
+          </div>
+          {currentUser && stats && (
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-full">
+                <span className="text-sm">{getLevel()?.emoji || '🌱'}</span>
+                <span className="text-[10px] font-black text-amber-700 dark:text-amber-400">{(stats?.xp || 0)} XP</span>
+              </div>
+              {(stats?.streak || 0) > 0 && (
+                <div className="flex items-center gap-1 bg-orange-50 dark:bg-orange-500/10 px-2 py-1 rounded-full">
+                  <Flame className="w-3 h-3 text-orange-500" />
+                  <span className="text-[10px] font-black text-orange-600 dark:text-orange-400">{stats.streak}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Desktop: Full hero banner */}
+      <div className="hidden sm:flex relative overflow-hidden rounded-2xl mb-6 sm:mb-8 mt-2 bg-white/40 dark:bg-[#111118]/60 backdrop-blur-3xl min-h-[180px] items-center px-10 border border-white/60 dark:border-white/10 shadow-sm">
         <div className="absolute top-[-50%] right-[-10%] w-[60%] h-[150%] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-200/40 via-purple-100/10 to-transparent dark:from-indigo-900/20 dark:via-purple-900/5 blur-2xl pointer-events-none mix-blend-multiply dark:mix-blend-lighten" />
         <div className="absolute bottom-[-30%] left-[-10%] w-[50%] h-[120%] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-rose-100/30 via-transparent to-transparent dark:from-rose-900/10 blur-2xl pointer-events-none mix-blend-multiply dark:mix-blend-lighten" />
-        
-        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between w-full min-w-0 gap-6 py-8 lg:py-0">
-          
+        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between w-full min-w-0 gap-6">
           <div className="max-w-xl min-w-0 pl-2">
             <div className="inline-flex items-center gap-2 mb-3">
               <span className="w-8 h-px bg-indigo-500/50"></span>
-              <span className="text-[10px] font-black text-indigo-500 tracking-[0.2em] uppercase uppercase">Overview</span>
+              <span className="text-[10px] font-black text-indigo-500 tracking-[0.2em] uppercase">Overview</span>
             </div>
-            <h1 className="text-3xl sm:text-[40px] font-black text-slate-800 dark:text-white tracking-tight leading-[1.1] mb-3 truncate sm:whitespace-normal font-display">
+            <h1 className="text-[40px] font-black text-slate-800 dark:text-white tracking-tight leading-[1.1] mb-3 font-display">
               {currentUser
                 ? <>{t('welcomeBack')}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-violet-500">{userProfile?.name?.split(' ')[0] || 'Teacher'}</span></>
                 : <>{t('welcomeTo')} <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-violet-500">LDMS</span></>
@@ -798,37 +823,30 @@ export default function Feed() {
               {t('heroDesc', "Connect with educators across the nation. Share resources, discover new opportunities, and elevate your teaching journey together.")}
             </p>
           </div>
-
-          {/* Premium Soft Gamification Stats */}
           {currentUser && stats && (
-            <div className="flex flex-wrap items-center gap-3 md:gap-4 w-full md:w-auto mt-2 lg:mt-0 lg:ml-auto">
-              {/* Level Pillar */}
-              <div className="flex items-center gap-3 bg-white/70 dark:bg-white/5 backdrop-blur-md border border-white/80 dark:border-white/10 rounded-2xl py-2.5 px-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group cursor-pointer relative overflow-hidden">
+            <div className="flex flex-wrap items-center gap-3 md:gap-4 w-full md:w-auto lg:ml-auto">
+              <div className="flex items-center gap-3 bg-white/70 dark:bg-white/5 backdrop-blur-md border border-white/80 dark:border-white/10 rounded-2xl py-2.5 px-4 shadow-sm relative overflow-hidden">
                 <div className="absolute bottom-0 left-0 h-[3px] bg-indigo-100 dark:bg-white/5 w-full">
                   <div className="h-full bg-gradient-to-r from-indigo-400 to-violet-500 transition-all duration-1000" style={{ width: `${getLevelProgress()}%` }} />
                 </div>
-                <div className="text-2xl drop-shadow-sm group-hover:scale-110 transition-transform origin-bottom">{getLevel()?.emoji || '🌱'}</div>
+                <div className="text-2xl">{getLevel()?.emoji || '🌱'}</div>
                 <div className="flex flex-col">
                   <span className="text-sm font-extrabold text-slate-800 dark:text-white leading-tight">{getLevel()?.name || 'Beginner'}</span>
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{getLevelProgress()}% to next</span>
                 </div>
               </div>
-
-              {/* Streak Pillar */}
-              <div className="flex items-center gap-3 bg-white/70 dark:bg-white/5 backdrop-blur-md border border-white/80 dark:border-white/10 rounded-2xl py-2.5 px-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group cursor-pointer">
+              <div className="flex items-center gap-3 bg-white/70 dark:bg-white/5 backdrop-blur-md border border-white/80 dark:border-white/10 rounded-2xl py-2.5 px-4 shadow-sm">
                 <div className="w-8 h-8 rounded-full bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center shrink-0">
-                  <Flame className="w-4 h-4 text-orange-500 group-hover:scale-110 transition-transform" />
+                  <Flame className="w-4 h-4 text-orange-500" />
                 </div>
                 <div className="flex flex-col pr-2">
                   <span className="text-sm font-extrabold text-slate-800 dark:text-white leading-tight">{stats?.streak || 0}</span>
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Streak</span>
                 </div>
               </div>
-
-              {/* XP Pillar */}
-              <div className="flex items-center gap-3 bg-white/70 dark:bg-white/5 backdrop-blur-md border border-white/80 dark:border-white/10 rounded-2xl py-2.5 px-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group cursor-pointer hidden md:flex">
+              <div className="flex items-center gap-3 bg-white/70 dark:bg-white/5 backdrop-blur-md border border-white/80 dark:border-white/10 rounded-2xl py-2.5 px-4 shadow-sm hidden md:flex">
                 <div className="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center shrink-0">
-                  <Zap className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
+                  <Zap className="w-4 h-4 text-amber-500" />
                 </div>
                 <div className="flex flex-col pr-2">
                   <span className="text-sm font-extrabold text-slate-800 dark:text-white leading-tight">{(stats?.xp || 0).toLocaleString()}</span>
@@ -840,27 +858,29 @@ export default function Feed() {
         </div>
       </div>
 
-      {/* ─── QUICK ACTION PILLS ─── */}
-      <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-2 mb-4 sm:mb-6">
+      {/* ─── QUICK ACTION PILLS (Instagram stories-style horizontal scroll) ─── */}
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide py-3 px-4 sm:px-0 sm:pb-2 sm:mb-6 bg-white dark:bg-[#0f0f14] sm:bg-transparent border-b border-slate-100 dark:border-white/5 sm:border-0">
         {QUICK_ACTIONS.map(({ icon: Icon, label, route }) => (
           <button key={route} onClick={() => navigate(route)}
-            className={`flex items-center justify-center gap-2 px-5 py-3.5 bg-white/60 dark:bg-surface-800/40 backdrop-blur-md border border-slate-200/60 dark:border-white/5 rounded-2xl text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-surface-800 hover:shadow-sm hover:border-indigo-100 dark:hover:border-indigo-500/30 whitespace-nowrap transition-all active:scale-[0.98] group flex-1`}>
-            <Icon className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-            <span className="font-bold text-sm tracking-wide">{label}</span>
+            className="flex flex-col items-center gap-1.5 min-w-[64px] sm:min-w-0 sm:flex-row sm:gap-2 sm:px-5 sm:py-3 px-2 py-1.5 bg-transparent sm:bg-white/60 dark:sm:bg-surface-800/40 sm:backdrop-blur-md sm:border sm:border-slate-200/60 dark:sm:border-white/5 rounded-2xl text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 sm:hover:bg-white sm:hover:shadow-sm whitespace-nowrap transition-all active:scale-95 group sm:flex-1">
+            <div className="w-12 h-12 sm:w-auto sm:h-auto rounded-full sm:rounded-none bg-slate-100 dark:bg-white/5 sm:bg-transparent flex items-center justify-center">
+              <Icon className="w-5 h-5 sm:w-4 sm:h-4 text-slate-500 group-hover:text-indigo-500 transition-colors" />
+            </div>
+            <span className="font-bold text-[10px] sm:text-sm tracking-wide text-center">{label}</span>
           </button>
         ))}
       </div>
 
       {/* ─── MAIN LAYOUT ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-0 sm:gap-5 lg:gap-8 sm:px-0">
 
         {/* ─── LEFT: FEED ─── */}
-        <div className="space-y-4 sm:space-y-5 min-w-0 w-full">
+        <div className="space-y-0 sm:space-y-4 min-w-0 w-full">
 
           {/* COMPOSER */}
           {currentUser ? (
-            <div className={`bg-white/80 dark:bg-[#1a1a24]/80 backdrop-blur-xl border rounded-[24px] transition-all duration-300 ${composerFocused ? 'border-indigo-300 shadow-[0_8px_30px_rgba(99,102,241,0.1)] dark:border-indigo-500/50 dark:shadow-[0_8px_30px_rgba(99,102,241,0.2)]' : 'border-slate-200/60 dark:border-white/10 shadow-sm'}`}>
-            <form onSubmit={handleCreatePost}>
+            <div className={`bg-white dark:bg-[#1a1a24] sm:backdrop-blur-xl border-b sm:border sm:rounded-2xl transition-all duration-300 ${composerFocused ? 'border-indigo-200 sm:shadow-[0_4px_20px_rgba(99,102,241,0.08)] dark:border-indigo-500/30' : 'border-slate-100 dark:border-white/5 sm:shadow-sm'}`}>
+              <form onSubmit={handleCreatePost}>
                 <div className="flex gap-4 p-5 pb-2">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm shrink-0 overflow-hidden shadow-sm">
                     {userProfile?.profilePhoto
@@ -881,21 +901,21 @@ export default function Feed() {
                   <div className="mx-5 mt-3 pl-12 pr-4 space-y-2.5 animate-fade-in-up">
                     {pollOptions.map((opt, idx) => (
                       <div key={opt.id} className="flex items-center gap-3">
-                         <div className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0" />
-                         <input 
-                           type="text" 
-                           placeholder={`Option ${idx + 1}`} 
-                           value={opt.text}
-                           onChange={(e) => {
-                             const newOpts = [...pollOptions]
-                             newOpts[idx].text = e.target.value
-                             setPollOptions(newOpts)
-                           }}
-                           className="flex-1 bg-slate-50 dark:bg-black/20 border border-slate-200/60 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm focus:bg-white dark:focus:bg-[#1a1a24] focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/20 outline-none transition-all placeholder:text-slate-400 font-medium text-slate-800 dark:text-slate-200"
-                         />
-                         {pollOptions.length > 2 && (
-                           <button type="button" onClick={() => setPollOptions(p => p.filter(o => o.id !== opt.id))} className="p-2 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-colors"><X className="w-4 h-4" /></button>
-                         )}
+                        <div className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0" />
+                        <input
+                          type="text"
+                          placeholder={`Option ${idx + 1}`}
+                          value={opt.text}
+                          onChange={(e) => {
+                            const newOpts = [...pollOptions]
+                            newOpts[idx].text = e.target.value
+                            setPollOptions(newOpts)
+                          }}
+                          className="flex-1 bg-slate-50 dark:bg-black/20 border border-slate-200/60 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm focus:bg-white dark:focus:bg-[#1a1a24] focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/20 outline-none transition-all placeholder:text-slate-400 font-medium text-slate-800 dark:text-slate-200"
+                        />
+                        {pollOptions.length > 2 && (
+                          <button type="button" onClick={() => setPollOptions(p => p.filter(o => o.id !== opt.id))} className="p-2 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-colors"><X className="w-4 h-4" /></button>
+                        )}
                       </div>
                     ))}
                     {pollOptions.length < 4 && (
@@ -932,23 +952,23 @@ export default function Feed() {
 
                 <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 py-3 mt-4 border-t border-slate-100 dark:border-white/5 relative">
                   <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-                    <button type="button" onClick={() => setPostType(p => p === 'poll' ? 'text' : 'poll')} 
+                    <button type="button" onClick={() => setPostType(p => p === 'poll' ? 'text' : 'poll')}
                       className={`flex items-center gap-1.5 px-3 py-2 text-[13px] font-bold rounded-xl transition-all ${postType === 'poll' ? 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 shadow-inner' : 'text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-white/5'}`}>
                       <BarChart2 className="w-4 h-4" /> <span className="hidden sm:inline">Poll</span>
                     </button>
-                    <button type="button" onClick={() => setPostType(p => p === 'question' ? 'text' : 'question')} 
+                    <button type="button" onClick={() => setPostType(p => p === 'question' ? 'text' : 'question')}
                       className={`flex items-center gap-1.5 px-3 py-2 text-[13px] font-bold rounded-xl transition-all ${postType === 'question' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 shadow-inner' : 'text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-white/5'}`}>
                       <HelpCircle className="w-4 h-4" /> <span className="hidden sm:inline">Ask</span>
                     </button>
-                    <button type="button" onClick={() => setPostType(p => p === 'youtube' ? 'text' : 'youtube')} 
+                    <button type="button" onClick={() => setPostType(p => p === 'youtube' ? 'text' : 'youtube')}
                       className={`flex items-center gap-1.5 px-3 py-2 text-[13px] font-bold rounded-xl transition-all ${postType === 'youtube' ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 shadow-inner' : 'text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-white/5'}`}>
                       <Youtube className="w-4 h-4" /> <span className="hidden lg:inline">Video</span>
                     </button>
-                    <button type="button" onClick={() => setPostType(p => p === 'link' ? 'text' : 'link')} 
+                    <button type="button" onClick={() => setPostType(p => p === 'link' ? 'text' : 'link')}
                       className={`flex items-center gap-1.5 px-3 py-2 text-[13px] font-bold rounded-xl transition-all ${postType === 'link' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 shadow-inner' : 'text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-white/5'}`}>
                       <Link2 className="w-4 h-4" /> <span className="hidden lg:inline">Link</span>
                     </button>
-                    
+
                     <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block"></div>
 
                     <input ref={photoInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" id="feed-photo" />
@@ -963,7 +983,7 @@ export default function Feed() {
                     {/* Admin-only */}
                     {['admin', 'superadmin'].includes(userProfile?.role) && (
                       <div className="flex items-center border-l-2 border-slate-100 dark:border-white/5 pl-2 ml-1">
-                        <button type="button" onClick={() => setPostType(p => p === 'announcement' ? 'text' : 'announcement')} 
+                        <button type="button" onClick={() => setPostType(p => p === 'announcement' ? 'text' : 'announcement')}
                           className={`flex items-center gap-1.5 px-3 py-2 text-[13px] font-bold rounded-xl transition-all ${postType === 'announcement' ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 shadow-inner' : 'text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-white/5'}`}>
                           <Megaphone className="w-4 h-4" />
                         </button>
@@ -1004,7 +1024,7 @@ export default function Feed() {
           )}
 
           {/* ─── PREMIUM FEED FILTER TABS ─── */}
-          <div className="relative sticky top-[60px] sm:top-[76px] z-10 bg-surface-50/90 dark:bg-[#0f0f14]/90 backdrop-blur-xl border-b border-slate-200/50 dark:border-white/5 py-2.5 mb-2 px-4 sm:bg-transparent sm:border-0 sm:py-0 sm:mb-0 sm:static sm:backdrop-blur-none sm:px-0">
+          <div className="relative sticky top-[70px] z-20 bg-white/95 dark:bg-[#0f0f14]/95 backdrop-blur-xl border-b border-slate-200/50 dark:border-white/5 py-2.5 px-4 sm:bg-transparent sm:border-0 sm:py-0 sm:mb-0 sm:static sm:backdrop-blur-none sm:px-0 sm:relative sm:top-auto sm:z-auto">
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
               {[
                 { key: 'all', label: 'All Updates', emoji: '✨' },
@@ -1019,11 +1039,10 @@ export default function Feed() {
                 <button
                   key={tab.key}
                   onClick={() => setActiveFilter(tab.key)}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-bold whitespace-nowrap transition-all shrink-0 ${
-                    activeFilter === tab.key
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-bold whitespace-nowrap transition-all shrink-0 ${activeFilter === tab.key
                       ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none pointer-events-none'
                       : 'bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/5'
-                  }`}
+                    }`}
                 >
                   <span className={activeFilter === tab.key ? "opacity-90" : "opacity-70"}>{tab.emoji}</span>
                   {tab.label}
@@ -1105,13 +1124,13 @@ export default function Feed() {
                 <div className="px-5 pb-4">
                   <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line mb-4 font-medium">
                     Welcome to India's fastest-growing professional network for educators! 🚀
-                    <br/><br/>
+                    <br /><br />
                     We built LDMS to give teachers a dedicated space to thrive. Here's what you can do:
-                    <br/>✨ <b>Connect</b> with passionate educators across the country
-                    <br/>📚 <b>Share</b> and discover high-quality teaching resources
-                    <br/>💼 <b>Find</b> your next dream teaching job in top schools
-                    <br/>🤖 <b>Supercharge</b> your lesson planning with our AI Tools
-                    <br/><br/>
+                    <br />✨ <b>Connect</b> with passionate educators across the country
+                    <br />📚 <b>Share</b> and discover high-quality teaching resources
+                    <br />💼 <b>Find</b> your next dream teaching job in top schools
+                    <br />🤖 <b>Supercharge</b> your lesson planning with our AI Tools
+                    <br /><br />
                     Why not start by introducing yourself? Create your first post above and say hello to the community! 👇
                   </p>
                   <div className="flex items-center justify-between text-xs text-slate-400 font-medium mb-3">
@@ -1154,9 +1173,9 @@ export default function Feed() {
                 <div className="px-5 pb-4">
                   <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line mb-4 font-medium">
                     <b>Pro Tip:</b> Did you know you can generate complete lesson plans in seconds using our AI Tools? 🪄✨
-                    <br/><br/>
+                    <br /><br />
                     Head over to the <span className="text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.5 rounded">AI Magic</span> section in the sidebar, choose "Lesson Planner", type in your topic and grade level, and let LDMS do the heavy lifting! It even generates worksheets and quiz questions based on the lesson.
-                    <br/><br/>
+                    <br /><br />
                     What topic are you teaching next week? 📝 Let us know!
                   </p>
                   <div className="flex items-center justify-between text-xs text-slate-400 font-medium mb-3">
@@ -1207,317 +1226,308 @@ export default function Feed() {
 
             return (
               <React.Fragment key={post.id}>
-              {autoItem && (
-                <AutoFeedCard item={autoItem} index={autoCardIndex - 1} />
-              )}
-              <article
-                className={`bg-white/90 dark:bg-[#1a1a24]/90 backdrop-blur-sm border rounded-2xl overflow-hidden transition-all duration-300 animate-fade-in hover:-translate-y-0.5 ${
-                  isAdminPost 
-                    ? 'border-indigo-200 dark:border-indigo-500/30 hover:border-indigo-300 shadow-[0_4px_20px_rgba(99,102,241,0.1)] dark:shadow-[0_4px_20px_rgba(99,102,241,0.15)]' 
-                    : 'border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10 shadow-sm hover:shadow-md'
-                }`}
-                style={{ animationDelay: `${idx * 0.04}s` }}>
+                {autoItem && (
+                  <AutoFeedCard item={autoItem} index={autoCardIndex - 1} />
+                )}
+                <article
+                  className={`bg-white dark:bg-[#1a1a24] overflow-hidden transition-all duration-300 animate-fade-in border-b sm:border sm:rounded-2xl sm:hover:-translate-y-0.5 ${isAdminPost
+                      ? 'border-indigo-100 dark:border-indigo-500/20 sm:shadow-[0_2px_12px_rgba(99,102,241,0.08)] bg-gradient-to-r from-indigo-50/30 to-white dark:from-indigo-950/20 dark:to-[#1a1a24]'
+                      : 'border-slate-100 dark:border-white/5 sm:shadow-sm sm:hover:shadow-md'
+                    }`}
+                  style={{ animationDelay: `${idx * 0.04}s` }}>
 
-                {/* Header */}
-                <div className={`flex items-start justify-between p-5 pb-4 ${isAdminPost ? 'bg-gradient-to-r from-indigo-50/40 to-violet-50/40' : ''}`}>
-                  <div className="flex items-center gap-3">
-                    <div
-                      onClick={() => post.authorId !== 'ldms_ai_bot' && navigate(`/user/${post.authorId}`)}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0 ${post.authorId !== 'ldms_ai_bot' ? 'cursor-pointer hover:ring-2 hover:ring-indigo-300 transition-all' : ''} ${
-                      post.authorId === 'ldms_ai_bot' ? 'bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600 ring-2 ring-pink-300/40' : isAdminPost ? 'bg-gradient-to-br from-indigo-500 to-violet-600 shadow-inner' : 'bg-gradient-to-br from-slate-400 to-slate-500'
-                    }`}>
-                      {post.authorId === 'ldms_ai_bot' ? <span className="text-lg">🤖</span> : post.authorPhoto ? <img src={post.authorPhoto} alt="" className="w-full h-full object-cover" /> : initials(post.authorName)}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-extrabold text-slate-900 text-sm leading-tight flex items-center gap-1.5">
-                          <span
-                            onClick={() => post.authorId !== 'ldms_ai_bot' && navigate(`/user/${post.authorId}`)}
-                            className={post.authorId !== 'ldms_ai_bot' ? 'cursor-pointer hover:text-indigo-600 transition-colors' : ''}
-                          >
-                            {post.authorName?.includes('@') ? post.authorName.split('@')[0] : post.authorName}
-                          </span>
-                          {isVerified && <span className={`w-3.5 h-3.5 text-white rounded-full flex items-center justify-center text-[8px] mx-0.5 shadow-sm shrink-0 ${badgeColorStr}`}>✓</span>}
-                        </p>
-                        {/* Follow/Unfollow Button */}
-                        {currentUser && post.authorId !== currentUser.uid && post.authorId !== 'ldms_ai_bot' && (
-                          <button
-                            onClick={() => handleFollowToggle(post.authorId, post.authorName)}
-                            disabled={followLoading[post.authorId]}
-                            className={`text-[11px] font-extrabold py-0.5 px-2.5 rounded-full transition-all active:scale-95 flex items-center gap-1 shrink-0 ${
-                              followStatus[post.authorId]
-                                ? 'bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600 border border-slate-200'
-                                : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200'
-                            }`}
-                          >
-                            {followLoading[post.authorId] ? (
-                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                            ) : followStatus[post.authorId] ? (
-                              <><UserMinus className="w-2.5 h-2.5" /> Following</>
-                            ) : (
-                              <><UserPlus className="w-2.5 h-2.5" /> Follow</>
-                            )}
-                          </button>
-                        )}
+                  {/* Header */}
+                  <div className={`flex items-start justify-between px-4 sm:px-5 pt-4 pb-3 ${isAdminPost ? '' : ''}`}>
+                    <div className="flex items-center gap-3">
+                      <div
+                        onClick={() => post.authorId !== 'ldms_ai_bot' && navigate(`/user/${post.authorId}`)}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0 ${post.authorId !== 'ldms_ai_bot' ? 'cursor-pointer hover:ring-2 hover:ring-indigo-300 transition-all' : ''} ${post.authorId === 'ldms_ai_bot' ? 'bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600 ring-2 ring-pink-300/40' : isAdminPost ? 'bg-gradient-to-br from-indigo-500 to-violet-600 shadow-inner' : 'bg-gradient-to-br from-slate-400 to-slate-500'
+                          }`}>
+                        {post.authorId === 'ldms_ai_bot' ? <span className="text-lg">🤖</span> : post.authorPhoto ? <img src={post.authorPhoto} alt="" className="w-full h-full object-cover" /> : initials(post.authorName)}
                       </div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isAdminPost ? 'text-indigo-600 bg-indigo-100' : 'text-indigo-600 bg-indigo-50'}`}>
-                          {post.authorRole || 'Educator'}
-                        </span>
-                        <span className="text-slate-300">·</span>
-                        <span className="text-xs text-slate-400 font-medium">{timeAgo(post.createdAt)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  {isOwner && (
-                    <div className="relative">
-                      <button onClick={() => setShowDeleteConfirm(showDeleteConfirm === post.id ? null : post.id)}
-                        className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
-                        <MoreHorizontal className="w-4 h-4 text-slate-400" />
-                      </button>
-                      {showDeleteConfirm === post.id && (
-                        <div className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-20 w-44">
-                          <button onClick={() => handleDeletePost(post.id)} disabled={deletingId === post.id}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors">
-                            {deletingId === post.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                            Delete Post
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {!isOwner && (
-                    <div className="relative">
-                      <button onClick={() => { setShowDeleteConfirm(showDeleteConfirm === post.id ? null : post.id); setReportingPost(null) }}
-                        className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
-                        <MoreHorizontal className="w-4 h-4 text-slate-400" />
-                      </button>
-                      {showDeleteConfirm === post.id && (
-                        <div className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-20 w-56">
-                          {reportingPost === post.id ? (
-                            <div className="p-3 space-y-2">
-                              <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> Why are you reporting?</p>
-                              {['Inappropriate Language', 'Spam / Misleading', 'Harassment', 'Misinformation', 'Other'].map(reason => (
-                                <button key={reason} onClick={() => { setReportReason(reason); }}
-                                  className={`w-full text-left px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${reportReason === reason ? 'bg-red-100 text-red-700' : 'text-slate-600 hover:bg-slate-100'}`}>
-                                  {reason}
-                                </button>
-                              ))}
-                              <button disabled={!reportReason} onClick={() => handleReportPost(post.id)}
-                                className="w-full mt-1 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-all disabled:opacity-40">
-                                Submit Report
-                              </button>
-                            </div>
-                          ) : (
-                            <button onClick={() => setReportingPost(post.id)}
-                              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-50 transition-colors">
-                              <Flag className="w-4 h-4" /> Report Post
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-extrabold text-slate-900 text-sm leading-tight flex items-center gap-1.5">
+                            <span
+                              onClick={() => post.authorId !== 'ldms_ai_bot' && navigate(`/user/${post.authorId}`)}
+                              className={post.authorId !== 'ldms_ai_bot' ? 'cursor-pointer hover:text-indigo-600 transition-colors' : ''}
+                            >
+                              {post.authorName?.includes('@') ? post.authorName.split('@')[0] : post.authorName}
+                            </span>
+                            {isVerified && <span className={`w-3.5 h-3.5 text-white rounded-full flex items-center justify-center text-[8px] mx-0.5 shadow-sm shrink-0 ${badgeColorStr}`}>✓</span>}
+                          </p>
+                          {/* Follow/Unfollow Button */}
+                          {currentUser && post.authorId !== currentUser.uid && post.authorId !== 'ldms_ai_bot' && (
+                            <button
+                              onClick={() => handleFollowToggle(post.authorId, post.authorName)}
+                              disabled={followLoading[post.authorId]}
+                              className={`text-[11px] font-extrabold py-0.5 px-2.5 rounded-full transition-all active:scale-95 flex items-center gap-1 shrink-0 ${followStatus[post.authorId]
+                                  ? 'bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600 border border-slate-200'
+                                  : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200'
+                                }`}
+                            >
+                              {followLoading[post.authorId] ? (
+                                <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                              ) : followStatus[post.authorId] ? (
+                                <><UserMinus className="w-2.5 h-2.5" /> Following</>
+                              ) : (
+                                <><UserPlus className="w-2.5 h-2.5" /> Follow</>
+                              )}
                             </button>
                           )}
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="px-5 pb-4">
-                  {post.postType === 'question' && post.content && (
-                    <div className="mb-4 p-4 bg-amber-50 border border-amber-200/60 rounded-xl">
-                      <div className="flex items-start gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-amber-200 flex items-center justify-center shrink-0 mt-0.5">
-                          <HelpCircle className="w-4 h-4 text-amber-700" />
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isAdminPost ? 'text-indigo-600 bg-indigo-100' : 'text-indigo-600 bg-indigo-50'}`}>
+                            {post.authorRole || 'Educator'}
+                          </span>
+                          <span className="text-slate-300">·</span>
+                          <span className="text-xs text-slate-400 font-medium">{timeAgo(post.createdAt)}</span>
                         </div>
-                        <p className="text-slate-800 text-sm leading-relaxed font-semibold whitespace-pre-line">{post.content}</p>
                       </div>
                     </div>
-                  )}
+                    {isOwner && (
+                      <div className="relative">
+                        <button onClick={() => setShowDeleteConfirm(showDeleteConfirm === post.id ? null : post.id)}
+                          className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                          <MoreHorizontal className="w-4 h-4 text-slate-400" />
+                        </button>
+                        {showDeleteConfirm === post.id && (
+                          <div className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-20 w-44">
+                            <button onClick={() => handleDeletePost(post.id)} disabled={deletingId === post.id}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors">
+                              {deletingId === post.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                              Delete Post
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {!isOwner && (
+                      <div className="relative">
+                        <button onClick={() => { setShowDeleteConfirm(showDeleteConfirm === post.id ? null : post.id); setReportingPost(null) }}
+                          className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                          <MoreHorizontal className="w-4 h-4 text-slate-400" />
+                        </button>
+                        {showDeleteConfirm === post.id && (
+                          <div className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-20 w-56">
+                            {reportingPost === post.id ? (
+                              <div className="p-3 space-y-2">
+                                <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> Why are you reporting?</p>
+                                {['Inappropriate Language', 'Spam / Misleading', 'Harassment', 'Misinformation', 'Other'].map(reason => (
+                                  <button key={reason} onClick={() => { setReportReason(reason); }}
+                                    className={`w-full text-left px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${reportReason === reason ? 'bg-red-100 text-red-700' : 'text-slate-600 hover:bg-slate-100'}`}>
+                                    {reason}
+                                  </button>
+                                ))}
+                                <button disabled={!reportReason} onClick={() => handleReportPost(post.id)}
+                                  className="w-full mt-1 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-all disabled:opacity-40">
+                                  Submit Report
+                                </button>
+                              </div>
+                            ) : (
+                              <button onClick={() => setReportingPost(post.id)}
+                                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-50 transition-colors">
+                                <Flag className="w-4 h-4" /> Report Post
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
-                  {post.postType === 'announcement' && post.content && (
-                    <div className="mb-4 p-4 bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200/60 rounded-xl">
-                      <div className="flex items-start gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-rose-200 flex items-center justify-center shrink-0 mt-0.5">
-                          <Megaphone className="w-4 h-4 text-rose-700" />
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1">Announcement</p>
+                  {/* Content */}
+                  <div className="px-4 sm:px-5 pb-4">
+                    {post.postType === 'question' && post.content && (
+                      <div className="mb-4 p-4 bg-amber-50 border border-amber-200/60 rounded-xl">
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-amber-200 flex items-center justify-center shrink-0 mt-0.5">
+                            <HelpCircle className="w-4 h-4 text-amber-700" />
+                          </div>
                           <p className="text-slate-800 text-sm leading-relaxed font-semibold whitespace-pre-line">{post.content}</p>
                         </div>
                       </div>
-                    </div>
-                  )}
-
-                  {post.postType !== 'question' && post.postType !== 'announcement' && post.content && (
-                    <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line mb-4 font-medium">{post.content}</p>
-                  )}
-
-                  {post.attachmentType === 'link' && post.attachmentUrl && (
-                    <a href={post.attachmentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3.5 bg-blue-50 rounded-xl border border-blue-200/60 mb-4 group hover:bg-blue-100/50 transition-colors">
-                      <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0 group-hover:bg-blue-200 transition-colors">
-                        <Link2 className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-blue-800 truncate">{post.attachmentUrl.replace(/^https?:\/\//, '').split('/')[0]}</p>
-                        <p className="text-xs text-blue-500 font-medium truncate">{post.attachmentUrl}</p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-blue-400 shrink-0" />
-                    </a>
-                  )}
-                  {post.postType === 'poll' && post.pollOptions && (
-                    <div className="mb-4 space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-100 animate-fade-in-up">
-                      {post.pollOptions.map((opt) => {
-                         const currentVotes = post.pollVotes ? Object.values(post.pollVotes).filter(v => v === opt.id).length : 0
-                         const totalVotes = post.pollVotes ? Object.keys(post.pollVotes).length : 0
-                         const percent = totalVotes === 0 ? 0 : Math.round((currentVotes / totalVotes) * 100)
-                         const hasVoted = currentUser && post.pollVotes && post.pollVotes[currentUser.uid] === opt.id
-                         return (
-                           <button 
-                             key={opt.id}
-                             onClick={() => handleVotePoll(post.id, opt.id)}
-                             disabled={!currentUser}
-                             className={`group relative w-full overflow-hidden text-left border rounded-xl px-4 py-3 min-h-[48px] flex items-center justify-between transition-all outline-none ${hasVoted ? 'border-primary-400 bg-primary-50/50 hover:bg-primary-50' : 'border-slate-200 hover:border-primary-300 bg-white shadow-sm hover:shadow'}`}
-                           >
-                             <div className={`absolute top-0 left-0 bottom-0 transition-all duration-1000 ease-out ${hasVoted ? 'bg-primary-100/60' : 'bg-slate-100/60'}`} style={{ width: `${percent}%` }} />
-                             <span className={`relative z-10 flex items-center gap-2.5 text-sm font-bold min-w-0 mr-3 ${hasVoted ? 'text-primary-800' : 'text-slate-700'}`}>
-                               {hasVoted ? <CheckCircle className="w-4 h-4 text-primary-600 shrink-0 shadow-sm rounded-full" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0 group-hover:border-primary-400 transition-colors bg-white" />}
-                               <span className="truncate">{opt.text}</span>
-                             </span>
-                             {totalVotes > 0 && <span className={`relative z-10 text-xs font-extrabold shrink-0 ${hasVoted ? 'text-primary-600' : 'text-slate-400'}`}>{percent}%</span>}
-                           </button>
-                         )
-                      })}
-                      <p className="text-[11px] font-bold text-slate-400 pt-1.5 text-right tracking-wide uppercase">{post.pollVotes ? Object.keys(post.pollVotes).length : 0} votes</p>
-                    </div>
-                  )}
-
-                  {post.attachmentType === 'image' && post.attachmentUrl && (
-                    <img src={post.attachmentUrl} alt="post" className="w-full rounded-xl max-h-[420px] object-cover mb-4" />
-                  )}
-
-                  {post.attachmentType === 'youtube' && post.attachmentUrl && (
-                    <div className="relative w-full overflow-hidden rounded-xl mb-4" style={{ paddingTop: '56.25%' }}>
-                      <iframe
-                        className="absolute top-0 left-0 w-full h-full"
-                        src={
-                          post.attachmentUrl.includes('youtube.com/watch?v=') ? post.attachmentUrl.replace('watch?v=', 'embed/').split('&')[0] : 
-                          post.attachmentUrl.includes('youtu.be/') ? post.attachmentUrl.replace('youtu.be/', 'www.youtube.com/embed/').split('?')[0] :
-                          post.attachmentUrl
-                        }
-                        title="YouTube video player"
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      ></iframe>
-                    </div>
-                  )}
-
-                  {post.attachmentType && post.attachmentType !== 'image' && post.attachmentType !== 'youtube' && post.attachmentUrl && (
-                    <div className="flex items-center gap-3 p-3.5 bg-indigo-50 rounded-xl border border-indigo-100 mb-4">
-                      <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
-                        <FileText className="w-5 h-5 text-indigo-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-800 truncate">{post.attachmentName || 'Document'}</p>
-                        <p className="text-xs text-indigo-500 font-semibold">{post.attachmentType} file</p>
-                      </div>
-                      <a href={post.attachmentUrl} target="_blank" rel="noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors shrink-0">
-                        <Download className="w-3.5 h-3.5" /> Download
-                      </a>
-                    </div>
-                  )}
-
-                  {/* Meta row */}
-                  <div className="flex items-center justify-between text-xs text-slate-400 font-medium mb-3">
-                    <div className="flex items-center gap-3">
-                      <span>{(post.likes || []).length} likes</span>
-                      {(post.dislikes || []).length > 0 && <span>{(post.dislikes || []).length} dislikes</span>}
-                    </div>
-                    <button 
-                      onClick={() => toggleComments(post.id)} 
-                      className="hover:text-indigo-600 hover:underline transition-colors font-semibold"
-                    >
-                      {post.commentsCount || 0} comments
-                    </button>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-0 border-t border-slate-100 px-2">
-                  <button onClick={() => toggleLike(post)}
-                    className={`flex items-center gap-1.5 flex-1 justify-center py-3 text-sm font-semibold transition-all hover:bg-slate-50 ${liked ? 'text-rose-500' : 'text-slate-500 hover:text-rose-400'}`}>
-                    <Heart className={`w-4 h-4 transition-transform ${liked ? 'fill-rose-500 scale-110' : ''}`} />
-                    <span className="hidden sm:inline">{liked ? t('liked') : t('like')}</span>
-                  </button>
-                  <div className="w-px h-6 bg-slate-100" />
-                  <button onClick={() => toggleDislike(post)}
-                    className={`flex items-center gap-1.5 flex-1 justify-center py-3 text-sm font-semibold transition-all hover:bg-slate-50 ${disliked ? 'text-blue-600' : 'text-slate-500 hover:text-blue-500'}`}>
-                    <ThumbsDown className={`w-4 h-4 transition-transform ${disliked ? 'fill-blue-500 scale-110' : ''}`} />
-                    <span className="hidden sm:inline">{disliked ? 'Disliked' : 'Dislike'}</span>
-                  </button>
-                  <div className="w-px h-6 bg-slate-100" />
-                  <button onClick={() => toggleComments(post.id)}
-                    className={`flex items-center gap-1.5 flex-1 justify-center py-3 text-sm font-semibold hover:bg-slate-50 transition-colors ${showComments[post.id] ? 'text-indigo-600' : 'text-slate-500 hover:text-indigo-500'}`}>
-                    <MessageCircle className="w-4 h-4" /> <span className="hidden sm:inline">{t('discuss')}</span>
-                  </button>
-                  <div className="w-px h-6 bg-slate-100" />
-                  <button onClick={() => navigator.share?.({ text: post.content, url: window.location.href })}
-                    className="flex items-center gap-1.5 flex-1 justify-center py-3 text-sm font-semibold text-slate-500 hover:text-indigo-500 hover:bg-slate-50 transition-colors">
-                    <Share2 className="w-4 h-4" /> <span className="hidden sm:inline">{t('share')}</span>
-                  </button>
-                </div>
-
-                {/* Comments */}
-                {showComments[post.id] && (
-                  <div className="border-t border-slate-100 p-4 space-y-3 animate-fade-in bg-slate-50/50">
-                    {loadingComments[post.id] && <div className="flex justify-center py-2"><Loader2 className="w-4 h-4 animate-spin text-indigo-400" /></div>}
-                    {!loadingComments[post.id] && postComments.length === 0 && (
-                      <div className="text-center py-5 bg-white rounded-xl border border-slate-100 mb-2 shadow-sm">
-                        <MessageCircle className="w-7 h-7 text-indigo-200 mx-auto mb-2" />
-                        <p className="text-sm font-bold text-slate-600">No comments yet</p>
-                        <p className="text-xs font-medium text-slate-400 mt-0.5">Start the conversation by sharing your thoughts!</p>
-                      </div>
                     )}
-                    {postComments.map(c => (
-                        <div key={c.id} className="flex gap-2.5">
-                         <div
-                           onClick={() => c.authorId !== 'ldms_ai_bot' && navigate(`/user/${c.authorId}`)}
-                           className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 overflow-hidden ${c.authorId !== 'ldms_ai_bot' ? 'cursor-pointer hover:ring-2 hover:ring-indigo-300 transition-all' : ''} ${c.authorId === 'ldms_ai_bot' ? 'ring-2 ring-pink-400/50 bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600' : 'bg-indigo-100 text-indigo-700'}`}>
-                           {c.authorId === 'ldms_ai_bot' ? <span className="text-sm">🤖</span> : c.authorPhoto ? <img src={c.authorPhoto} alt="" className="w-full h-full object-cover" /> : initials(c.authorName || '')}
-                         </div>
-                         <div className={`flex-1 rounded-xl px-3.5 py-2.5 border ${c.authorId === 'ldms_ai_bot' ? 'bg-gradient-to-r from-indigo-50 to-pink-50 border-pink-200/50' : 'bg-white border-slate-200'}`}>
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span
-                              onClick={() => c.authorId !== 'ldms_ai_bot' && navigate(`/user/${c.authorId}`)}
-                              className={`text-xs font-extrabold ${c.authorId !== 'ldms_ai_bot' ? 'cursor-pointer hover:text-indigo-600 transition-colors' : ''} ${c.authorId === 'ldms_ai_bot' ? 'bg-gradient-to-r from-pink-600 to-indigo-600 bg-clip-text text-transparent' : 'text-slate-800'}`}
-                            >
-                              {c.authorName}
-                            </span>
-                            {c.authorId === 'ldms_ai_bot' && <span className="text-[8px] font-black bg-gradient-to-r from-pink-500 to-indigo-500 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wider">AI</span>}
-                            <span className="text-[10px] text-slate-400">{timeAgo(c.createdAt)}</span>
+
+                    {post.postType === 'announcement' && post.content && (
+                      <div className="mb-4 p-4 bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200/60 rounded-xl">
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-rose-200 flex items-center justify-center shrink-0 mt-0.5">
+                            <Megaphone className="w-4 h-4 text-rose-700" />
                           </div>
-                          <p className="text-sm text-slate-600 font-medium">{c.text}</p>
+                          <div>
+                            <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1">Announcement</p>
+                            <p className="text-slate-800 text-sm leading-relaxed font-semibold whitespace-pre-line">{post.content}</p>
+                          </div>
                         </div>
                       </div>
-                    ))}
-                    <div className="flex gap-2 pt-1">
-                      <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-[10px] shrink-0 overflow-hidden">
-                        {userProfile?.profilePhoto ? <img src={userProfile.profilePhoto} alt="" className="w-full h-full object-cover" /> : initials(userProfile?.name || '')}
+                    )}
+
+                    {post.postType !== 'question' && post.postType !== 'announcement' && post.content && (
+                      <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap break-words w-full mb-4 font-medium overflow-hidden">{post.content}</p>
+                    )}
+
+                    {post.attachmentType === 'link' && post.attachmentUrl && (
+                      <a href={post.attachmentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3.5 bg-blue-50 rounded-xl border border-blue-200/60 mb-4 group hover:bg-blue-100/50 transition-colors">
+                        <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0 group-hover:bg-blue-200 transition-colors">
+                          <Link2 className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-blue-800 truncate">{post.attachmentUrl.replace(/^https?:\/\//, '').split('/')[0]}</p>
+                          <p className="text-xs text-blue-500 font-medium truncate">{post.attachmentUrl}</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-blue-400 shrink-0" />
+                      </a>
+                    )}
+                    {post.postType === 'poll' && post.pollOptions && (
+                      <div className="mb-4 space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-100 animate-fade-in-up">
+                        {post.pollOptions.map((opt) => {
+                          const currentVotes = post.pollVotes ? Object.values(post.pollVotes).filter(v => v === opt.id).length : 0
+                          const totalVotes = post.pollVotes ? Object.keys(post.pollVotes).length : 0
+                          const percent = totalVotes === 0 ? 0 : Math.round((currentVotes / totalVotes) * 100)
+                          const hasVoted = currentUser && post.pollVotes && post.pollVotes[currentUser.uid] === opt.id
+                          return (
+                            <button
+                              key={opt.id}
+                              onClick={() => handleVotePoll(post.id, opt.id)}
+                              disabled={!currentUser}
+                              className={`group relative w-full overflow-hidden text-left border rounded-xl px-4 py-3 min-h-[48px] flex items-center justify-between transition-all outline-none ${hasVoted ? 'border-primary-400 bg-primary-50/50 hover:bg-primary-50' : 'border-slate-200 hover:border-primary-300 bg-white shadow-sm hover:shadow'}`}
+                            >
+                              <div className={`absolute top-0 left-0 bottom-0 transition-all duration-1000 ease-out ${hasVoted ? 'bg-primary-100/60' : 'bg-slate-100/60'}`} style={{ width: `${percent}%` }} />
+                              <span className={`relative z-10 flex items-center gap-2.5 text-sm font-bold min-w-0 mr-3 ${hasVoted ? 'text-primary-800' : 'text-slate-700'}`}>
+                                {hasVoted ? <CheckCircle className="w-4 h-4 text-primary-600 shrink-0 shadow-sm rounded-full" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0 group-hover:border-primary-400 transition-colors bg-white" />}
+                                <span className="truncate">{opt.text}</span>
+                              </span>
+                              {totalVotes > 0 && <span className={`relative z-10 text-xs font-extrabold shrink-0 ${hasVoted ? 'text-primary-600' : 'text-slate-400'}`}>{percent}%</span>}
+                            </button>
+                          )
+                        })}
+                        <p className="text-[11px] font-bold text-slate-400 pt-1.5 text-right tracking-wide uppercase">{post.pollVotes ? Object.keys(post.pollVotes).length : 0} votes</p>
                       </div>
-                      <CommentInput
-                        postId={post.id}
-                        value={commentText[post.id] || ''}
-                        onChange={e => setCommentText(p => ({ ...p, [post.id]: e.target.value }))}
-                        onSubmit={handleComment}
-                      />
-                      <button onClick={() => handleComment(post.id)} disabled={!commentText[post.id]?.trim()}
-                        className="p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors disabled:opacity-40 shrink-0">
-                        <Send className="w-3.5 h-3.5" />
+                    )}
+
+                    {post.attachmentType === 'image' && post.attachmentUrl && (
+                      <img src={post.attachmentUrl} alt="post" className="w-full rounded-xl max-h-[420px] object-cover mb-4" />
+                    )}
+
+                    {post.attachmentType === 'youtube' && post.attachmentUrl && (
+                      <div className="relative w-full overflow-hidden rounded-xl mb-4" style={{ paddingTop: '56.25%' }}>
+                        <iframe
+                          className="absolute top-0 left-0 w-full h-full"
+                          src={
+                            post.attachmentUrl.includes('youtube.com/watch?v=') ? post.attachmentUrl.replace('watch?v=', 'embed/').split('&')[0] :
+                              post.attachmentUrl.includes('youtu.be/') ? post.attachmentUrl.replace('youtu.be/', 'www.youtube.com/embed/').split('?')[0] :
+                                post.attachmentUrl
+                          }
+                          title="YouTube video player"
+                          frameBorder="0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        ></iframe>
+                      </div>
+                    )}
+
+                    {post.attachmentType && post.attachmentType !== 'image' && post.attachmentType !== 'youtube' && post.attachmentUrl && (
+                      <div className="flex items-center gap-3 p-3.5 bg-indigo-50 rounded-xl border border-indigo-100 mb-4">
+                        <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                          <FileText className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-slate-800 truncate">{post.attachmentName || 'Document'}</p>
+                          <p className="text-xs text-indigo-500 font-semibold">{post.attachmentType} file</p>
+                        </div>
+                        <a href={post.attachmentUrl} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors shrink-0">
+                          <Download className="w-3.5 h-3.5" /> Download
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Meta row */}
+                    <div className="flex items-center justify-between text-xs text-slate-400 font-medium mb-3">
+                      <div className="flex items-center gap-3">
+                        <span>{(post.likes || []).length} likes</span>
+                        {(post.dislikes || []).length > 0 && <span>{(post.dislikes || []).length} dislikes</span>}
+                      </div>
+                      <button
+                        onClick={() => toggleComments(post.id)}
+                        className="hover:text-indigo-600 hover:underline transition-colors font-semibold"
+                      >
+                        {post.commentsCount || 0} comments
                       </button>
                     </div>
                   </div>
-                )}
-              </article>
+
+                  {/* Actions — Instagram-style icon bar */}
+                  <div className="flex items-center border-t border-slate-100 dark:border-white/5">
+                    <button onClick={() => toggleLike(post)}
+                      className={`flex items-center gap-1.5 flex-1 justify-center py-3 text-[13px] font-semibold transition-all active:scale-95 ${liked ? 'text-rose-500' : 'text-slate-500 hover:text-rose-400'}`}>
+                      <Heart className={`w-[18px] h-[18px] transition-transform ${liked ? 'fill-rose-500 scale-110' : ''}`} />
+                      <span className="text-xs font-bold">{liked ? t('liked') : t('like')}</span>
+                    </button>
+                    <button onClick={() => toggleComments(post.id)}
+                      className={`flex items-center gap-1.5 flex-1 justify-center py-3 text-[13px] font-semibold transition-all active:scale-95 ${showComments[post.id] ? 'text-indigo-600' : 'text-slate-500 hover:text-indigo-500'}`}>
+                      <MessageCircle className="w-[18px] h-[18px]" />
+                      <span className="text-xs font-bold">{t('discuss')}</span>
+                    </button>
+                    <button onClick={() => navigator.share?.({ text: post.content, url: window.location.href })}
+                      className="flex items-center gap-1.5 flex-1 justify-center py-3 text-[13px] font-semibold text-slate-500 hover:text-indigo-500 transition-all active:scale-95">
+                      <Share2 className="w-[18px] h-[18px]" />
+                      <span className="text-xs font-bold">{t('share')}</span>
+                    </button>
+                  </div>
+
+                  {/* Comments */}
+                  {showComments[post.id] && (
+                    <div className="border-t border-slate-100 p-4 space-y-3 animate-fade-in bg-slate-50/50">
+                      {loadingComments[post.id] && <div className="flex justify-center py-2"><Loader2 className="w-4 h-4 animate-spin text-indigo-400" /></div>}
+                      {!loadingComments[post.id] && postComments.length === 0 && (
+                        <div className="text-center py-5 bg-white rounded-xl border border-slate-100 mb-2 shadow-sm">
+                          <MessageCircle className="w-7 h-7 text-indigo-200 mx-auto mb-2" />
+                          <p className="text-sm font-bold text-slate-600">No comments yet</p>
+                          <p className="text-xs font-medium text-slate-400 mt-0.5">Start the conversation by sharing your thoughts!</p>
+                        </div>
+                      )}
+                      {postComments.map(c => (
+                        <div key={c.id} className="flex gap-2.5">
+                          <div
+                            onClick={() => c.authorId !== 'ldms_ai_bot' && navigate(`/user/${c.authorId}`)}
+                            className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 overflow-hidden ${c.authorId !== 'ldms_ai_bot' ? 'cursor-pointer hover:ring-2 hover:ring-indigo-300 transition-all' : ''} ${c.authorId === 'ldms_ai_bot' ? 'ring-2 ring-pink-400/50 bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600' : 'bg-indigo-100 text-indigo-700'}`}>
+                            {c.authorId === 'ldms_ai_bot' ? <span className="text-sm">🤖</span> : c.authorPhoto ? <img src={c.authorPhoto} alt="" className="w-full h-full object-cover" /> : initials(c.authorName || '')}
+                          </div>
+                          <div className={`flex-1 rounded-xl px-3.5 py-2.5 border ${c.authorId === 'ldms_ai_bot' ? 'bg-gradient-to-r from-indigo-50 to-pink-50 border-pink-200/50' : 'bg-white border-slate-200'}`}>
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span
+                                onClick={() => c.authorId !== 'ldms_ai_bot' && navigate(`/user/${c.authorId}`)}
+                                className={`text-xs font-extrabold ${c.authorId !== 'ldms_ai_bot' ? 'cursor-pointer hover:text-indigo-600 transition-colors' : ''} ${c.authorId === 'ldms_ai_bot' ? 'bg-gradient-to-r from-pink-600 to-indigo-600 bg-clip-text text-transparent' : 'text-slate-800'}`}
+                              >
+                                {c.authorName}
+                              </span>
+                              {c.authorId === 'ldms_ai_bot' && <span className="text-[8px] font-black bg-gradient-to-r from-pink-500 to-indigo-500 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wider">AI</span>}
+                              <span className="text-[10px] text-slate-400">{timeAgo(c.createdAt)}</span>
+                            </div>
+                            <p className="text-sm text-slate-600 font-medium">{c.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="flex gap-2 pt-1">
+                        <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-[10px] shrink-0 overflow-hidden">
+                          {userProfile?.profilePhoto ? <img src={userProfile.profilePhoto} alt="" className="w-full h-full object-cover" /> : initials(userProfile?.name || '')}
+                        </div>
+                        <CommentInput
+                          postId={post.id}
+                          value={commentText[post.id] || ''}
+                          onChange={e => setCommentText(p => ({ ...p, [post.id]: e.target.value }))}
+                          onSubmit={handleComment}
+                        />
+                        <button onClick={() => handleComment(post.id)} disabled={!commentText[post.id]?.trim()}
+                          className="p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors disabled:opacity-40 shrink-0">
+                          <Send className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </article>
               </React.Fragment>
             )
           })}
@@ -1527,7 +1537,7 @@ export default function Feed() {
         </div>
 
         {/* ─── RIGHT SIDEBAR ─── */}
-        <div className="hidden lg:block space-y-5">
+        <div className="hidden lg:block space-y-5 px-0">
           <div className="sticky top-[90px] space-y-5">
 
             {/* Super Admin Announcement */}

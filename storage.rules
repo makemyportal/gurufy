@@ -1,0 +1,75 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // ----------------------------------------------------
+    // COMMON FUNCTIONS
+    // ----------------------------------------------------
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Default rule to generally block unauthenticated access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // ----------------------------------------------------
+    // USER PROFILES & AVATARS
+    // ----------------------------------------------------
+    // e.g. avatars/{userId}/profile.jpg
+    match /avatars/{userId}/{fileName=**} {
+      // Anyone can see profile pictures
+      allow read: if true; 
+      // Only the specific user can upload their own avatar
+      allow write: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ----------------------------------------------------
+    // POST IMAGES & MEDIA
+    // ----------------------------------------------------
+    // e.g. posts/{userId}/{fileName}
+    match /posts/{userId}/{fileName=**} {
+      // Anyone authenticated can read post media
+      allow read: if isAuthenticated();
+      // Only the specific author can upload media for their post
+      allow write: if isAuthenticated() && isOwner(userId);
+    }
+
+    // ----------------------------------------------------
+    // EDUCATIONAL RESOURCES
+    // ----------------------------------------------------
+    // e.g. resources/{userId}/{fileName}
+    match /resources/{userId}/{fileName=**} {
+      allow read: if isAuthenticated();
+      // Enforce checking if the file size is reasonable (e.g. < 50MB) 
+      // and only allowing the resource creator to upload
+      allow write: if isAuthenticated() 
+                   && isOwner(userId)
+                   && request.resource.size < 50 * 1024 * 1024; // 50 MB limit
+    }
+
+    // ----------------------------------------------------
+    // CHAT ATTACHMENTS
+    // ----------------------------------------------------
+    // e.g. conversations/{conversationId}/{fileName}
+    match /conversations/{conversationId}/{fileName=**} {
+      // Note: Truly securing this requires Firestore custom claims or token checking,
+      // because Storage rules cannot query Firestore natively to check `participants` array. 
+      // For now, allow authenticated read/write, but use unpredictable filenames (UUIDs).
+      allow read, write: if isAuthenticated();
+    }
+    
+    // ----------------------------------------------------
+    // ANY OTHER UPLOADS (Schools, Groups, Jobs)
+    // ----------------------------------------------------
+    match /groups/{groupId}/{fileName=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Broadly allowing group uploads
+    }
+  }
+}

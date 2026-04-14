@@ -501,8 +501,8 @@ export default function Layout() {
         </aside>
 
         {/* Main Content Workspace */}
-        <main className="flex-1 min-h-screen xl:ml-[220px] pb-[90px] xl:pb-12 pt-6 px-4 sm:px-6 md:px-8">
-          <div className="max-w-6xl mx-auto">
+        <main className="flex-1 min-h-screen xl:ml-[220px] pb-[90px] xl:pb-12 pt-6 px-4 sm:px-6 md:px-8 w-full max-w-[100vw] overflow-x-hidden sm:max-w-none">
+          <div className="max-w-6xl mx-auto w-full">
             <Outlet />
           </div>
         </main>
