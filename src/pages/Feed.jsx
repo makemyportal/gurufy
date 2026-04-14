@@ -40,6 +40,7 @@ function getCategoryIcon(category) {
     case 'job': return Briefcase
     case 'scheme': return GraduationCap
     case 'exam': return FileText
+    case 'board': return GraduationCap
     case 'tip': return Sparkles
     case 'discussion': return TrendingUp
     case 'meme': return Camera
@@ -53,6 +54,7 @@ function getCategoryLabel(category) {
     case 'job': return 'Naukri / Job Alert'
     case 'scheme': return 'Govt Scheme'
     case 'exam': return 'Exam Update'
+    case 'board': return 'Board Circular'
     case 'tip': return 'Teaching Tip'
     case 'discussion': return 'Trending Discussion'
     case 'meme': return 'Photo / Meme'
@@ -122,6 +124,7 @@ function AutoFeedCard({ item, index }) {
     tip: 'from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 border-violet-200/60 dark:border-violet-800/40',
     discussion: 'from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border-orange-200/60 dark:border-orange-800/40',
     meme: 'from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 border-pink-200/60 dark:border-pink-800/40',
+    board: 'from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 border-cyan-200/60 dark:border-cyan-800/40',
   }
 
   const iconBgByCategory = {
@@ -132,7 +135,12 @@ function AutoFeedCard({ item, index }) {
     tip: 'bg-violet-500',
     discussion: 'bg-orange-500',
     meme: 'bg-pink-500',
+    board: 'bg-cyan-500',
   }
+
+  const [liked, setLiked] = useState(false)
+  const currentLikesVal = parseInt((item.likes || '0').toString().replace(/k/i, '000')) || 0
+  const [likesCount, setLikesCount] = useState(currentLikesVal)
 
   function handleCardClick() {
     if (item.url) {
@@ -225,14 +233,19 @@ function AutoFeedCard({ item, index }) {
         )}
       </div>
 
-      {/* Footer - Engagement */}
       <div className="flex items-center justify-between px-5 py-3 border-t border-white/40 dark:border-white/10 bg-white/30 dark:bg-white/5">
         <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5 text-xs font-bold text-rose-500">
-            <Heart className="w-3.5 h-3.5 fill-rose-500" /> {item.likes}
-          </span>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              setLiked(!liked);
+              setLikesCount(prev => liked ? prev - 1 : prev + 1);
+            }} 
+            className={`flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95 ${liked ? 'text-rose-500' : 'text-slate-500 hover:text-rose-400'}`}>
+            <Heart className={`w-[18px] h-[18px] transition-transform ${liked ? 'fill-rose-500 scale-110' : ''}`} /> {likesCount}
+          </button>
           <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
-            <MessageCircle className="w-3.5 h-3.5" /> {item.comments}
+            <MessageCircle className="w-[18px] h-[18px]" /> {item.comments}
           </span>
         </div>
         {item.url && (
@@ -299,6 +312,7 @@ export default function Feed() {
   const [liveData, setLiveData] = useState(null)
   const [isLiveActive, setIsLiveActive] = useState(false)
   const [refreshingFeed, setRefreshingFeed] = useState(false)
+  const [platformSettings, setPlatformSettings] = useState({})
 
   useEffect(() => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'))
@@ -312,7 +326,7 @@ export default function Feed() {
   // ─── Live Feed Setup & Rotation ───
   useEffect(() => {
     // Start with hardcoded data immediately (instant load)
-    setAutoFeedItems(getAutoFeedItems(15))
+    setAutoFeedItems(getAutoFeedItems(40))
     setTickerItems(getTickerItems(6))
     setSidebarTrending(getAutoFeedItems(4))
 
@@ -358,7 +372,7 @@ export default function Feed() {
           if (live && live.length > 0) {
             setLiveData(live)
             setIsLiveActive(true)
-            setAutoFeedItems(getMixedFeed(live, 15))
+            setAutoFeedItems(getMixedFeed(live, 40))
             setSidebarTrending(getMixedFeed(live, 4))
           }
         })
@@ -380,7 +394,7 @@ export default function Feed() {
       if (live && live.length > 0) {
         setLiveData(live)
         setIsLiveActive(true)
-        setAutoFeedItems(getMixedFeed(live, 15))
+        setAutoFeedItems(getMixedFeed(live, 40))
         setSidebarTrending(getMixedFeed(live, 4))
         const liveTickerItems = live
           .filter(i => i.category === 'news' || i.category === 'job' || i.category === 'exam')
@@ -398,11 +412,17 @@ export default function Feed() {
     ? autoFeedItems
     : (liveData ? filterLiveByCategory(liveData, activeFilter).concat(getItemsByCategory(activeFilter)) : getItemsByCategory(activeFilter))
 
-  // Listen to Platform Settings for Global Announcements
+  // Listen to Platform Settings for Global Announcements & AI toggle
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (docSnap) => {
-      if (docSnap.exists() && docSnap.data().latestBroadcast) {
-        setGlobalAnnouncement(docSnap.data().latestBroadcast)
+    const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (settingsDoc) => {
+      if (settingsDoc.exists()) {
+        const data = settingsDoc.data()
+        setPlatformSettings(data)
+        if (data.latestBroadcast) {
+          setGlobalAnnouncement(data.latestBroadcast)
+        } else {
+          setGlobalAnnouncement(null)
+        }
       } else {
         setGlobalAnnouncement(null)
       }
@@ -441,6 +461,9 @@ export default function Feed() {
   // AI Auto-Bot Routine
   useEffect(() => {
     if (!currentUser || loading || posts.length === 0) return
+    // Check if AI bot is enabled from platform settings
+    if (platformSettings.enableAIBot === false) return
+
     const aiPosts = posts.filter(p => p.authorName === 'LDMS AI')
     const latestAIPost = aiPosts.length > 0 ? aiPosts[0] : null
 
@@ -449,13 +472,12 @@ export default function Feed() {
     const hoursSinceLastAI = (now.getTime() - lastAITime.getTime()) / (1000 * 60 * 60)
 
     const trigLock = localStorage.getItem('ai_bot_timer')
-
-    // Trigger if > 4 hours and no recent lock (< 10 mins)
-    if (hoursSinceLastAI > 4 && (!trigLock || (now.getTime() - parseInt(trigLock)) > 1000 * 60 * 10)) {
+    // Trigger AI gently roughly every 12 hours
+    if (hoursSinceLastAI > 12 && (!trigLock || (now.getTime() - parseInt(trigLock)) > 1000 * 60 * 10)) {
       localStorage.setItem('ai_bot_timer', now.getTime().toString())
       triggerAIBot()
     }
-  }, [posts, currentUser, loading])
+  }, [posts, currentUser, loading, platformSettings])
 
   async function triggerAIBot() {
     try {
@@ -497,8 +519,8 @@ export default function Feed() {
         } else { postDoc.postType = 'text'; postDoc.content = text; }
       } else if (isQuestion) {
         const prompt = isHindi
-          ? `${subject} के बारे में एक छोटा, रोचक सवाल पूछें (30 शब्दों से कम) जो शिक्षकों के बीच चर्चा शुरू करे। 1 emoji इस्तेमाल करें। कोई markdown नहीं।`
-          : `Ask a short, engaging open-ended question (under 30 words) about ${subject} to inspire a discussion among educators. Use 1 emoji. EXCLUDE MARKDOWN.`
+          ? `${subject} के बारे में एक छोटा, मजेदार और सोचने पर मजबूर करने वाला सवाल पूछें जो शिक्षकों के बीच गहरी चर्चा शुरू करे (30 शब्दों से कम)। 1 emoji इस्तेमाल करें। कोई markdown नहीं।`
+          : `Ask a short, highly engaging open-ended question or share a funny teaching dilemma (under 30 words) about ${subject} to inspire a discussion among educators. Use 1 emoji. EXCLUDE MARKDOWN.`
         const text = await generateAIContent(prompt)
         let cleanText = text.trim()
         if (cleanText.startsWith('"') && cleanText.endsWith('"')) cleanText = cleanText.slice(1, -1)
@@ -506,8 +528,8 @@ export default function Feed() {
         postDoc.postType = 'text';
       } else {
         const prompt = isHindi
-          ? `${subject} के बारे में एक रोचक, दिलचस्प तथ्य बताएं (40 शब्दों से कम)। 1-2 emoji इस्तेमाल करें। कोई markdown नहीं।`
-          : `Share a fascinating, mind-blowing educational fact (under 40 words) about ${subject}. Include 1 or 2 emojis. EXCLUDE MARKDOWN.`
+          ? `शिक्षकों की जिंदगी या ${subject} से जुड़ा एक बहुत ही मजेदार जोक या 'टीचर मीम' टाइप का विचार लिखें (40 शब्दों से कम)। 1-2 emoji इस्तेमाल करें। कोई markdown नहीं।`
+          : `Share a hilarious, highly relatable "Teacher Meme" thought or a mind-blowing educational fact (under 40 words) about ${subject}. Make it viral-worthy. Include 1 or 2 emojis. EXCLUDE MARKDOWN.`
         const text = await generateAIContent(prompt)
         let cleanText = text.trim()
         if (cleanText.startsWith('"') && cleanText.endsWith('"')) cleanText = cleanText.slice(1, -1)
@@ -645,29 +667,36 @@ export default function Feed() {
   async function toggleLike(post) {
     if (!currentUser) return navigate('/login')
     const ref = doc(db, 'posts', post.id)
-    const liked = (post.likes || []).includes(currentUser.uid)
-    // If user had disliked, remove dislike first
-    const disliked = (post.dislikes || []).includes(currentUser.uid)
-    if (!liked && disliked) {
-      await updateDoc(ref, { likes: arrayUnion(currentUser.uid), dislikes: arrayRemove(currentUser.uid) })
-    } else {
-      await updateDoc(ref, { likes: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid) })
-    }
-    if (!liked && post.authorId !== currentUser.uid) {
-      createNotification(post.authorId, { type: 'like', title: `${userProfile?.name || 'Someone'} liked your post`, fromUserId: currentUser.uid, fromUserName: userProfile?.name || '', relatedId: post.id })
+    try {
+      const liked = (post.likes || []).includes(currentUser.uid)
+      // If user had disliked, remove dislike first
+      const disliked = (post.dislikes || []).includes(currentUser.uid)
+      if (!liked && disliked) {
+        await updateDoc(ref, { likes: arrayUnion(currentUser.uid), dislikes: arrayRemove(currentUser.uid) })
+      } else {
+        await updateDoc(ref, { likes: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid) })
+      }
+      if (!liked && post.authorId !== currentUser.uid && post.authorId !== 'ldms_ai_bot') {
+        createNotification(post.authorId, { type: 'like', title: `${userProfile?.name || 'Someone'} liked your post`, fromUserId: currentUser.uid, fromUserName: userProfile?.name || '', relatedId: post.id })
+      }
+    } catch (err) {
+      console.warn("Toggle like error:", err)
     }
   }
 
   async function toggleDislike(post) {
     if (!currentUser) return navigate('/login')
     const ref = doc(db, 'posts', post.id)
-    const disliked = (post.dislikes || []).includes(currentUser.uid)
-    // If user had liked, remove like first
-    const liked = (post.likes || []).includes(currentUser.uid)
-    if (!disliked && liked) {
-      await updateDoc(ref, { dislikes: arrayUnion(currentUser.uid), likes: arrayRemove(currentUser.uid) })
-    } else {
-      await updateDoc(ref, { dislikes: disliked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid) })
+    try {
+      const disliked = (post.dislikes || []).includes(currentUser.uid)
+      const liked = (post.likes || []).includes(currentUser.uid)
+      if (!disliked && liked) {
+        await updateDoc(ref, { dislikes: arrayUnion(currentUser.uid), likes: arrayRemove(currentUser.uid) })
+      } else {
+        await updateDoc(ref, { dislikes: disliked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid) })
+      }
+    } catch (err) {
+      console.warn('Toggle dislike error:', err)
     }
   }
 
@@ -690,7 +719,7 @@ export default function Feed() {
       })
       const post = posts.find(p => p.id === postId)
       await updateDoc(doc(db, 'posts', postId), { commentsCount: (post?.commentsCount || 0) + 1 })
-      if (post && post.authorId !== currentUser.uid) {
+      if (post && post.authorId !== currentUser.uid && post.authorId !== 'ldms_ai_bot') {
         createNotification(post.authorId, { type: 'comment', title: `${userProfile?.name || 'Someone'} commented`, fromUserId: currentUser.uid, fromUserName: userProfile?.name || '', relatedId: postId })
       }
       setCommentText(p => ({ ...p, [postId]: '' }))
@@ -1032,6 +1061,7 @@ export default function Feed() {
                 { key: 'job', label: 'Naukri', emoji: '💼' },
                 { key: 'scheme', label: 'Schemes', emoji: '🏛️' },
                 { key: 'exam', label: 'Exams', emoji: '📝' },
+                { key: 'board', label: 'Boards', emoji: '📄' },
                 { key: 'tip', label: 'Tips', emoji: '💡' },
                 { key: 'meme', label: 'Photos', emoji: '📸' },
                 { key: 'discussion', label: 'Trending', emoji: '🔥' },
@@ -1101,102 +1131,15 @@ export default function Feed() {
 
           {/* Empty State - Engaging Starter Content */}
           {!loading && posts.length === 0 && (
-            <div className="space-y-5">
-              {/* Starter Post 1 */}
-              <article className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-slate-300 hover:shadow-md transition-all duration-300">
-                <div className="flex items-start justify-between p-5 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0 shadow-inner">
-                      GT
-                    </div>
-                    <div>
-                      <p className="font-extrabold text-slate-900 text-sm leading-tight flex items-center gap-1.5">
-                        LDMS Team <span className="w-3.5 h-3.5 bg-blue-500 text-white rounded-full flex items-center justify-center text-[8px]">✓</span>
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">Platform Admin</span>
-                        <span className="text-slate-300">·</span>
-                        <span className="text-xs text-slate-400 font-medium">pinned post</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="px-5 pb-4">
-                  <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line mb-4 font-medium">
-                    Welcome to India's fastest-growing professional network for educators! 🚀
-                    <br /><br />
-                    We built LDMS to give teachers a dedicated space to thrive. Here's what you can do:
-                    <br />✨ <b>Connect</b> with passionate educators across the country
-                    <br />📚 <b>Share</b> and discover high-quality teaching resources
-                    <br />💼 <b>Find</b> your next dream teaching job in top schools
-                    <br />🤖 <b>Supercharge</b> your lesson planning with our AI Tools
-                    <br /><br />
-                    Why not start by introducing yourself? Create your first post above and say hello to the community! 👇
-                  </p>
-                  <div className="flex items-center justify-between text-xs text-slate-400 font-medium mb-3">
-                    <span>142 likes</span>
-                    <span>12 comments</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-0 border-t border-slate-100 px-2 opacity-70 pointer-events-none">
-                  <button className="flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold text-rose-500 transition-all rounded-b-none rounded-t-none">
-                    <Heart className="w-4 h-4 fill-rose-500" /> Liked
-                  </button>
-                  <div className="w-px h-6 bg-slate-100" />
-                  <button className="flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold text-slate-500 transition-colors">
-                    <MessageCircle className="w-4 h-4" /> Discuss
-                  </button>
-                  <div className="w-px h-6 bg-slate-100" />
-                  <button className="flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold text-slate-500 transition-colors">
-                    <Share2 className="w-4 h-4" /> Share
-                  </button>
-                </div>
-              </article>
-
-              {/* Starter Post 2 */}
-              <article className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-slate-300 hover:shadow-md transition-all duration-300">
-                <div className="flex items-start justify-between p-5 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0 shadow-inner">
-                      SP
-                    </div>
-                    <div>
-                      <p className="font-extrabold text-slate-900 text-sm leading-tight">Sarah from LDMS</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[11px] font-bold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full">Community Lead</span>
-                        <span className="text-slate-300">·</span>
-                        <span className="text-xs text-slate-400 font-medium">just now</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="px-5 pb-4">
-                  <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line mb-4 font-medium">
-                    <b>Pro Tip:</b> Did you know you can generate complete lesson plans in seconds using our AI Tools? 🪄✨
-                    <br /><br />
-                    Head over to the <span className="text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.5 rounded">AI Magic</span> section in the sidebar, choose "Lesson Planner", type in your topic and grade level, and let LDMS do the heavy lifting! It even generates worksheets and quiz questions based on the lesson.
-                    <br /><br />
-                    What topic are you teaching next week? 📝 Let us know!
-                  </p>
-                  <div className="flex items-center justify-between text-xs text-slate-400 font-medium mb-3">
-                    <span>89 likes</span>
-                    <span>4 comments</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-0 border-t border-slate-100 px-2 opacity-70 pointer-events-none">
-                  <button className="flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold text-slate-500 transition-all rounded-b-none rounded-t-none">
-                    <Heart className="w-4 h-4" /> Like
-                  </button>
-                  <div className="w-px h-6 bg-slate-100" />
-                  <button className="flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold text-slate-500 transition-colors">
-                    <MessageCircle className="w-4 h-4" /> Discuss
-                  </button>
-                  <div className="w-px h-6 bg-slate-100" />
-                  <button className="flex items-center gap-2 flex-1 justify-center py-3 text-sm font-semibold text-slate-500 transition-colors">
-                    <Share2 className="w-4 h-4" /> Share
-                  </button>
-                </div>
-              </article>
+            <div className="text-center py-12 bg-white border border-slate-100 rounded-2xl shadow-sm">
+              <Megaphone className="w-12 h-12 text-indigo-200 mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-slate-800">Welcome to the Community!</h3>
+              <p className="text-slate-500 font-medium text-sm mt-1 mb-6 max-w-sm mx-auto">
+                Be the first to share your teaching journey, ask a question, or post a resource.
+              </p>
+              <button onClick={() => { document.querySelector('textarea')?.focus() }} className="btn-primary py-2 px-6">
+                Create First Post
+              </button>
             </div>
           )}
 
@@ -1444,16 +1387,16 @@ export default function Feed() {
                     )}
 
                     {/* Meta row */}
-                    <div className="flex items-center justify-between text-xs text-slate-400 font-medium mb-3">
-                      <div className="flex items-center gap-3">
-                        <span>{(post.likes || []).length} likes</span>
-                        {(post.dislikes || []).length > 0 && <span>{(post.dislikes || []).length} dislikes</span>}
+                    <div className="flex items-center justify-between text-[11px] font-extrabold uppercase tracking-wide mb-3 px-1">
+                      <div className="flex items-center gap-3 text-rose-500">
+                        <span>{(post.likes || []).length} Likes</span>
+                        {(post.dislikes || []).length > 0 && <span>{(post.dislikes || []).length} Dislikes</span>}
                       </div>
                       <button
                         onClick={() => toggleComments(post.id)}
-                        className="hover:text-indigo-600 hover:underline transition-colors font-semibold"
+                        className="hover:text-indigo-600 hover:underline transition-colors text-indigo-500"
                       >
-                        {post.commentsCount || 0} comments
+                        {post.commentsCount || 0} Discussions
                       </button>
                     </div>
                   </div>

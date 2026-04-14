@@ -19,40 +19,48 @@ import ChatPanel from './ChatPanel'
 import ProfileCompletion from './ProfileCompletion'
 
 // Nav array builders — called inside component to get reactive translations
-function getTeacherNav(t) {
-  return [
+function getTeacherNav(t, settings) {
+  let nav = [
     { to: '/', icon: Home, label: t('feed'), color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/groups', icon: Users, label: t('groups'), color: 'from-violet-500 to-purple-600', shadow: 'rgba(139,92,246,0.4)' },
-    { to: '/jobs', icon: Briefcase, label: t('careers'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
+    { to: '/jobs', icon: Briefcase, label: 'Jobs', color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
     { to: '/resources', icon: FolderOpen, label: t('resources'), color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
     { to: '/marketplace', icon: ShoppingCart, label: 'Marketplace', color: 'from-blue-600 to-purple-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/ai-tools', icon: Sparkles, label: t('aiMagic'), color: 'from-pink-500 to-rose-600', shadow: 'rgba(244,63,94,0.4)' },
-    { to: '/mentorship', icon: GraduationCap, label: 'Mentorship', color: 'from-cyan-500 to-blue-600', shadow: 'rgba(6,182,212,0.4)' },
-    { to: '/audio-rooms', icon: Radio, label: 'Audio Rooms', color: 'from-rose-500 to-pink-600', shadow: 'rgba(244,63,94,0.4)' },
+  ];
+  if (settings?.enableMentorship !== false) nav.push({ to: '/mentorship', icon: GraduationCap, label: 'Mentorship', color: 'from-cyan-500 to-blue-600', shadow: 'rgba(6,182,212,0.4)' });
+  if (settings?.enableAudioRooms !== false) nav.push({ to: '/audio-rooms', icon: Radio, label: 'Audio Rooms', color: 'from-rose-500 to-pink-600', shadow: 'rgba(244,63,94,0.4)' });
+  
+  nav.push(
     { to: '/events', icon: CalendarDays, label: t('events'), color: 'from-fuchsia-500 to-violet-600', shadow: 'rgba(217,70,239,0.4)' },
     { to: '/leaderboard', icon: Trophy, label: t('leaderboard'), color: 'from-yellow-400 to-amber-500', shadow: 'rgba(251,191,36,0.4)' },
     { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
-    { to: '/profile', icon: User, label: t('myProfile'), color: 'from-indigo-500 to-blue-600', shadow: 'rgba(99,102,241,0.35)' },
-  ]
+    { to: '/profile', icon: User, label: t('myProfile'), color: 'from-indigo-500 to-blue-600', shadow: 'rgba(99,102,241,0.35)' }
+  );
+  return nav;
 }
-function getSchoolNav(t) {
-  return [
+function getSchoolNav(t, settings) {
+  let nav = [
     { to: '/', icon: Home, label: t('feed'), color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/jobs', icon: Briefcase, label: t('jobs'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
     { to: '/teacher-search', icon: Search, label: t('findTalent'), color: 'from-violet-500 to-purple-600', shadow: 'rgba(139,92,246,0.4)' },
     { to: '/resources', icon: FolderOpen, label: t('resources'), color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
     { to: '/events', icon: CalendarDays, label: t('events'), color: 'from-fuchsia-500 to-violet-600', shadow: 'rgba(217,70,239,0.4)' },
-    { to: '/marketplace', icon: ShoppingCart, label: 'Marketplace', color: 'from-blue-600 to-purple-600', shadow: 'rgba(99,102,241,0.4)' },
-    { to: '/audio-rooms', icon: Radio, label: 'Audio Rooms', color: 'from-rose-500 to-pink-600', shadow: 'rgba(244,63,94,0.4)' },
+    { to: '/marketplace', icon: ShoppingCart, label: 'Marketplace', color: 'from-blue-600 to-purple-600', shadow: 'rgba(99,102,241,0.4)' }
+  ];
+  if (settings?.enableAudioRooms !== false) nav.push({ to: '/audio-rooms', icon: Radio, label: 'Audio Rooms', color: 'from-rose-500 to-pink-600', shadow: 'rgba(244,63,94,0.4)' });
+
+  nav.push(
     { to: '/leaderboard', icon: Trophy, label: t('leaderboard'), color: 'from-yellow-400 to-amber-500', shadow: 'rgba(251,191,36,0.4)' },
     { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
-    { to: '/profile', icon: User, label: t('schoolProfile'), color: 'from-indigo-500 to-blue-600', shadow: 'rgba(99,102,241,0.35)' },
-  ]
+    { to: '/profile', icon: User, label: t('schoolProfile'), color: 'from-indigo-500 to-blue-600', shadow: 'rgba(99,102,241,0.35)' }
+  );
+  return nav;
 }
 function getTeacherMobileNav(t) {
   return [
     { to: '/', icon: Home, label: t('feed'), color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
-    { to: '/jobs', icon: Briefcase, label: t('careers'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
+    { to: '/jobs', icon: Briefcase, label: 'Jobs', color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
     { to: '/ai-tools', icon: Sparkles, label: 'AI', color: 'from-pink-500 to-rose-600', shadow: 'rgba(244,63,94,0.4)' },
     { to: '/marketplace', icon: ShoppingCart, label: 'Store', color: 'from-blue-600 to-purple-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
@@ -99,10 +107,21 @@ export default function Layout() {
   const { theme } = useTheme()
   const { t } = useLanguage()
   const currentLevel = getLevel(stats.xp || 0)
+  
+  const [platformSettings, setPlatformSettings] = useState({})
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (snap) => {
+      if (snap.exists()) {
+        setPlatformSettings(snap.data())
+      }
+    })
+    return () => unsub()
+  }, [])
 
   // Build translated nav arrays
-  const teacherNav = getTeacherNav(t)
-  const schoolNav = getSchoolNav(t)
+  const teacherNav = getTeacherNav(t, platformSettings)
+  const schoolNav = getSchoolNav(t, platformSettings)
   const teacherMobileNav = getTeacherMobileNav(t)
   const schoolMobileNav = getSchoolMobileNav(t)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -276,13 +295,20 @@ export default function Layout() {
                           <div 
                             key={notification.id} 
                             className={`p-4 border-b border-surface-50 flex gap-3 hover:bg-surface-50/80 transition-colors cursor-pointer ${notification.read ? '' : 'bg-primary-50/30'}`}
-                            onClick={() => { if (!notification.read) markAsRead(notification.id) }}
+                            onClick={() => {
+                              if (!notification.read) markAsRead(notification.id)
+                              if (notification.type === 'message') {
+                                navigate('/messaging')
+                                setShowNotifications(false)
+                              }
+                            }}
                           >
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${!notification.read ? 'bg-primary-100 text-primary-700' : 'bg-surface-100 text-surface-500'}`}>
                               <NotifIcon className="w-5 h-5" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className={`text-sm leading-snug ${!notification.read ? 'font-bold text-surface-900' : 'font-medium text-surface-700'}`}>{notification.title}</p>
+                              {notification.body && <p className="text-xs text-surface-500 mt-0.5 truncate">{notification.body}</p>}
                               <p className="text-xs font-semibold text-surface-400 mt-1">{timeAgo(notification.createdAt)}</p>
                             </div>
                             {!notification.read && <div className="w-2 h-2 rounded-full bg-primary-600 mt-1 shrink-0" />}

@@ -31,6 +31,21 @@ const RSS_SOURCES = {
       name: 'Sarkari Naukri',
       category: 'job',
     },
+    {
+      url: 'https://news.google.com/rss/search?q=KVS+NVS+DSSSB+teacher+recruitment+2026&hl=en-IN&gl=IN&ceid=IN:en',
+      name: 'KVS NVS DSSSB',
+      category: 'job',
+    },
+    {
+      url: 'https://news.google.com/rss/search?q=private+school+teacher+hiring+vacancy+India&hl=en-IN&gl=IN&ceid=IN:en',
+      name: 'Private Schools',
+      category: 'job',
+    },
+    {
+      url: 'https://news.google.com/rss/search?q=education+professor+lecturer+recruitment+university+India&hl=en-IN&gl=IN&ceid=IN:en',
+      name: 'University Jobs',
+      category: 'job',
+    },
   ],
   exam: [
     {
@@ -38,6 +53,38 @@ const RSS_SOURCES = {
       name: 'Exam Updates',
       category: 'exam',
     },
+  ],
+  board: [
+    {
+      url: 'https://news.google.com/rss/search?q=CBSE+official+circular+notification+board+exam&hl=en-IN&gl=IN&ceid=IN:en',
+      name: 'CBSE Official',
+      category: 'board',
+    },
+    {
+      url: 'https://news.google.com/rss/search?q=ICSE+ISC+council+circular+board+exam&hl=en-IN&gl=IN&ceid=IN:en',
+      name: 'ICSE & ISC',
+      category: 'board',
+    },
+    {
+      url: 'https://news.google.com/rss/search?q=UP+Board+UPMSP+exam+result+scheme+education&hl=en-IN&gl=IN&ceid=IN:en',
+      name: 'UP Board',
+      category: 'board',
+    },
+    {
+      url: 'https://news.google.com/rss/search?q=Bihar+Board+BSEB+exam+result+education&hl=en-IN&gl=IN&ceid=IN:en',
+      name: 'Bihar Board',
+      category: 'board',
+    },
+    {
+      url: 'https://news.google.com/rss/search?q=Maharashtra+State+Board+MSBSHSE+education+circular&hl=en-IN&gl=IN&ceid=IN:en',
+      name: 'Maharashtra Board',
+      category: 'board',
+    },
+    {
+      url: 'https://news.google.com/rss/search?q=Rajasthan+RBSE+MP+Board+MPBSE+exam+news&hl=en-IN&gl=IN&ceid=IN:en',
+      name: 'State Boards',
+      category: 'board',
+    }
   ],
   scheme: [
     {
@@ -73,6 +120,11 @@ const CATEGORY_STYLES = {
     tag: 'Govt Scheme',
     tagColor: 'from-amber-500 to-orange-600',
     icons: ['🇮🇳', '📱', '🏆', '💰', '🎯', '🏗️'],
+  },
+  board: {
+    tag: 'Board Circular',
+    tagColor: 'from-blue-600 to-cyan-600',
+    icons: ['📄', '🏫', '📣', '🔔', '🎓', '📝'],
   },
 }
 
@@ -156,7 +208,7 @@ function generateEngagement() {
 
 // ─── Parse RSS via rss2json.com ───
 async function fetchRSSFeed(rssUrl) {
-  const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&count=10`
+  const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&count=50`
   
   const response = await fetch(proxyUrl, {
     signal: AbortSignal.timeout(8000), // 8 second timeout
@@ -205,8 +257,8 @@ function transformRSSItem(item, category) {
     summary,
     source: extractSource(item.link || ''),
     url: item.link || '',
-    author: category === 'job' ? 'Careers Desk' : category === 'exam' ? 'Exam Desk' : category === 'scheme' ? 'Policy Desk' : 'Education Desk',
-    authorRole: category === 'job' ? 'LDMS Jobs' : category === 'exam' ? 'LDMS Exams' : category === 'scheme' ? 'LDMS Gov' : 'LDMS News',
+    author: category === 'job' ? 'Careers Desk' : category === 'exam' ? 'Exam Desk' : category === 'scheme' ? 'Policy Desk' : category === 'board' ? 'Board Desk' : 'Education Desk',
+    authorRole: category === 'job' ? 'LDMS Jobs' : category === 'exam' ? 'LDMS Exams' : category === 'scheme' ? 'LDMS Gov' : category === 'board' ? 'LDMS Boards' : 'LDMS News',
     likes: engagement.likes,
     comments: engagement.comments,
     time: getTimeAgo(item.pubDate),
@@ -316,15 +368,14 @@ export function filterLiveByCategory(liveItems, category) {
   return liveItems.filter(item => item.category === category)
 }
 
-// ─── Get mixed feed (live + hardcoded fallback) ───
-export function getMixedFeed(liveItems, count = 15) {
+export function getMixedFeed(liveItems, count = 40) {
   if (!liveItems || liveItems.length === 0) {
     return getAutoFeedItems(count)
   }
   
   // Mix live items with some hardcoded items for variety
-  const live = [...liveItems].sort(() => Math.random() - 0.5).slice(0, Math.ceil(count * 0.7))
-  const hardcoded = getAutoFeedItems(Math.floor(count * 0.3))
+  const live = [...liveItems].sort(() => Math.random() - 0.5).slice(0, Math.ceil(count * 0.9))
+  const hardcoded = getAutoFeedItems(Math.floor(count * 0.1))
   
   // Interleave them
   const mixed = []

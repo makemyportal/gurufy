@@ -10,6 +10,7 @@ import {
   MessageSquare, Send, Search, Plus, Loader2, ArrowLeft,
   X, Edit3, Circle, Check, CheckCheck, Maximize2, Minimize2
 } from 'lucide-react'
+import { createNotification } from '../utils/notificationHelpers'
 
 export default function ChatPanel({ isOpen, onClose }) {
   const { currentUser, userProfile } = useAuth()
@@ -160,6 +161,18 @@ export default function ChatPanel({ isOpen, onClose }) {
         lastMessage: text,
         lastMessageAt: serverTimestamp(),
       })
+      // Notify the other user
+      const otherUserId = activeConvo.participants?.find(p => p !== currentUser.uid)
+      if (otherUserId) {
+        createNotification(otherUserId, {
+          type: 'message',
+          title: `${userProfile?.name || 'Someone'} sent you a message`,
+          body: text.length > 60 ? text.substring(0, 60) + '...' : text,
+          fromUserId: currentUser.uid,
+          fromUserName: userProfile?.name || '',
+          relatedId: activeConvo.id,
+        })
+      }
     } catch (err) {
       console.error('Send error:', err)
     }

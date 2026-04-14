@@ -500,8 +500,9 @@ export default function AdminDashboard() {
     } catch (err) { showToast('Remove failed', 'error') }
   }
 
-  async function handleToggleSetting(key) {
-    const newVal = !platformSettings[key]
+  async function handleToggleSetting(key, defaultVal = false) {
+    const currentVal = platformSettings[key] === undefined ? defaultVal : platformSettings[key]
+    const newVal = !currentVal
     try {
       await setDoc(doc(db, 'platformSettings', 'global'), { ...platformSettings, [key]: newVal }, { merge: true })
       setPlatformSettings(prev => ({ ...prev, [key]: newVal }))
@@ -1192,8 +1193,25 @@ export default function AdminDashboard() {
                 <div className="p-6 bg-surface-50 border border-surface-200 rounded-2xl flex items-center justify-between">
                   <div><h4 className="font-bold text-surface-900 mb-1">Disable New Registrations</h4><p className="text-sm font-medium text-surface-500">Prevents new users from creating accounts.</p></div>
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" checked={platformSettings.registrationDisabled} onChange={() => handleToggleSetting('registrationDisabled')} />
+                    <input type="checkbox" className="sr-only peer" checked={platformSettings.registrationDisabled || false} onChange={() => handleToggleSetting('registrationDisabled', false)} />
                     <div className="w-11 h-6 bg-surface-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                  </label>
+                </div>
+
+                {/* Modules Toggles */}
+                <div className="p-6 bg-surface-50 border border-surface-200 rounded-2xl flex items-center justify-between">
+                  <div><h4 className="font-bold text-surface-900 mb-1">Enable Mentorship Module</h4><p className="text-sm font-medium text-surface-500">Show the 1:1 Mentorship section in the user sidebar.</p></div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" checked={platformSettings.enableMentorship !== false} onChange={() => handleToggleSetting('enableMentorship', true)} />
+                    <div className="w-11 h-6 bg-surface-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                  </label>
+                </div>
+
+                <div className="p-6 bg-surface-50 border border-surface-200 rounded-2xl flex items-center justify-between">
+                  <div><h4 className="font-bold text-surface-900 mb-1">Enable Audio Rooms Module</h4><p className="text-sm font-medium text-surface-500">Show the Live Audio Rooms section in the user sidebar.</p></div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" checked={platformSettings.enableAudioRooms !== false} onChange={() => handleToggleSetting('enableAudioRooms', true)} />
+                    <div className="w-11 h-6 bg-surface-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                   </label>
                 </div>
 
@@ -1207,6 +1225,17 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <div className="space-y-4">
+                    {/* AI Bot Enable/Disable */}
+                    <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-surface-200">
+                      <div>
+                        <p className="text-sm font-bold text-surface-900">Enable AI Bot Posts</p>
+                        <p className="text-xs font-medium text-surface-500 mt-0.5">AI bot will auto-post educational content & memes on the feed</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" checked={platformSettings.enableAIBot !== false} onChange={() => handleToggleSetting('enableAIBot', true)} />
+                        <div className="w-11 h-6 bg-surface-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                      </label>
+                    </div>
                     <div>
                       <label className="block text-xs font-bold text-surface-500 uppercase tracking-widest mb-1.5">Bot Display Name</label>
                       <input

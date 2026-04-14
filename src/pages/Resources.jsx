@@ -45,6 +45,7 @@ export default function Resources() {
   const [selectedType, setSelectedType] = useState('All')
   const [showUpload, setShowUpload] = useState(false)
   const [activeTab, setActiveTab] = useState('community') // 'community' | 'global'
+  const [apiResources, setApiResources] = useState([])
 
   // Upload Form state
   const [uploadFile, setUploadFile] = useState(null)
@@ -54,7 +55,6 @@ export default function Resources() {
     title: '', description: '', subject: '', classLevel: '', type: '', price: 'Free', priceAmount: ''
   })
 
-  // Load resources from Firestore in real-time
   useEffect(() => {
     const q = query(collection(db, 'resources'), orderBy('createdAt', 'desc'))
     const unsub = onSnapshot(q, snap => {
@@ -62,6 +62,25 @@ export default function Resources() {
       setLoading(false)
     })
     return () => unsub()
+  }, [])
+
+  useEffect(() => {
+    import('../utils/liveFeedService').then(({ fetchLiveFeed }) => {
+      fetchLiveFeed().then(feed => {
+        if (feed) {
+          const raw = feed.filter(f => f.category === 'scheme' || f.category === 'exam')
+          const mapped = raw.map((item, idx) => ({
+            id: `api_res_${idx}`,
+            title: item.title,
+            desc: item.summary || 'Click here to read the full update and access the related educational resources.',
+            url: item.url,
+            format: 'WEB',
+            type: item.tag || 'Live Update'
+          }))
+          setApiResources(mapped)
+        }
+      }).catch(err => console.error('Error fetching live resources:', err))
+    })
   }, [])
 
   const filtered = resources.filter(r => {
@@ -183,7 +202,7 @@ export default function Resources() {
       {/* Resource Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {activeTab === 'global' ? (
-          GLOBAL_RESOURCES.map((resource, idx) => (
+          [...apiResources, ...GLOBAL_RESOURCES].map((resource, idx) => (
             <div key={resource.id} className="glass-card-solid overflow-hidden card-hover animate-slide-up hover:border-primary-300 border border-transparent shadow-[0_4px_20px_rgba(0,0,0,0.04)]" style={{ animationDelay: `${idx * 0.05}s` }}>
               <div className="p-5 flex flex-col h-full">
                 <div className="flex items-start gap-4 mb-4">

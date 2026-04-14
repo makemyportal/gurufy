@@ -7,7 +7,7 @@ import {
 } from 'firebase/firestore'
 import {
   Search, MapPin, DollarSign, Clock, Briefcase, Building2,
-  Send, BookmarkPlus, Eye, Loader2, Plus, X, CheckCircle2
+  Send, BookmarkPlus, Eye, Loader2, Plus, X, CheckCircle2, ExternalLink
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -26,6 +26,8 @@ export default function Jobs() {
   const [applyingId, setApplyingId] = useState(null)
   const [showPostJob, setShowPostJob] = useState(false)
   const [posting, setPosting] = useState(false)
+  const [apiJobs, setApiJobs] = useState([])
+  const [loadingApi, setLoadingApi] = useState(true)
 
   const isSchool = userProfile?.role === 'school'
 
@@ -43,7 +45,43 @@ export default function Jobs() {
     return () => unsub()
   }, [])
 
-  const filteredJobs = jobs.filter(job => {
+  useEffect(() => {
+    import('../utils/liveFeedService').then(({ fetchLiveFeed, filterLiveByCategory }) => {
+      fetchLiveFeed().then(feed => {
+        if (feed) {
+          const rawJobs = filterLiveByCategory(feed, 'job')
+          const mappedJobs = rawJobs.map(item => ({
+            id: `api_${item.url}`,
+            title: item.title,
+            description: item.summary,
+            school: item.source || 'Premium Employer',
+            location: 'India Location',
+            salary: 'As per Norms',
+            experience: '0-5+ Years',
+            type: 'Full-time',
+            subject: 'All Subjects',
+            isApi: true,
+            url: item.url,
+            createdAt: { toDate: () => new Date(item.pubDate || Date.now()) },
+            applicantsCount: parseInt(item.likes?.toString().replace('K', '000')) || (Math.floor(Math.random() * 50) + 10),
+          }))
+          setApiJobs(mappedJobs)
+        }
+        setLoadingApi(false)
+      }).catch(err => {
+        console.error('API Job fetch error:', err)
+        setLoadingApi(false)
+      })
+    })
+  }, [])
+
+  const allJobs = [...jobs, ...apiJobs].sort((a, b) => {
+    const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0
+    const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0
+    return timeB - timeA
+  })
+
+  const filteredJobs = allJobs.filter(job => {
     const isGigType = job.type === 'Freelance / Gig'
     const matchCategory = jobCategory === 'Gigs' ? isGigType : !isGigType
     
@@ -279,6 +317,13 @@ export default function Jobs() {
                     {hasApplied(selectedJob) ? (
                       <button disabled className="btn-secondary flex-1 py-3 text-emerald-600 border-emerald-300 bg-emerald-50 cursor-default flex items-center justify-center gap-2">
                         <CheckCircle2 className="w-5 h-5" /> Applied Successfully
+                      </button>
+                    ) : selectedJob.isApi ? (
+                      <button
+                        onClick={() => window.open(selectedJob.url, '_blank', 'noopener,noreferrer')}
+                        className="btn-primary flex-1 py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-xl"
+                      >
+                        <ExternalLink className="w-5 h-5" /> View / Apply on Main Portal
                       </button>
                     ) : (
                       <button

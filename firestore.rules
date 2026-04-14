@@ -14,9 +14,8 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      // If you implement custom claims later: return request.auth.token.admin == true;
-      // Or check user role in the DB (requires an extra read, so use sparingly)
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      let role = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return role == 'admin' || role == 'superadmin';
     }
 
     function isParticipant(participantsArray) {

@@ -9,6 +9,7 @@ import {
   MessageSquare, Send, Search, Plus, Loader2, ArrowLeft,
   User, Phone, Video, MoreVertical, Smile, Image, Check, CheckCheck
 } from 'lucide-react'
+import { createNotification } from '../utils/notificationHelpers'
 
 export default function Messaging() {
   const { currentUser, userProfile } = useAuth()
@@ -128,6 +129,18 @@ export default function Messaging() {
         lastMessage: text,
         lastMessageAt: serverTimestamp(),
       })
+      // Notify the other user
+      const otherUserId = activeConvo.participants?.find(p => p !== currentUser.uid)
+      if (otherUserId) {
+        createNotification(otherUserId, {
+          type: 'message',
+          title: `${userProfile?.name || 'Someone'} sent you a message`,
+          body: text.length > 60 ? text.substring(0, 60) + '...' : text,
+          fromUserId: currentUser.uid,
+          fromUserName: userProfile?.name || '',
+          relatedId: activeConvo.id,
+        })
+      }
     } catch (err) {
       console.error('Send error:', err)
     }
