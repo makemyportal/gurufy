@@ -30,6 +30,11 @@ service cloud.firestore {
       // Allow creation if they match the ID. Allow updates if it's their ID or admin.
       allow create: if isOwner(userId);
       allow update, delete: if isOwner(userId) || isAdmin();
+
+      // AI Generation History — private to each user
+      match /generations/{genId} {
+        allow read, write: if isOwner(userId);
+      }
     }
     
     match /teachers/{userId} {

@@ -91,6 +91,8 @@ export default function Home() {
       docs.forEach(d => { toolCount[d.toolTitle] = (toolCount[d.toolTitle] || 0) + 1 })
       const top = Object.entries(toolCount).sort((a, b) => b[1] - a[1])[0]
       setFavTool(top ? top[0] : '—')
+    }, (err) => {
+      console.warn('Analytics query error (deploy Firestore rules):', err.message)
     })
     return () => unsub()
   }, [currentUser])

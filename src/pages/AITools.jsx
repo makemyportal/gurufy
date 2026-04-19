@@ -926,20 +926,6 @@ export default function AITools() {
   const [isListening, setIsListening] = useState(false)
   const [activeVoiceField, setActiveVoiceField] = useState(null)
 
-  // Keyboard shortcut: Ctrl+Enter to generate
-  useEffect(() => {
-    function handleKeyDown(e) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault()
-        if (isFormValid && !isGenerating) {
-          handleGenerate({ preventDefault: () => {} })
-        }
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isFormValid, isGenerating, formData, activeTool])
-
   // Validate form
   const isFormValid = activeTool.inputs.every(input => formData[input.id] && formData[input.id].trim() !== '')
 
@@ -984,6 +970,19 @@ export default function AITools() {
       setIsGenerating(false)
     }
   }
+
+  // Keyboard shortcut: Ctrl+Enter to generate
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault()
+        const formEl = document.querySelector('form')
+        if (formEl) formEl.requestSubmit()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   function handleCopy() {
     if (generatedContent) {
