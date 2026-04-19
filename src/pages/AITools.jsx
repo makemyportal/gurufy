@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Sparkles, FileText, FileQuestion, BookOpen, Send, Loader2, Copy, CheckCircle2, RefreshCw, ListChecks, Mail, Smile, Download, BrainCircuit, ClipboardList, Newspaper, FlaskConical, BookMarked, PenLine, GraduationCap, Heart, Lightbulb, Calendar, Share2, MessageCircle } from 'lucide-react'
+import { Sparkles, FileText, FileQuestion, BookOpen, Send, Loader2, Copy, CheckCircle2, RefreshCw, ListChecks, Mail, Smile, Download, BrainCircuit, ClipboardList, Newspaper, FlaskConical, BookMarked, PenLine, GraduationCap, Heart, Lightbulb, Calendar, Share2, MessageCircle, Mic, MicOff, Globe } from 'lucide-react'
 import { generateAIContent } from '../utils/aiService'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { db } from '../utils/firebase'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 
 export const tools = [
   {
@@ -920,6 +922,23 @@ export default function AITools() {
   const [copied, setCopied] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [showShareMenu, setShowShareMenu] = useState(false)
+  const [outputLanguage, setOutputLanguage] = useState('English')
+  const [isListening, setIsListening] = useState(false)
+  const [activeVoiceField, setActiveVoiceField] = useState(null)
+
+  // Keyboard shortcut: Ctrl+Enter to generate
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault()
+        if (isFormValid && !isGenerating) {
+          handleGenerate({ preventDefault: () => {} })
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isFormValid, isGenerating, formData, activeTool])
 
   // Validate form
   const isFormValid = activeTool.inputs.every(input => formData[input.id] && formData[input.id].trim() !== '')
@@ -935,9 +954,30 @@ export default function AITools() {
     setCopied(false)
 
     try {
-      const prompt = activeTool.promptTemplate(formData)
+      let langInstruction = ''
+      if (outputLanguage !== 'English') {
+        langInstruction = `\n\nIMPORTANT: Generate ALL output in ${outputLanguage} language. Use ${outputLanguage} script/text throughout.`
+      }
+      const prompt = activeTool.promptTemplate(formData) + langInstruction
       const result = await generateAIContent(prompt)
       setGeneratedContent(result)
+
+      // Save to Firebase generation history
+      if (currentUser) {
+        try {
+          await addDoc(collection(db, 'users', currentUser.uid, 'generations'), {
+            toolId: activeTool.id,
+            toolTitle: activeTool.title,
+            toolColor: activeTool.color,
+            content: result,
+            formData: formData,
+            language: outputLanguage,
+            createdAt: serverTimestamp()
+          })
+        } catch (saveErr) {
+          console.warn('Could not save generation history:', saveErr)
+        }
+      }
     } catch (err) {
       setError(err.message || 'Failed to generate content. Please try again.')
     } finally {
@@ -1022,6 +1062,32 @@ export default function AITools() {
     setFormData(prev => ({ ...prev, [id]: value }))
   }
 
+  // Voice Input via Web Speech API
+  function startVoiceInput(fieldId) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      alert('Voice input is not supported in your browser. Please use Chrome or Edge.')
+      return
+    }
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'en-IN'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+    
+    setIsListening(true)
+    setActiveVoiceField(fieldId)
+    recognition.start()
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript
+      setFormData(prev => ({ ...prev, [fieldId]: (prev[fieldId] || '') + ' ' + transcript }))
+      setIsListening(false)
+      setActiveVoiceField(null)
+    }
+    recognition.onerror = () => { setIsListening(false); setActiveVoiceField(null) }
+    recognition.onend = () => { setIsListening(false); setActiveVoiceField(null) }
+  }
+
   // Share handlers
   function handleShareWhatsApp() {
     const text = encodeURIComponent(`*${activeTool.title}*\n\n${generatedContent}\n\n_Generated via LDMS Teacher Hub_`)
@@ -1091,6 +1157,21 @@ export default function AITools() {
 
               {/* DYNAMIC FORM RENDERING */}
               <form onSubmit={handleGenerate} className="space-y-6">
+                {/* Language Selector */}
+                <div className="flex items-center gap-3 p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+                  <Globe className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                  <label className="text-xs font-bold text-blue-700 uppercase tracking-widest whitespace-nowrap">Output Language</label>
+                  <select
+                    value={outputLanguage}
+                    onChange={e => setOutputLanguage(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-white border border-blue-200 rounded-lg text-sm font-semibold text-surface-800 focus:outline-none focus:ring-2 focus:ring-blue-200 appearance-none"
+                  >
+                    {['English', 'Hindi', 'Tamil', 'Telugu', 'Marathi', 'Bengali', 'Gujarati', 'Kannada', 'Malayalam', 'Punjabi', 'Urdu'].map(lang => (
+                      <option key={lang} value={lang}>{lang}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="grid md:grid-cols-2 gap-5">
                   {activeTool.inputs.map((input) => (
                     <div key={input.id} className={`space-y-2 ${input.type === 'textarea' ? 'col-span-1 md:col-span-2' : ''}`}>
@@ -1109,23 +1190,33 @@ export default function AITools() {
                           ))}
                         </select>
                       ) : input.type === 'textarea' ? (
-                        <textarea
-                          placeholder={input.placeholder}
-                          value={formData[input.id] || ''}
-                          onChange={e => handleInputChange(input.id, e.target.value)}
-                          rows={3}
-                          className="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-[3px] focus:ring-primary-100 focus:border-primary-400 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] resize-y"
-                          required
-                        />
+                        <div className="relative">
+                          <textarea
+                            placeholder={input.placeholder}
+                            value={formData[input.id] || ''}
+                            onChange={e => handleInputChange(input.id, e.target.value)}
+                            rows={3}
+                            className="w-full px-4 py-3 pr-12 bg-white border border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-[3px] focus:ring-primary-100 focus:border-primary-400 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] resize-y"
+                            required
+                          />
+                          <button type="button" onClick={() => startVoiceInput(input.id)} className={`absolute right-3 top-3 p-1.5 rounded-lg transition-all ${isListening && activeVoiceField === input.id ? 'bg-red-100 text-red-600 animate-pulse' : 'text-surface-400 hover:text-surface-700 hover:bg-surface-100'}`} title="Voice Input">
+                            {isListening && activeVoiceField === input.id ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                          </button>
+                        </div>
                       ) : (
-                        <input
-                          type={input.type}
-                          placeholder={input.placeholder}
-                          value={formData[input.id] || ''}
-                          onChange={e => handleInputChange(input.id, e.target.value)}
-                          className="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-[3px] focus:ring-primary-100 focus:border-primary-400 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
-                          required
-                        />
+                        <div className="relative">
+                          <input
+                            type={input.type}
+                            placeholder={input.placeholder}
+                            value={formData[input.id] || ''}
+                            onChange={e => handleInputChange(input.id, e.target.value)}
+                            className="w-full px-4 py-3 pr-12 bg-white border border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-[3px] focus:ring-primary-100 focus:border-primary-400 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
+                            required
+                          />
+                          <button type="button" onClick={() => startVoiceInput(input.id)} className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all ${isListening && activeVoiceField === input.id ? 'bg-red-100 text-red-600 animate-pulse' : 'text-surface-400 hover:text-surface-700 hover:bg-surface-100'}`} title="Voice Input">
+                            {isListening && activeVoiceField === input.id ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                          </button>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -1148,6 +1239,7 @@ export default function AITools() {
                       <>
                         <Sparkles className="w-5 h-5 group-hover:text-accent-400 transition-colors" />
                         <span>Generate Content</span>
+                        <kbd className="hidden sm:inline-block ml-2 px-2 py-0.5 bg-white/20 rounded text-[10px] font-bold tracking-wider">Ctrl+Enter</kbd>
                       </>
                     )}
                   </button>

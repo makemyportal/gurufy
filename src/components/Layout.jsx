@@ -10,7 +10,8 @@ import {
   BookOpen, Home, User, Briefcase, FolderOpen, Users, Sparkles,
   LayoutDashboard, Bell, Search, Menu, X, LogOut, ChevronDown,
   Settings, Shield, HelpCircle, GraduationCap, MessageSquare, CalendarDays,
-  Heart, MessageCircle, UserPlus, Zap, Trophy, Flame, LogIn, Megaphone, ShoppingCart, Radio
+  Heart, MessageCircle, UserPlus, Zap, Trophy, Flame, LogIn, Megaphone, ShoppingCart, Radio,
+  Moon, Sun, History
 } from 'lucide-react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../utils/firebase'
@@ -22,6 +23,7 @@ import ProfileCompletion from './ProfileCompletion'
 function getTeacherNav(t, settings) {
   return [
     { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/history', icon: History, label: 'Generation History', color: 'from-purple-500 to-violet-600', shadow: 'rgba(139,92,246,0.4)' },
     { to: '/resources', icon: FolderOpen, label: 'My Files & Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
     { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
   ];
@@ -77,7 +79,7 @@ export default function Layout() {
   const { currentUser, userProfile, logout } = useAuth()
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications()
   const { stats } = useGamification()
-  const { theme } = useTheme()
+  const { theme, toggleTheme } = useTheme()
   const { t } = useLanguage()
   const currentLevel = getLevel(stats.xp || 0)
   
@@ -209,7 +211,14 @@ export default function Layout() {
           <button onClick={() => setShowMobileSearch(!showMobileSearch)} className="md:hidden p-2 text-surface-600 hover:bg-surface-100 rounded-full transition-colors">
             <Search className="w-5 h-5" />
           </button>
-
+          {/* Dark Mode Toggle */}
+          <button 
+            onClick={toggleTheme}
+            className="p-2 rounded-full transition-all duration-300 text-surface-500 hover:bg-surface-100 hover:text-surface-800"
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {theme === 'dark' ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
+          </button>
 
           
           {/* Notifications Dropdown */}

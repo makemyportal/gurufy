@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { tools as aiTools } from './AITools'
+import { db } from '../utils/firebase'
+import { collection, query, onSnapshot, orderBy } from 'firebase/firestore'
 import { 
   Sparkles, Briefcase, FolderOpen, Award, CheckSquare, 
-  Calculator, Lock, ArrowRight, CalendarDays
+  Calculator, Lock, ArrowRight, CalendarDays, TrendingUp, Zap, BarChart3
 } from 'lucide-react'
 
 // App configs for the grid
@@ -65,6 +67,34 @@ export default function Home() {
     ? userProfile.name.split(' ')[0] 
     : currentUser?.email ? currentUser.email.split('@')[0] : 'Educator'
 
+  // Dashboard Analytics
+  const [totalGens, setTotalGens] = useState(0)
+  const [monthGens, setMonthGens] = useState(0)
+  const [favTool, setFavTool] = useState('—')
+
+  useEffect(() => {
+    if (!currentUser) return
+    const q = query(collection(db, 'users', currentUser.uid, 'generations'), orderBy('createdAt', 'desc'))
+    const unsub = onSnapshot(q, snap => {
+      const docs = snap.docs.map(d => d.data())
+      setTotalGens(docs.length)
+      // This month
+      const now = new Date()
+      const thisMonth = docs.filter(d => {
+        if (!d.createdAt) return false
+        const date = d.createdAt.toDate ? d.createdAt.toDate() : new Date(d.createdAt)
+        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
+      })
+      setMonthGens(thisMonth.length)
+      // Most used tool
+      const toolCount = {}
+      docs.forEach(d => { toolCount[d.toolTitle] = (toolCount[d.toolTitle] || 0) + 1 })
+      const top = Object.entries(toolCount).sort((a, b) => b[1] - a[1])[0]
+      setFavTool(top ? top[0] : '—')
+    })
+    return () => unsub()
+  }, [currentUser])
+
   return (
     <div className="max-w-[1200px] mx-auto animate-fade-in-up pb-24 lg:pb-8">
       {/* Top Hero / Welcome Panel */}
@@ -95,6 +125,33 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Analytics Cards */}
+      {currentUser && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+          <div className="bg-white rounded-[24px] p-6 border border-surface-200 shadow-sm flex items-center gap-5">
+            <div className="p-3 bg-purple-100 text-purple-600 rounded-2xl"><Zap className="w-6 h-6" /></div>
+            <div>
+              <p className="text-3xl font-extrabold font-display text-surface-900">{totalGens}</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-surface-400">Total Generations</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-[24px] p-6 border border-surface-200 shadow-sm flex items-center gap-5">
+            <div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl"><TrendingUp className="w-6 h-6" /></div>
+            <div>
+              <p className="text-3xl font-extrabold font-display text-surface-900">{monthGens}</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-surface-400">This Month</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-[24px] p-6 border border-surface-200 shadow-sm flex items-center gap-5">
+            <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl"><BarChart3 className="w-6 h-6" /></div>
+            <div>
+              <p className="text-lg font-extrabold font-display text-surface-900 truncate">{favTool}</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-surface-400">Most Used Tool</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI Magic Tools Section */}
       <div className="mb-10">
