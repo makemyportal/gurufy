@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Sparkles, FileText, FileQuestion, BookOpen, Send, Loader2, Copy, CheckCircle2, RefreshCw, ListChecks, Mail, Smile, Download, BrainCircuit, ClipboardList, Newspaper, FlaskConical, BookMarked, PenLine, GraduationCap, Heart, Lightbulb, Calendar } from 'lucide-react'
+import { Sparkles, FileText, FileQuestion, BookOpen, Send, Loader2, Copy, CheckCircle2, RefreshCw, ListChecks, Mail, Smile, Download, BrainCircuit, ClipboardList, Newspaper, FlaskConical, BookMarked, PenLine, GraduationCap, Heart, Lightbulb, Calendar, Share2, MessageCircle } from 'lucide-react'
 import { generateAIContent } from '../utils/aiService'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -919,6 +919,7 @@ export default function AITools() {
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [showShareMenu, setShowShareMenu] = useState(false)
 
   // Validate form
   const isFormValid = activeTool.inputs.every(input => formData[input.id] && formData[input.id].trim() !== '')
@@ -1019,6 +1020,38 @@ export default function AITools() {
   // Handle dynamic form input changes
   const handleInputChange = (id, value) => {
     setFormData(prev => ({ ...prev, [id]: value }))
+  }
+
+  // Share handlers
+  function handleShareWhatsApp() {
+    const text = encodeURIComponent(`*${activeTool.title}*\n\n${generatedContent}\n\n_Generated via LDMS Teacher Hub_`)
+    window.open(`https://wa.me/?text=${text}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  function handleShareTelegram() {
+    const text = encodeURIComponent(`${activeTool.title}\n\n${generatedContent}\n\nGenerated via LDMS Teacher Hub`)
+    window.open(`https://t.me/share/url?text=${text}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  function handleShareEmail() {
+    const subject = encodeURIComponent(`${activeTool.title} - Generated Content`)
+    const body = encodeURIComponent(`${generatedContent}\n\n---\nGenerated via LDMS Teacher Hub`)
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  async function handleNativeShare() {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: activeTool.title,
+          text: generatedContent
+        })
+      } catch (err) { /* user cancelled */ }
+    }
+    setShowShareMenu(false)
   }
 
   return (
@@ -1167,6 +1200,33 @@ export default function AITools() {
                         <><Download className="w-3.5 h-3.5" /> Export PDF</>
                       )}
                     </button>
+                    {/* Share Dropdown */}
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowShareMenu(!showShareMenu)}
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all active:scale-95 bg-green-600 text-white hover:bg-green-700 shadow-sm"
+                      >
+                        <Share2 className="w-3.5 h-3.5" /> Share
+                      </button>
+                      {showShareMenu && (
+                        <div className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-2xl ring-1 ring-surface-200 p-2 z-50 min-w-[200px] animate-fade-in">
+                          <button onClick={handleShareWhatsApp} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-surface-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors">
+                            <MessageCircle className="w-5 h-5 text-green-600" /> WhatsApp
+                          </button>
+                          <button onClick={handleShareTelegram} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-surface-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors">
+                            <Send className="w-5 h-5 text-blue-500" /> Telegram
+                          </button>
+                          <button onClick={handleShareEmail} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-surface-700 hover:bg-amber-50 hover:text-amber-700 rounded-lg transition-colors">
+                            <Mail className="w-5 h-5 text-amber-600" /> Email
+                          </button>
+                          {navigator.share && (
+                            <button onClick={handleNativeShare} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-surface-700 hover:bg-purple-50 hover:text-purple-700 rounded-lg transition-colors border-t border-surface-100 mt-1 pt-3">
+                              <Share2 className="w-5 h-5 text-purple-600" /> More Options...
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
