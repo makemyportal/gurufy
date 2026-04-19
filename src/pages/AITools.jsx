@@ -1,42 +1,49 @@
-import { useState, useRef } from 'react'
-import { Sparkles, FileText, FileQuestion, BookOpen, Send, Loader2, Copy, CheckCircle2, RefreshCw, ListChecks, Mail, Smile, Download, BrainCircuit } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Sparkles, FileText, FileQuestion, BookOpen, Send, Loader2, Copy, CheckCircle2, RefreshCw, ListChecks, Mail, Smile, Download, BrainCircuit, ClipboardList, Newspaper, FlaskConical, BookMarked, PenLine, GraduationCap, Heart, Lightbulb, Calendar } from 'lucide-react'
 import { generateAIContent } from '../utils/aiService'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useAuth } from '../contexts/AuthContext'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
-const tools = [
+export const tools = [
   {
     id: 'lesson-plan',
     title: 'Lesson Planner',
     description: 'Generate comprehensive lesson plans with objectives, activities, and assessments.',
     icon: BookOpen,
     color: 'from-blue-500 to-indigo-600',
-    promptTemplate: (topic, grade) => `Create an extremely structured lesson plan for a ${grade} class about "${topic}". 
+    inputs: [
+      { id: 'topic', label: 'Topic / Subject', type: 'text', placeholder: 'e.g. The Cold War, Fractions' },
+      { id: 'standard', label: 'Educational Standard', type: 'text', placeholder: 'e.g. Common Core, NGSS, State' },
+      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Kindergarten', 'Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)', 'Higher Education'] },
+      { id: 'duration', label: 'Class Duration', type: 'text', placeholder: 'e.g. 45 Mins, 1.5 Hours' }
+    ],
+    promptTemplate: (data) => `Create an extremely structured lesson plan for a ${data.grade} class about "${data.topic}". 
+Curriculum Standard: ${data.standard || 'General'}. Class Duration: ${data.duration || 'Standard Session'}.
 YOU MUST STRICTLY FOLLOW THIS MARKDOWN FORMAT:
 
-# Lesson Plan: ${topic}
+# Lesson Plan: ${data.topic}
 
 ### 🎯 Learning Objectives
-* Use a bulleted list for Bloom's Taxonomy objectives.
+* Use a bulleted list for Bloom's Taxonomy objectives linking to ${data.standard}.
 
 ### 📦 Required Materials
 * Bulleted list of materials
 
-### ⏱️ Hook/Introduction (5-10 mins)
+### ⏱️ Hook/Introduction (${data.duration ? 'Time accordingly' : '5-10 mins'})
 Provide detailed steps.
 
-### 📖 Direct Instruction (15-20 mins)
+### 📖 Direct Instruction
 Provide detailed steps.
 
-### 🤝 Guided Practice (15 mins)
+### 🤝 Guided Practice
 Provide detailed steps.
 
-### ✍️ Independent Practice (15 mins)
+### ✍️ Independent Practice
 Provide detailed steps.
 
-### 🏁 Assessment/Closure (5 mins)
+### 🏁 Assessment/Closure
 Provide detailed steps.
 
 ---
@@ -48,31 +55,134 @@ Provide detailed steps.
     description: 'Create customized worksheets with various questions based on any topic.',
     icon: FileText,
     color: 'from-emerald-500 to-teal-600',
-    promptTemplate: (topic, grade) => `Create a student-facing worksheet for a ${grade} class about "${topic}".
+    inputs: [
+      { id: 'topic', label: 'Topic', type: 'text', placeholder: 'e.g. Photosynthesis, Trigonometry' },
+      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Kindergarten', 'Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'type', label: 'Question Format', type: 'select', options: ['Mix of All', 'Multiple Choice Only', 'Short Answer Only'] }
+    ],
+    promptTemplate: (data) => `Create a student-facing worksheet for a ${data.grade} class about "${data.topic}". Focus on ${data.type} format.
 YOU MUST STRICTLY FOLLOW THIS MARKDOWN FORMAT:
 
-# Worksheet: ${topic}
+# Worksheet: ${data.topic}
 *Name: _______________________ Date: ____________*
 
 Provide a brief, engaging 2-sentence introduction.
 
-### Section 1: Multiple Choice
-Format as a numbered list with lettered options below each.
+### Section 1: Core Questions
+Format as a numbered list.
 1. Question text
    A) Option A
    B) Option B
-*(Provide 5 questions)*
+*(Provide 5-8 questions based on format)*
 
-### Section 2: Short Answer
-Format as a numbered list with clear spacing instructions.
-6. Question text...
-
-### Section 3: Creative Application
-Format as a final thought-provoking question.
+### Section 2: Application
+Format as a numbered list with clear spacing instructions for written answers.
 
 ---
 > **🔑 Answer Key:**
 > Provide all answers clearly inside this blockquote block at the very bottom.`
+  },
+  {
+    id: 'rubric',
+    title: 'Rubric Creator',
+    description: 'Generate detailed grading rubrics with distinct evaluation criteria.',
+    icon: ListChecks,
+    color: 'from-violet-500 to-purple-600',
+    inputs: [
+      { id: 'assignment', label: 'Assignment Type', type: 'text', placeholder: 'e.g. Persuasive Essay, Science Project' },
+      { id: 'topic', label: 'Specific Topic', type: 'text', placeholder: 'e.g. Climate Change' },
+      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)', 'Higher Education'] },
+      { id: 'scale', label: 'Grading Scale', type: 'select', options: ['4-Point Scale (Exceeds, Meets, Approaching, Below)', '100-Point Percentage Scale'] }
+    ],
+    promptTemplate: (data) => `Create a comprehensive grading rubric for a ${data.grade} ${data.assignment} about "${data.topic}". Use a ${data.scale}.
+YOU MUST STRICTLY FORMAT THE RESPONSE AS A SINGLE, DETAILED MARKDOWN TABLE.
+
+Include 4-5 evaluation criteria (e.g., Content, Organization, Mechanics) as the rows.
+Ensure the columns match the requested grading scale.
+
+Output ONLY the markdown table and a brief 1-sentence instruction on how to use it.`
+  },
+  {
+    id: 'report-card',
+    title: 'Report Card Comments',
+    description: 'Generate professional, empathetic narrative comments for student report cards.',
+    icon: FileText,
+    color: 'from-fuchsia-500 to-purple-600',
+    inputs: [
+      { id: 'studentName', label: 'Student First Name', type: 'text', placeholder: 'e.g. Alex' },
+      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Kindergarten', 'Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'strengths', label: 'Key Strengths', type: 'textarea', placeholder: 'e.g. Great participation, highly creative...' },
+      { id: 'improvement', label: 'Areas for Improvement', type: 'textarea', placeholder: 'e.g. Needs to focus during independent work...' }
+    ],
+    promptTemplate: (data) => `Generate 2 highly refined, professional report card comment options for a ${data.grade} student named ${data.studentName}.
+Strengths to highlight: ${data.strengths}
+Areas to improve: ${data.improvement}
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+### Option 1: Direct & Comprehensive
+[A 4-5 sentence professional paragraph praising the student's specific strengths and adding a constructive goal based on improvements]
+
+### Option 2: Warm & Empathetic 
+[A 4-5 sentence highly empathetic paragraph discussing the strengths and framing the support plan for their growth area]
+
+---
+> **💡 Tip:** Always start with a positive note before addressing areas of growth.`
+  },
+  {
+    id: 'doubt-solver',
+    title: 'AI Doubt Solver',
+    description: 'Instantly get student-friendly explanations for complex concepts and hard questions.',
+    icon: BrainCircuit,
+    color: 'from-pink-500 to-rose-600',
+    inputs: [
+      { id: 'doubt', label: 'The Student\'s Doubt', type: 'textarea', placeholder: 'e.g. Why is the sky blue? Or how do fractions work?' },
+      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Kindergarten', 'Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)', 'Higher Ed'] },
+      { id: 'tone', label: 'Explanation Tone', type: 'select', options: ['Simple & Fun', 'Real-world Analogies', 'Highly Technical & Strict'] }
+    ],
+    promptTemplate: (data) => `You are an expert teacher for a ${data.grade} student. They have asked a doubt: "${data.doubt}".
+Use a "${data.tone}" tone. Provide a clear, engaging, and age-appropriate explanation.
+YOU MUST STRICTLY USE THIS FORMAT:
+
+### 🧠 The Simple Answer
+[A 2-3 sentence explanation directly answering the question]
+
+### 🔍 Let's Dive Deeper
+[A more detailed explanation breaking it down beautifully based on the requested tone.]
+
+### 📝 Quick Knowledge Check
+[Provide 1 simple question at the end to check if they understood]
+
+---
+> **Tip for Teachers:** [How a teacher can best explain this concept live in class]`
+  },
+  {
+    id: 'behavior',
+    title: 'Classroom Management',
+    description: 'Get actionable, psychological strategies for specific classroom behavioral situations.',
+    icon: BrainCircuit,
+    color: 'from-red-500 to-rose-600',
+    inputs: [
+      { id: 'behavior', label: 'Describe the Behavior', type: 'textarea', placeholder: 'e.g. Student keeps interrupting others during reading time.' },
+      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Kindergarten', 'Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'frequency', label: 'Frequency of Behavior', type: 'select', options: ['Rarely', 'Daily/Consistent', 'Severe/Constant Drop-in'] }
+    ],
+    promptTemplate: (data) => `You are an expert behavioral psychologist and veteran teacher. A teacher of a ${data.grade} class is facing this behavioral issue: "${data.behavior}". The frequency is: ${data.frequency}.
+Provide actionable, empathetic, and evidence-based strategies.
+YOU MUST STRICTLY USE THIS FORMAT:
+
+### 🔍 Understanding the Root Cause
+[Brief paragraph explaining the psychological "why" behind this behavior, factoring in the frequency]
+
+### 🛑 In-the-Moment Response (De-escalation)
+[What to do exactly when it happens. Give 2 bullet points.]
+
+### 🌱 Long-Term Strategy (Prevention)
+1. [Preventive strategy 1]
+2. [Preventive strategy 2]
+
+---
+> **💬 Script Idea:** "When you say/do [X], the consequence is [Y]. Let's try [Z] instead."`
   },
   {
     id: 'quiz',
@@ -80,12 +190,18 @@ Format as a final thought-provoking question.
     description: 'Generate quick quizzes or assessments to check student understanding.',
     icon: FileQuestion,
     color: 'from-orange-500 to-red-600',
-    promptTemplate: (topic, grade) => `Create a formal pop quiz for a ${grade} class about "${topic}".
+    inputs: [
+      { id: 'topic', label: 'Quiz Topic', type: 'text', placeholder: 'e.g. Photosynthesis, World War II' },
+      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'count', label: 'Number of Questions', type: 'select', options: ['5 Questions', '10 Questions', '15 Questions', '20 Questions'] },
+      { id: 'difficulty', label: 'Difficulty', type: 'select', options: ['Easy (Recall)', 'Medium (Understanding)', 'Hard (Application & Analysis)'] }
+    ],
+    promptTemplate: (data) => `Create a formal quiz for a ${data.grade} class about "${data.topic}". Generate ${data.count}. Difficulty: ${data.difficulty}.
 YOU MUST STRICTLY FOLLOW THIS MARKDOWN FORMAT:
 
-# Pop Quiz: ${topic}
+# Quiz: ${data.topic}
 
-Provide 10 total questions mixing True/False, Multiple Choice, and Fill-in-the-blank. Use a numbered list.
+Provide questions mixing True/False, Multiple Choice, and Fill-in-the-blank. Use a numbered list.
 Use --- to separate sections.
 
 ### Grading Rubric
@@ -97,33 +213,27 @@ Create a highly structured Markdown Table detailing how to grade the quiz.
 > **Answer Key:** Provide all correct answers inside this blockquote.`
   },
   {
-    id: 'rubric',
-    title: 'Rubric Creator',
-    description: 'Generate detailed grading rubrics with distinct evaluation criteria.',
-    icon: ListChecks,
-    color: 'from-violet-500 to-purple-600',
-    promptTemplate: (topic, grade) => `Create a comprehensive grading rubric for a ${grade} assignment about "${topic}".
-YOU MUST STRICTLY FORMAT THE RESPONSE AS A SINGLE, DETAILED MARKDOWN TABLE.
-
-Include 4-5 evaluation criteria (e.g., Content, Organization) as the rows.
-The columns MUST BE: | Criteria | Exceeds Expectations (4) | Meets Expectations (3) | Approaching (2) | Below Expectations (1) |
-
-Output ONLY the markdown table and a brief 1-sentence instruction on how to use it.`
-  },
-  {
     id: 'parent-email',
-    title: 'Parent Communicator',
-    description: 'Draft professional, empathetic emails regarding student progress.',
+    title: 'Parent Email Drafter',
+    description: 'Draft professional, empathetic emails regarding student progress or incidents.',
     icon: Mail,
     color: 'from-cyan-500 to-blue-600',
-    promptTemplate: (topic, grade) => `Draft a professional, warm, and supportive email to parents of a ${grade} student regarding "${topic}".
+    inputs: [
+      { id: 'purpose', label: 'Purpose of Email', type: 'select', options: ['Academic Progress Update', 'Behavioral Concern', 'Positive Feedback / Appreciation', 'Parent-Teacher Meeting Invitation', 'Missing Homework Notice', 'Field Trip Permission'] },
+      { id: 'studentName', label: 'Student Name', type: 'text', placeholder: 'e.g. Aarav, Sarah' },
+      { id: 'details', label: 'Key Details to Include', type: 'textarea', placeholder: 'e.g. Student scored 95% in midterm, or has been absent 5 days...' },
+      { id: 'tone', label: 'Tone', type: 'select', options: ['Warm & Supportive', 'Formal & Direct', 'Urgent & Concerned'] }
+    ],
+    promptTemplate: (data) => `Draft a professional, ${data.tone} email to the parents of a student named ${data.studentName}. Purpose: ${data.purpose}.
+Key details: ${data.details}
+
 YOU MUST STRICTLY USE THIS FORMAT:
 
-**Subject:** [Insert engaging, clear subject line here]
+**Subject:** [Insert clear subject line here]
 
-Dear [Parent/Guardian Name],
+Dear Parent/Guardian of ${data.studentName},
 
-[Insert 2-3 empathetic, beautifully written paragraphs here. Keep it constructive and clear.]
+[Insert 2-3 beautifully written paragraphs. Keep it constructive and empathetic.]
 
 Warm regards,
 
@@ -132,60 +242,691 @@ Warm regards,
   },
   {
     id: 'icebreaker',
-    title: 'Icebreaker Ideas',
-    description: 'Generate fun, engaging 5-minute activities to start the class.',
+    title: 'Icebreaker Activities',
+    description: 'Generate fun, engaging 5-minute activities to start or energize the class.',
     icon: Smile,
     color: 'from-amber-400 to-orange-500',
-    promptTemplate: (topic, grade) => `Generate 3 fun, age-appropriate icebreaker activities for a ${grade} class introducing "${topic}".
+    inputs: [
+      { id: 'topic', label: 'Topic or Theme (Optional)', type: 'text', placeholder: 'e.g. Solar System, First Day of School' },
+      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Kindergarten', 'Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'type', label: 'Activity Type', type: 'select', options: ['Quick Game (5 mins)', 'Group Discussion Starter', 'Movement-Based Energizer', 'Creative Thinking Prompt'] }
+    ],
+    promptTemplate: (data) => `Generate 3 fun, age-appropriate ${data.type} icebreaker activities for a ${data.grade} class${data.topic ? ` introducing "${data.topic}"` : ''}.
 YOU MUST STRICTLY USE THIS FORMAT:
 
 ### 1. [Catchy Activity Name] *(⏳ 5 mins)*
-**Materials:** [List materials]
-**How to play:** [Brief paragraph of instructions]
+**Materials:** [List materials or "None"]
+**How to play:** [Brief paragraph of clear instructions]
+**Why it works:** [1 sentence on pedagogical value]
 
 ### 2. [Catchy Activity Name] *(⏳ X mins)*
+...
+
+### 3. [Catchy Activity Name] *(⏳ X mins)*
 ...`
   },
   {
-    id: 'doubt-solver',
-    title: 'AI Doubt Solver',
-    description: 'Instantly get student-friendly explanations for complex concepts and hard questions.',
-    icon: BrainCircuit,
-    color: 'from-pink-500 to-rose-600',
-    promptTemplate: (topic, grade) => `You are an expert, friendly teacher for a ${grade} student. They have asked a doubt about: "${topic}".
-Provide a clear, super-engaging, and easy-to-understand explanation.
-YOU MUST STRICTLY USE THIS FORMAT:
+    id: 'pbl',
+    title: 'PBL Project Designer',
+    description: 'Design multi-day project-based learning assignments connecting concepts to the real world.',
+    icon: Sparkles,
+    color: 'from-amber-500 to-yellow-600',
+    inputs: [
+      { id: 'topic', label: 'Core Topic', type: 'text', placeholder: 'e.g. Water Conservation, Ancient Civilizations' },
+      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'duration', label: 'Project Duration', type: 'select', options: ['3 Days', '1 Week', '2 Weeks', '1 Month'] },
+      { id: 'deliverable', label: 'Final Deliverable Type', type: 'select', options: ['Presentation / PPT', 'Physical Model / Prototype', 'Written Report', 'Video / Documentary', 'Exhibition / Poster'] }
+    ],
+    promptTemplate: (data) => `Design a comprehensive Project-Based Learning (PBL) activity for a ${data.grade} class centered around "${data.topic}". Duration: ${data.duration}. Final deliverable: ${data.deliverable}.
+YOU MUST STRICTLY FORMAT AS FOLLOWS:
 
-### 🧠 The Simple Answer
-[A 2-3 sentence extremely simple explanation]
+# PBL Design: ${data.topic}
+**Duration:** ${data.duration} | **Deliverable:** ${data.deliverable}
 
-### 🔍 Let's Dive Deeper
-[A more detailed explanation using a real-world analogy. Break it down beautifully.]
+### 🌍 The Real-World Driving Question
+[A compelling, open-ended question that frames the project]
 
-### 📝 Quick Knowledge Check
-[Provide 1 simple question at the end to check if they understood]
+### 🎯 The Final Product / Deliverable
+[What the students will actually create or present]
+
+### 🪜 Milestone Breakdown
+1. **Phase 1: The Hook & Research** - [Brief plan]
+2. **Phase 2: Creation/Drafting** - [Brief plan]
+3. **Phase 3: Peer Review** - [Brief plan]
+4. **Phase 4: Presentation/Action** - [Brief plan]
 
 ---
-> **Tip for Teachers:** [How a teacher can best explain this in class]`
+> **🛠️ Resources Needed:** [Bullet list of unique materials]`
+  },
+  {
+    id: 'differentiated',
+    title: 'Differentiated Lesson Split',
+    description: 'Break a single topic down into 3 levels: Remedial, Core, and Enrichment.',
+    icon: ListChecks,
+    color: 'from-emerald-400 to-green-600',
+    inputs: [
+      { id: 'topic', label: 'Topic', type: 'text', placeholder: 'e.g. Fractions, Photosynthesis' },
+      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'focus', label: 'Differentiation Focus', type: 'select', options: ['By Learning Ability', 'By Learning Style (Visual/Auditory/Kinesthetic)', 'By Language Level (ELL Support)'] }
+    ],
+    promptTemplate: (data) => `Take the topic: "${data.topic}" for a ${data.grade} class and differentiate it into 3 distinct learning tiers. Focus: ${data.focus}.
+YOU MUST STRICTLY FORMAT AS FOLLOWS:
+
+# Differentiated Plan: ${data.topic}
+
+### 🌱 Tier 1: Remedial (Needs Support)
+**Objective:** [Simplified goal]
+**Activity:** [A highly scaffolded, step-by-step 15 min activity]
+**Teacher Focus:** [What the teacher should do with this group]
+
+### 🌿 Tier 2: Core (On-Level)
+**Objective:** [Standard goal]
+**Activity:** [A standard independent/group activity]
+**Teacher Focus:** [Checking for understanding]
+
+### 🌳 Tier 3: Enrichment (High Achievers)
+**Objective:** [Advanced goal/Bloom's taxonomy]
+**Activity:** [A challenging extension activity requiring critical thinking, NOT just more work]
+**Teacher Focus:** [Facilitating peer review or complex questions]`
+  },
+  {
+    id: 'notice-writer',
+    title: 'Notice / Circular Writer',
+    description: 'Draft official school notices, circulars, and announcements instantly.',
+    icon: FileText,
+    color: 'from-slate-600 to-slate-800',
+    inputs: [
+      { id: 'type', label: 'Notice Type', type: 'select', options: ['Holiday Notice', 'Exam Schedule', 'Fee Reminder', 'Event Announcement', 'General Circular', 'Dress Code / Uniform', 'Discipline Notice'] },
+      { id: 'details', label: 'Key Details', type: 'textarea', placeholder: 'e.g. Annual sports day on 15th March, classes suspended...' },
+      { id: 'audience', label: 'Target Audience', type: 'select', options: ['All Students', 'Parents/Guardians', 'Staff / Faculty', 'Specific Class / Section'] },
+      { id: 'schoolName', label: 'School Name', type: 'text', placeholder: 'e.g. Delhi Public School' }
+    ],
+    promptTemplate: (data) => `Draft a professional, formal school ${data.type} for ${data.audience}. School: ${data.schoolName || '[School Name]'}.
+Details: ${data.details}
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# ${data.schoolName || '[School Name]'}
+## NOTICE / CIRCULAR
+**Date:** ${new Date().toLocaleDateString()}
+**To:** ${data.audience}
+**Subject:** [Clear subject line for ${data.type}]
+
+[2-3 formal paragraphs with all necessary details]
+
+**Important Points:**
+1. [Key point 1]
+2. [Key point 2]
+
+---
+*Issued by the Principal / Administration*
+*${data.schoolName || '[School Name]'}*`
+  },
+  {
+    id: 'assembly-speech',
+    title: 'Assembly Speech Writer',
+    description: 'Generate engaging morning assembly speeches, thought-of-the-day, or special day addresses.',
+    icon: BookOpen,
+    color: 'from-indigo-500 to-blue-700',
+    inputs: [
+      { id: 'occasion', label: 'Occasion / Topic', type: 'text', placeholder: 'e.g. Republic Day, Environment Day, Farewell' },
+      { id: 'duration', label: 'Speech Duration', type: 'select', options: ['2 Minutes (Short)', '5 Minutes (Standard)', '10 Minutes (Detailed)'] },
+      { id: 'speaker', label: 'Who is Speaking?', type: 'select', options: ['Student (Class 6-8)', 'Student (Class 9-12)', 'Teacher', 'Principal'] },
+      { id: 'tone', label: 'Tone', type: 'select', options: ['Inspirational & Motivational', 'Informative & Educational', 'Humorous & Light', 'Patriotic & Emotional'] }
+    ],
+    promptTemplate: (data) => `Write a ${data.duration} ${data.tone} assembly speech about "${data.occasion}" to be delivered by a ${data.speaker}.
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# Assembly Speech: ${data.occasion}
+**Speaker:** ${data.speaker} | **Duration:** ${data.duration}
+
+---
+
+**Opening Greeting:**
+[Formal greeting appropriate for school assembly]
+
+**Introduction:**
+[Hook the audience with a powerful quote, fact, or question about ${data.occasion}]
+
+**Main Body:**
+[2-3 well-structured paragraphs covering the significance, history, or message of the occasion]
+
+**Closing / Call to Action:**
+[An inspiring conclusion with a call to action for the students]
+
+---
+> **💡 Thought of the Day:** [A relevant, powerful quote related to the topic]`
+  },
+  {
+    id: 'exam-paper',
+    title: 'Exam Paper Generator',
+    description: 'Generate structured exam papers with sections, marks distribution, and answer keys.',
+    icon: FileQuestion,
+    color: 'from-rose-500 to-pink-700',
+    inputs: [
+      { id: 'subject', label: 'Subject', type: 'text', placeholder: 'e.g. Science, Mathematics, English' },
+      { id: 'topics', label: 'Topics to Cover', type: 'textarea', placeholder: 'e.g. Chapter 3: Light, Chapter 5: Acids & Bases' },
+      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'totalMarks', label: 'Total Marks', type: 'select', options: ['20 Marks (Unit Test)', '40 Marks (Mid-Term)', '80 Marks (Final Exam)', '100 Marks (Board Style)'] },
+      { id: 'duration', label: 'Time Allowed', type: 'select', options: ['30 Minutes', '1 Hour', '2 Hours', '3 Hours'] }
+    ],
+    promptTemplate: (data) => `Create a structured ${data.totalMarks} exam paper for ${data.grade} ${data.subject}. Topics: ${data.topics}. Time: ${data.duration}.
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# ${data.subject} Examination
+**Grade:** ${data.grade} | **Total Marks:** ${data.totalMarks} | **Time:** ${data.duration}
+*General Instructions: Attempt all questions. Marks are indicated against each question.*
+
+---
+
+### Section A: Objective Type (1 mark each)
+[5-10 MCQ / True-False / Fill-in-the-blank questions]
+
+### Section B: Short Answer (2-3 marks each)
+[4-6 short answer questions]
+
+### Section C: Long Answer (5 marks each)
+[2-4 detailed answer questions]
+
+### Section D: Application / HOTS (Higher Order Thinking)
+[1-2 case-study or application-based questions]
+
+---
+> **🔑 Answer Key & Marking Scheme:**
+> Provide complete answers with mark distribution inside this blockquote.`
+  },
+  {
+    id: 'syllabus-planner',
+    title: 'Syllabus Planner',
+    description: 'Generate a complete term-wise or month-wise syllabus breakdown for any subject.',
+    icon: Calendar,
+    color: 'from-teal-500 to-cyan-600',
+    inputs: [
+      { id: 'subject', label: 'Subject', type: 'text', placeholder: 'e.g. Mathematics, Science, English' },
+      { id: 'grade', label: 'Grade / Class', type: 'select', options: ['Class 1-5', 'Class 6-8', 'Class 9-10', 'Class 11-12'] },
+      { id: 'board', label: 'Board / Curriculum', type: 'select', options: ['CBSE', 'ICSE', 'State Board', 'IB', 'General'] },
+      { id: 'duration', label: 'Plan Duration', type: 'select', options: ['1 Month', 'Full Term (3 Months)', 'Full Academic Year'] }
+    ],
+    promptTemplate: (data) => `Create a detailed ${data.duration} syllabus plan for ${data.grade} ${data.subject} following the ${data.board} curriculum.
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# Syllabus Plan: ${data.subject} (${data.grade})
+**Board:** ${data.board} | **Duration:** ${data.duration}
+
+### Month/Week Breakdown
+Create a detailed Markdown Table:
+| Week | Topic / Chapter | Sub-Topics | Activities | Assessment |
+|------|----------------|------------|------------|------------|
+
+### Key Learning Outcomes
+* [Bulleted list of outcomes]
+
+---
+> **📌 Note:** Include revision weeks and exam prep periods.`
+  },
+  {
+    id: 'comprehension',
+    title: 'Comprehension Passage Maker',
+    description: 'Generate reading passages with comprehension questions for language classes.',
+    icon: BookMarked,
+    color: 'from-sky-500 to-blue-600',
+    inputs: [
+      { id: 'topic', label: 'Passage Topic', type: 'text', placeholder: 'e.g. The Rainforest, Space Exploration' },
+      { id: 'grade', label: 'Reading Level', type: 'select', options: ['Class 1-3 (Beginner)', 'Class 4-6 (Intermediate)', 'Class 7-9 (Advanced)', 'Class 10-12 (Expert)'] },
+      { id: 'language', label: 'Language', type: 'select', options: ['English', 'Hindi', 'Simple English (ESL)'] },
+      { id: 'length', label: 'Passage Length', type: 'select', options: ['Short (100-150 words)', 'Medium (200-300 words)', 'Long (400-500 words)'] }
+    ],
+    promptTemplate: (data) => `Generate a ${data.length} ${data.language} reading comprehension passage about "${data.topic}" for ${data.grade} students.
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# Reading Comprehension: ${data.topic}
+
+[Write the passage here in ${data.language}]
+
+---
+
+### Questions:
+1. **Factual:** [Direct recall question from the passage]
+2. **Inferential:** [Question requiring reading between the lines]
+3. **Vocabulary:** [Ask the meaning of a word used in the passage]
+4. **Critical Thinking:** [Opinion-based question]
+5. **Grammar:** [Identify a grammatical element from the passage]
+
+---
+> **🔑 Answer Key:**
+> Provide model answers for all questions.`
+  },
+  {
+    id: 'math-word-problems',
+    title: 'Math Word Problems',
+    description: 'Generate age-appropriate math word problems on any topic with step-by-step solutions.',
+    icon: Lightbulb,
+    color: 'from-yellow-500 to-orange-600',
+    inputs: [
+      { id: 'topic', label: 'Math Topic', type: 'text', placeholder: 'e.g. Fractions, Profit & Loss, Speed-Distance' },
+      { id: 'grade', label: 'Class Level', type: 'select', options: ['Class 1-3', 'Class 4-6', 'Class 7-8', 'Class 9-10', 'Class 11-12'] },
+      { id: 'count', label: 'Number of Problems', type: 'select', options: ['5 Problems', '10 Problems', '15 Problems'] },
+      { id: 'difficulty', label: 'Difficulty', type: 'select', options: ['Easy (Direct Application)', 'Medium (Multi-step)', 'Hard (HOTS / Olympiad Level)'] }
+    ],
+    promptTemplate: (data) => `Generate ${data.count} math word problems on "${data.topic}" for ${data.grade} students. Difficulty: ${data.difficulty}.
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# Math Word Problems: ${data.topic}
+
+1. [Real-world scenario word problem]
+2. [Another word problem]
+...
+
+---
+> **🔑 Solutions (Step-by-Step):**
+> **Problem 1:** [Show complete working with each step clearly explained]
+> **Problem 2:** [...]
+> Provide ALL solutions with complete step-by-step working.`
+  },
+  {
+    id: 'story-writer',
+    title: 'Story / Moral Story Writer',
+    description: 'Generate engaging stories with moral lessons perfect for primary and middle school.',
+    icon: Heart,
+    color: 'from-pink-400 to-rose-500',
+    inputs: [
+      { id: 'theme', label: 'Story Theme / Moral', type: 'text', placeholder: 'e.g. Honesty, Kindness, Hard Work, Environment' },
+      { id: 'grade', label: 'Age Group', type: 'select', options: ['Class 1-3 (Simple Language)', 'Class 4-6 (Intermediate)', 'Class 7-9 (Detailed)'] },
+      { id: 'type', label: 'Story Type', type: 'select', options: ['Moral Story', 'Folktale / Fable', 'Adventure Story', 'Real-life Inspirational'] },
+      { id: 'length', label: 'Length', type: 'select', options: ['Short (1 page)', 'Medium (2 pages)', 'Long (3+ pages)'] }
+    ],
+    promptTemplate: (data) => `Write a ${data.length} ${data.type} for ${data.grade} students on the theme of "${data.theme}".
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# ${data.type}: [Creative Story Title]
+
+[Write the complete story with vivid descriptions, dialogue, and a clear beginning, middle, and end]
+
+---
+
+### 🌟 Moral of the Story
+[State the moral clearly in 1-2 sentences]
+
+### 📝 Discussion Questions
+1. [Question about the story]
+2. [Question connecting to real-life]
+3. [Creative extension question]`
+  },
+  {
+    id: 'vocabulary-builder',
+    title: 'Vocabulary Builder',
+    description: 'Generate word lists with meanings, synonyms, antonyms, and usage sentences.',
+    icon: PenLine,
+    color: 'from-lime-500 to-green-600',
+    inputs: [
+      { id: 'topic', label: 'Topic / Theme', type: 'text', placeholder: 'e.g. Science vocabulary, Emotions, Travel' },
+      { id: 'grade', label: 'Class Level', type: 'select', options: ['Class 1-3', 'Class 4-6', 'Class 7-9', 'Class 10-12'] },
+      { id: 'count', label: 'Number of Words', type: 'select', options: ['10 Words', '15 Words', '20 Words', '25 Words'] }
+    ],
+    promptTemplate: (data) => `Generate a vocabulary list of ${data.count} for ${data.grade} students related to "${data.topic}".
+YOU MUST STRICTLY FORMAT AS A MARKDOWN TABLE:
+
+# Vocabulary Builder: ${data.topic}
+
+| # | Word | Part of Speech | Meaning | Synonym | Antonym | Example Sentence |
+|---|------|---------------|---------|---------|---------|------------------|
+| 1 | ... | ... | ... | ... | ... | ... |
+
+---
+### Practice Exercise
+Provide 5 fill-in-the-blank sentences using the above words.`
+  },
+  {
+    id: 'recommendation-letter',
+    title: 'Recommendation Letter',
+    description: 'Write professional recommendation letters for students applying to colleges or scholarships.',
+    icon: GraduationCap,
+    color: 'from-blue-600 to-indigo-700',
+    inputs: [
+      { id: 'studentName', label: 'Student Name', type: 'text', placeholder: 'e.g. Priya Sharma' },
+      { id: 'purpose', label: 'Letter Purpose', type: 'select', options: ['College Admission', 'Scholarship Application', 'Internship', 'Award Nomination', 'Transfer Certificate'] },
+      { id: 'qualities', label: 'Key Qualities to Highlight', type: 'textarea', placeholder: 'e.g. Leadership, academic excellence, community service...' },
+      { id: 'relationship', label: 'Your Relationship', type: 'select', options: ['Class Teacher', 'Subject Teacher', 'Principal', 'Mentor / Counselor'] }
+    ],
+    promptTemplate: (data) => `Write a professional ${data.purpose} recommendation letter for a student named ${data.studentName}. Written by their ${data.relationship}.
+Key qualities: ${data.qualities}
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+**To Whom It May Concern,**
+
+[3-4 paragraphs: Introduction of relationship, academic strengths, character/extra-curricular, and strong closing recommendation]
+
+Sincerely,
+
+[Teacher Name]
+[Designation]
+[School Name]
+[Date]`
+  },
+  {
+    id: 'class-newsletter',
+    title: 'Class Newsletter',
+    description: 'Generate weekly or monthly class newsletters to keep parents informed and engaged.',
+    icon: Newspaper,
+    color: 'from-purple-500 to-violet-600',
+    inputs: [
+      { id: 'className', label: 'Class / Section', type: 'text', placeholder: 'e.g. Class 5-B, Grade 8' },
+      { id: 'period', label: 'Newsletter Period', type: 'select', options: ['This Week', 'This Month', 'This Term'] },
+      { id: 'highlights', label: 'Key Highlights / Activities', type: 'textarea', placeholder: 'e.g. Science fair, new math chapter started, field trip planned...' },
+      { id: 'tone', label: 'Tone', type: 'select', options: ['Warm & Friendly', 'Formal & Professional'] }
+    ],
+    promptTemplate: (data) => `Create a ${data.tone} class newsletter for ${data.className} covering ${data.period}.
+Highlights: ${data.highlights}
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# 📰 ${data.className} Newsletter
+**Period:** ${data.period} | **Date:** ${new Date().toLocaleDateString()}
+
+### 🌟 Highlights & Achievements
+[Summarize key class activities and achievements]
+
+### 📚 What We Learned
+[Brief subject-wise summary of topics covered]
+
+### 📅 Upcoming Events
+[List upcoming dates, deadlines, or events]
+
+### 💬 Message from the Teacher
+[A warm, personal note to parents]
+
+---
+*Thank you for your continued support!*`
+  },
+  {
+    id: 'attendance-report',
+    title: 'Attendance Report',
+    description: 'Generate formatted monthly attendance summary reports for records or PTM.',
+    icon: ClipboardList,
+    color: 'from-gray-500 to-slate-700',
+    inputs: [
+      { id: 'className', label: 'Class / Section', type: 'text', placeholder: 'e.g. Class 7-A' },
+      { id: 'month', label: 'Month', type: 'select', options: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] },
+      { id: 'totalStudents', label: 'Total Students', type: 'text', placeholder: 'e.g. 45' },
+      { id: 'workingDays', label: 'Working Days in Month', type: 'text', placeholder: 'e.g. 22' }
+    ],
+    promptTemplate: (data) => `Generate a professional monthly attendance summary report template for ${data.className}, ${data.month}. Total students: ${data.totalStudents}. Working days: ${data.workingDays}.
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# Attendance Report: ${data.className}
+**Month:** ${data.month} | **Working Days:** ${data.workingDays} | **Total Students:** ${data.totalStudents}
+
+### Summary Table
+| Category | Count | Percentage |
+|----------|-------|------------|
+| Average Present | [Calculate] | [%] |
+| Average Absent | [Calculate] | [%] |
+| Perfect Attendance | [Estimate] | - |
+| Below 75% Attendance | [Estimate] | - |
+
+### Observations
+[2-3 sentences summarizing attendance trends]
+
+### Action Plan for Low Attendance
+[2 bullet points on how to improve attendance]
+
+---
+*Prepared by: [Class Teacher] | Date: ${new Date().toLocaleDateString()}*`
+  },
+  {
+    id: 'homework-planner',
+    title: 'Homework Planner',
+    description: 'Generate structured, meaningful homework assignments with clear instructions.',
+    icon: ClipboardList,
+    color: 'from-orange-500 to-amber-600',
+    inputs: [
+      { id: 'subject', label: 'Subject', type: 'text', placeholder: 'e.g. English, Science, Hindi' },
+      { id: 'topic', label: 'Topic / Chapter', type: 'text', placeholder: 'e.g. Chapter 4: Light and Shadows' },
+      { id: 'grade', label: 'Class Level', type: 'select', options: ['Class 1-3', 'Class 4-6', 'Class 7-8', 'Class 9-10', 'Class 11-12'] },
+      { id: 'type', label: 'Homework Type', type: 'select', options: ['Written Assignment', 'Research / Project', 'Practice Problems', 'Reading + Summary', 'Creative / Art-Based'] }
+    ],
+    promptTemplate: (data) => `Create a structured ${data.type} homework assignment for ${data.grade} ${data.subject} on "${data.topic}".
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# Homework: ${data.subject} — ${data.topic}
+**Class:** ${data.grade} | **Type:** ${data.type}
+**Submission Date:** [Teacher to fill]
+
+### Instructions
+[Clear, numbered step-by-step instructions]
+
+### Tasks
+[3-5 specific tasks the student must complete]
+
+### Evaluation Criteria
+| Criteria | Marks |
+|----------|-------|
+| [Criteria 1] | [X] |
+| [Criteria 2] | [X] |
+
+---
+> **🏠 Parent Note:** This assignment is expected to take approximately [X] minutes.`
+  },
+  {
+    id: 'iep-generator',
+    title: 'IEP Generator',
+    description: 'Create Individual Education Plans for students with special learning needs.',
+    icon: Heart,
+    color: 'from-teal-500 to-emerald-600',
+    inputs: [
+      { id: 'studentName', label: 'Student Name', type: 'text', placeholder: 'e.g. Rahul' },
+      { id: 'grade', label: 'Class', type: 'select', options: ['Class 1-3', 'Class 4-6', 'Class 7-8', 'Class 9-10'] },
+      { id: 'need', label: 'Primary Learning Need', type: 'select', options: ['Dyslexia', 'ADHD', 'Autism Spectrum', 'Slow Learner', 'Speech/Language Delay', 'Physical Disability', 'Gifted / Twice Exceptional', 'Other'] },
+      { id: 'strengths', label: 'Student Strengths', type: 'textarea', placeholder: 'e.g. Great at art, loves music, good memory...' }
+    ],
+    promptTemplate: (data) => `Create a detailed Individual Education Plan (IEP) for a ${data.grade} student named ${data.studentName} with ${data.need}.
+Student strengths: ${data.strengths}
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# Individual Education Plan (IEP)
+**Student:** ${data.studentName} | **Class:** ${data.grade}
+**Primary Need:** ${data.need}
+
+### 🎯 Annual Goals
+1. [Academic goal]
+2. [Social/behavioral goal]
+3. [Communication/life skill goal]
+
+### 📋 Accommodations & Modifications
+| Area | Accommodation |
+|------|---------------|
+| Seating | [Specific arrangement] |
+| Instruction | [Modified teaching approach] |
+| Assessment | [Testing modifications] |
+| Materials | [Adapted resources] |
+
+### 📊 Progress Monitoring
+[How and when progress will be measured]
+
+### 🤝 Support Team
+[Who is responsible for what]
+
+---
+> **Review Date:** [Every 3 months] | **Parent Signature:** ___________`
+  },
+  {
+    id: 'lab-experiment',
+    title: 'Lab Experiment Writer',
+    description: 'Generate structured science practical/experiment write-ups with procedures and observations.',
+    icon: FlaskConical,
+    color: 'from-green-500 to-teal-600',
+    inputs: [
+      { id: 'experiment', label: 'Experiment Name', type: 'text', placeholder: 'e.g. Testing for Starch in Leaves' },
+      { id: 'subject', label: 'Science Branch', type: 'select', options: ['Physics', 'Chemistry', 'Biology', 'General Science'] },
+      { id: 'grade', label: 'Class Level', type: 'select', options: ['Class 6-8', 'Class 9-10', 'Class 11-12'] }
+    ],
+    promptTemplate: (data) => `Write a complete ${data.subject} lab practical write-up for the experiment: "${data.experiment}" for ${data.grade} students.
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# Lab Report: ${data.experiment}
+**Subject:** ${data.subject} | **Class:** ${data.grade}
+
+### 🎯 Aim
+[State the aim clearly]
+
+### 📦 Materials Required
+* [Bulleted list of apparatus and chemicals]
+
+### ⚠️ Safety Precautions
+* [Important safety points]
+
+### 📋 Procedure
+1. [Step-by-step numbered instructions]
+2. [...]
+
+### 📊 Observation Table
+| S.No | Observation | Inference |
+|------|-------------|----------|
+
+### 📝 Result / Conclusion
+[State the conclusion clearly]
+
+### ❓ Viva Voce Questions
+1. [Possible question an examiner might ask]
+2. [...]
+3. [...]`
+  },
+  {
+    id: 'book-review',
+    title: 'Book Review Generator',
+    description: 'Generate structured book review templates for students with guided prompts.',
+    icon: BookMarked,
+    color: 'from-amber-600 to-yellow-700',
+    inputs: [
+      { id: 'bookTitle', label: 'Book Title', type: 'text', placeholder: 'e.g. Charlotte\'s Web, The Diary of a Young Girl' },
+      { id: 'author', label: 'Author', type: 'text', placeholder: 'e.g. E.B. White' },
+      { id: 'grade', label: 'Student Level', type: 'select', options: ['Class 3-5 (Simple)', 'Class 6-8 (Intermediate)', 'Class 9-12 (Advanced / Critical)'] }
+    ],
+    promptTemplate: (data) => `Generate a detailed book review template/guide for "${data.bookTitle}" by ${data.author}, suitable for ${data.grade} students.
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# 📖 Book Review: ${data.bookTitle}
+**Author:** ${data.author}
+
+### Summary
+[A spoiler-free book summary in 3-5 sentences]
+
+### Characters
+| Character | Role | Key Traits |
+|-----------|------|------------|
+
+### Themes
+* [Major themes explored in the book]
+
+### My Favorite Part
+[Guide prompt for the student]
+
+### Critical Analysis
+[What worked well? What could be better?]
+
+### Rating
+⭐⭐⭐⭐☆ (X/5)
+
+### Recommendation
+[Would you recommend this? Why?]`
+  },
+  {
+    id: 'activity-based-learning',
+    title: 'Activity Based Learning (CBSE)',
+    description: 'Design CBSE-aligned hands-on activities using Art Integration & Experiential Learning pedagogy.',
+    icon: Lightbulb,
+    color: 'from-yellow-400 to-amber-500',
+    inputs: [
+      { id: 'topic', label: 'Topic / Chapter', type: 'text', placeholder: 'e.g. Photosynthesis, Fractions, Indian Freedom Struggle' },
+      { id: 'subject', label: 'Subject', type: 'select', options: ['Mathematics', 'Science', 'Social Science', 'English', 'Hindi', 'EVS', 'Computer Science'] },
+      { id: 'grade', label: 'CBSE Class', type: 'select', options: ['Class 1-2 (Foundational)', 'Class 3-5 (Preparatory)', 'Class 6-8 (Middle Stage)', 'Class 9-10 (Secondary)', 'Class 11-12 (Senior Secondary)'] },
+      { id: 'framework', label: 'CBSE Pedagogy Framework', type: 'select', options: ['Art Integrated Learning (AIL)', 'Experiential Learning', 'Competency Based Learning', 'Sports Integrated Learning', 'Storytelling / Narrative Pedagogy', 'Toy-Based / Play-Based Learning'] },
+      { id: 'duration', label: 'Activity Duration', type: 'select', options: ['15 Minutes (Quick)', '30 Minutes (Standard)', '1 Full Period (45 min)', 'Multi-Day Project'] }
+    ],
+    promptTemplate: (data) => `Design a CBSE-aligned ${data.framework} activity for ${data.grade} ${data.subject} on the topic "${data.topic}". Duration: ${data.duration}.
+This must follow CBSE/NEP 2020 guidelines for activity-based pedagogy.
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# Activity Based Learning: ${data.topic}
+**Subject:** ${data.subject} | **Class:** ${data.grade}
+**Framework:** ${data.framework} | **Duration:** ${data.duration}
+
+### 🎯 Learning Outcomes (CBSE-Aligned)
+* [Specific CBSE learning outcome 1]
+* [Specific CBSE learning outcome 2]
+
+### 📦 Materials Required
+* [List of easily available materials]
+
+### 🏗️ Activity Design
+**Step 1 - Engage (5 min):** [Hook activity to spark curiosity]
+**Step 2 - Explore (10 min):** [Hands-on exploration / investigation]
+**Step 3 - Explain (10 min):** [Teacher-guided concept building]
+**Step 4 - Elaborate (10 min):** [Student application / extension]
+**Step 5 - Evaluate (5 min):** [Quick formative assessment]
+
+### 🎨 ${data.framework} Integration
+[Explain specifically how this activity integrates the chosen pedagogy framework]
+
+### 📊 Assessment Rubric
+| Criteria | Excellent (4) | Good (3) | Developing (2) | Needs Support (1) |
+|----------|--------------|----------|----------------|--------------------|
+| [Criteria 1] | ... | ... | ... | ... |
+| [Criteria 2] | ... | ... | ... | ... |
+
+### 🔄 Cross-Curricular Links
+[How this connects to other subjects as per NEP 2020]
+
+---
+> **📌 CBSE Reference:** This activity aligns with NEP 2020's emphasis on ${data.framework} and reduces rote learning.`
   }
 ]
 
 export default function AITools() {
   const { currentUser } = useAuth()
   const navigate = useNavigate()
-  const [activeTool, setActiveTool] = useState(tools[0])
-  const [topic, setTopic] = useState('')
-  const [grade, setGrade] = useState('8th Grade')
+  const location = useLocation()
+  
+  // Read ?tool= from URL
+  const queryParams = new URLSearchParams(location.search)
+  const toolParam = queryParams.get('tool')
+  const initialTool = tools.find(t => t.id === toolParam) || tools[0]
+
+  const [activeTool, setActiveTool] = useState(initialTool)
+  
+  // Dynamic form state
+  const [formData, setFormData] = useState({})
+  
+  // Reset form when tool changes
+  useEffect(() => {
+    setActiveTool(tools.find(t => t.id === toolParam) || tools[0])
+    setFormData({})
+    setGeneratedContent('')
+    setError('')
+  }, [toolParam])
+
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedContent, setGeneratedContent] = useState('')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
 
+  // Validate form
+  const isFormValid = activeTool.inputs.every(input => formData[input.id] && formData[input.id].trim() !== '')
+
   async function handleGenerate(e) {
     e.preventDefault()
     if (!currentUser) return navigate('/login')
-    if (!topic.trim()) return
+    if (!isFormValid) return
 
     setIsGenerating(true)
     setError('')
@@ -193,7 +934,7 @@ export default function AITools() {
     setCopied(false)
 
     try {
-      const prompt = activeTool.promptTemplate(topic, grade)
+      const prompt = activeTool.promptTemplate(formData)
       const result = await generateAIContent(prompt)
       setGeneratedContent(result)
     } catch (err) {
@@ -218,13 +959,11 @@ export default function AITools() {
     setIsDownloading(true)
 
     try {
-      // Dynamically import jsPDF and html2canvas (already installed as html2pdf.js deps)
       const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
         import('jspdf'),
         import('html2canvas')
       ])
 
-      // Create off-screen container with all styles
       const container = document.createElement('div')
       container.style.position = 'fixed'
       container.style.left = '-9999px'
@@ -237,111 +976,39 @@ export default function AITools() {
       container.innerHTML = `
         <style>
           .pdf-wrapper { font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif; color: #0f172a; line-height: 1.7; }
-          
-          .pdf-header { 
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
-            color: white; padding: 24px 28px; border-radius: 10px; 
-            margin-bottom: 28px;
-          }
-          .pdf-header-brand { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #a5b4fc; margin-bottom: 6px; font-weight: 600; }
-          .pdf-header-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
-          .pdf-header-meta { font-size: 11px; color: #94a3b8; }
-          
           .pdf-content h1 { font-size: 24px; font-weight: 800; color: #0f172a; margin: 24px 0 14px 0; padding-bottom: 8px; border-bottom: 3px solid #e2e8f0; }
           .pdf-content h2 { font-size: 18px; font-weight: 700; color: #1e293b; margin: 20px 0 10px 0; padding-bottom: 5px; border-bottom: 2px solid #f1f5f9; }
           .pdf-content h3 { font-size: 15px; font-weight: 700; color: #334155; margin: 16px 0 8px 0; }
           .pdf-content p { font-size: 13px; color: #475569; margin-bottom: 12px; line-height: 1.7; }
           .pdf-content strong { color: #0f172a; font-weight: 700; }
           .pdf-content em { font-style: italic; color: #64748b; }
-          
           .pdf-content ul, .pdf-content ol { margin: 10px 0 14px 0; padding-left: 24px; }
           .pdf-content li { font-size: 13px; color: #475569; margin-bottom: 6px; line-height: 1.6; }
-          
           .pdf-content table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; border: 1px solid #e2e8f0; }
           .pdf-content th { background: #f1f5f9; font-weight: 700; color: #1e293b; padding: 10px 12px; text-align: left; border: 1px solid #e2e8f0; }
           .pdf-content td { padding: 8px 12px; color: #475569; border: 1px solid #e2e8f0; }
           .pdf-content tr:nth-child(even) { background-color: #fafbfc; }
-          
-          .pdf-content blockquote { 
-            border-left: 4px solid #6366f1; background: #eef2ff; 
-            padding: 14px 18px; margin: 16px 0; border-radius: 0 8px 8px 0; 
-          }
-          .pdf-content blockquote p { color: #4338ca; margin-bottom: 4px; }
-          .pdf-content blockquote strong { color: #312e81; }
-          
-          .pdf-content hr { border: none; border-top: 2px solid #e2e8f0; margin: 24px 0; }
-          
-          .pdf-footer { margin-top: 32px; padding-top: 14px; border-top: 1px dashed #cbd5e1; text-align: center; font-size: 10px; color: #94a3b8; }
+          .pdf-content blockquote { border-left: 4px solid #6366f1; background: #eef2ff; padding: 14px 18px; margin: 16px 0; border-radius: 0 8px 8px 0; }
         </style>
         <div class="pdf-wrapper">
-          <div class="pdf-header">
-            <div class="pdf-header-brand">✨ LDMS AI Tools</div>
-            <div class="pdf-header-title">${activeTool.title}</div>
-            <div class="pdf-header-meta">Topic: ${topic} &nbsp;|&nbsp; Grade: ${grade} &nbsp;|&nbsp; Generated: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-          </div>
-          <div class="pdf-content">
-            ${printContent.innerHTML}
-          </div>
-          <div class="pdf-footer">
-            Generated by LDMS AI — For educational use only
-          </div>
+          <div class="pdf-content">${printContent.innerHTML}</div>
         </div>
       `
 
       document.body.appendChild(container)
+      await new Promise(resolve => setTimeout(resolve, 500))
 
-      // Wait for rendering
-      await new Promise(r => setTimeout(r, 300))
-
-      // Capture as canvas
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        width: 794,
-        windowWidth: 794
-      })
-
+      const canvas = await html2canvas(container, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' })
       document.body.removeChild(container)
 
-      // Create PDF from canvas
-      const imgData = canvas.toDataURL('image/jpeg', 0.95)
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      
+      const imgData = canvas.toDataURL('image/jpeg', 1.0)
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
       const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = pdf.internal.pageSize.getHeight()
-      const imgWidth = pdfWidth - 20
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
-      
-      let heightLeft = imgHeight
-      let position = 10
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
 
-      // First page
-      pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight)
-      heightLeft -= (pdfHeight - 20)
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight)
+      pdf.save(`LDMS_${activeTool.title.replace(/\s+/g, '_')}.pdf`)
 
-      // Additional pages if content is long
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight + 10
-        pdf.addPage()
-        pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight)
-        heightLeft -= (pdfHeight - 20)
-      }
-
-      // Save as proper PDF blob with correct mime type
-      const pdfBlob = pdf.output('blob')
-      const safeTopic = topic.replace(/\s+/g, '_').substring(0, 30)
-      const safeTitle = activeTool.title.replace(/\s+/g, '_')
-      const fileName = `${safeTitle}_${safeTopic}.pdf`
-      
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(new Blob([pdfBlob], { type: 'application/pdf' }))
-      link.download = fileName
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(link.href)
-      
     } catch (err) {
       console.error('PDF generation failed:', err)
     } finally {
@@ -349,76 +1016,33 @@ export default function AITools() {
     }
   }
 
+  // Handle dynamic form input changes
+  const handleInputChange = (id, value) => {
+    setFormData(prev => ({ ...prev, [id]: value }))
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 animate-fade-in-up pb-20 sm:pb-0">
       {/* Header Section */}
-      <div className="relative overflow-hidden rounded-[24px] sm:rounded-[32px] bg-surface-900 border border-surface-800 p-5 sm:p-8 lg:p-12 shadow-2xl">
-        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/3 w-[400px] sm:w-[800px] h-[400px] sm:h-[800px] bg-gradient-to-tr from-accent-600/30 to-primary-600/30 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-0 left-0 translate-y-1/3 -translate-x-1/3 w-[300px] sm:w-[600px] h-[300px] sm:h-[600px] bg-gradient-to-tr from-emerald-600/20 to-teal-600/20 rounded-full blur-[100px] pointer-events-none" />
+      <div className="relative overflow-hidden rounded-[24px] sm:rounded-[32px] bg-slate-900 border border-slate-800 p-5 sm:p-8 lg:p-12 shadow-2xl">
+        <div className={`absolute top-0 right-0 -translate-y-1/2 translate-x-1/3 w-[400px] sm:w-[800px] h-[400px] sm:h-[800px] bg-gradient-to-tr ${activeTool.color} rounded-full blur-[120px] pointer-events-none opacity-20`} />
         
         <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-white/90 text-sm font-semibold tracking-wide backdrop-blur-md mb-4 sm:mb-6 shadow-glow-accent">
-            <Sparkles className="w-4 h-4 text-accent-400" /> AI Educator Magic
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-white/90 text-sm font-semibold tracking-wide backdrop-blur-md mb-4 sm:mb-6">
+            <activeTool.icon className="w-4 h-4" /> AI Workspace
           </div>
           <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold font-display text-white tracking-tight leading-tight mb-3 sm:mb-4">
-            Supercharge your <br className="hidden sm:block"/><span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-400 to-primary-400 leading-tight">Teaching Workflow</span>
+            {activeTool.title}
           </h1>
           <p className="text-sm sm:text-lg text-surface-300 font-medium leading-relaxed">
-            Generate pixel-perfect lesson plans, differentiated worksheets, and challenging quizzes in seconds.
+            {activeTool.description}
           </p>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-12 gap-8">
-        {/* Left Column - Controls */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="glass-card-solid p-6 border-none shadow-[0_8px_30px_rgba(0,0,0,0.04)] ring-1 ring-surface-200">
-            <h2 className="text-sm font-bold tracking-widest uppercase text-surface-400 mb-4 px-1">Select Tool</h2>
-            <div className="space-y-3 lg:max-h-[600px] overflow-y-auto custom-scrollbar pr-2 pb-2">
-              {tools.map(tool => (
-                <button
-                  key={tool.id}
-                  onClick={() => {
-                    setActiveTool(tool)
-                    setGeneratedContent('')
-                    setError('')
-                  }}
-                  className={`w-full text-left p-4 rounded-2xl transition-all duration-300 border active:scale-[0.98] group relative overflow-hidden ${
-                    activeTool.id === tool.id
-                      ? 'bg-white border-primary-200 shadow-[0_8px_16px_-4px_rgba(37,99,235,0.1)] ring-1 ring-primary-500/10'
-                      : 'bg-surface-50 border-surface-200/50 hover:bg-white hover:border-surface-300 hover:shadow-soft'
-                  }`}
-                >
-                  {activeTool.id === tool.id && (
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary-100 rounded-full blur-[40px] -mr-16 -mt-16 opacity-50" />
-                  )}
-                  <div className="relative flex items-start gap-4">
-                    <div className={`p-3 rounded-xl shadow-sm transition-transform duration-300 group-hover:scale-110 ${
-                      activeTool.id === tool.id 
-                        ? `bg-gradient-to-br ${tool.color} text-white shadow-glow` 
-                        : 'bg-white text-surface-500 ring-1 ring-surface-200'
-                    }`}>
-                      <tool.icon className="w-5 h-5 flex-shrink-0" />
-                    </div>
-                    <div>
-                      <h3 className={`font-bold tracking-tight mb-1 transition-colors ${
-                        activeTool.id === tool.id ? 'text-surface-900' : 'text-surface-700'
-                      }`}>
-                        {tool.title}
-                      </h3>
-                      <p className="text-xs text-surface-500 leading-relaxed font-medium">
-                        {tool.description}
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column - Generator */}
-        <div className="lg:col-span-8 flex flex-col">
+      <div className="w-full max-w-5xl mx-auto mt-8">
+        {/* Full-width Standalone Tool Workspace */}
+        <div className="flex flex-col">
           <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] ring-1 ring-surface-200 border-none flex-1 overflow-hidden flex flex-col">
             
             <div className="p-6 md:p-8 border-b border-surface-100/80 bg-surface-50/50">
@@ -427,44 +1051,57 @@ export default function AITools() {
                   <activeTool.icon className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold font-display tracking-tight text-surface-900">{activeTool.title}</h2>
+                  <h2 className="text-xl font-bold font-display tracking-tight text-surface-900">{activeTool.title} Workspace</h2>
                   <p className="text-sm font-medium text-surface-500">Configure parameters below</p>
                 </div>
               </div>
 
-              <form onSubmit={handleGenerate} className="space-y-5">
+              {/* DYNAMIC FORM RENDERING */}
+              <form onSubmit={handleGenerate} className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-5">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-surface-500 px-1">Topic / Subject</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Photosynthesis, the Cold War, Fractions"
-                      value={topic}
-                      onChange={e => setTopic(e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-[3px] focus:ring-primary-100 focus:border-primary-400 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-surface-500 px-1">Grade Level</label>
-                    <select
-                      value={grade}
-                      onChange={e => setGrade(e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-[3px] focus:ring-primary-100 focus:border-primary-400 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] appearance-none"
-                    >
-                      <option>Kindergarten</option>
-                      <option>1st-5th Grade</option>
-                      <option>6th-8th Grade</option>
-                      <option>High School</option>
-                      <option>College / Higher Ed</option>
-                    </select>
-                  </div>
+                  {activeTool.inputs.map((input) => (
+                    <div key={input.id} className={`space-y-2 ${input.type === 'textarea' ? 'col-span-1 md:col-span-2' : ''}`}>
+                      <label className="text-xs font-bold uppercase tracking-widest text-surface-500 px-1">{input.label}</label>
+                      
+                      {input.type === 'select' ? (
+                        <select
+                          value={formData[input.id] || ''}
+                          onChange={e => handleInputChange(input.id, e.target.value)}
+                          className="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-[3px] focus:ring-primary-100 focus:border-primary-400 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] appearance-none"
+                          required
+                        >
+                          <option value="" disabled>Select {input.label}...</option>
+                          {input.options.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : input.type === 'textarea' ? (
+                        <textarea
+                          placeholder={input.placeholder}
+                          value={formData[input.id] || ''}
+                          onChange={e => handleInputChange(input.id, e.target.value)}
+                          rows={3}
+                          className="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-[3px] focus:ring-primary-100 focus:border-primary-400 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] resize-y"
+                          required
+                        />
+                      ) : (
+                        <input
+                          type={input.type}
+                          placeholder={input.placeholder}
+                          value={formData[input.id] || ''}
+                          onChange={e => handleInputChange(input.id, e.target.value)}
+                          className="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-[3px] focus:ring-primary-100 focus:border-primary-400 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
+                          required
+                        />
+                      )}
+                    </div>
+                  ))}
                 </div>
 
                 <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={isGenerating || !topic.trim()}
+                    disabled={isGenerating || !isFormValid}
                     className="w-full relative overflow-hidden px-6 py-3.5 bg-gradient-to-b from-surface-900 to-black text-white font-semibold text-sm tracking-wide rounded-xl
                     hover:scale-[1.01] transition-all duration-300 shadow-[0_4px_12px_rgba(0,0,0,0.1),inset_0_1px_1px_rgba(255,255,255,0.1)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.15),inset_0_1px_1px_rgba(255,255,255,0.15)]
                     active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed group flex justify-center items-center gap-2"
@@ -558,7 +1195,7 @@ export default function AITools() {
                   <Send className="w-6 h-6 text-surface-300" />
                 </div>
                 <h3 className="text-lg font-bold text-surface-700 tracking-tight font-display mb-1">Ready to generate</h3>
-                <p className="text-sm font-medium max-w-[280px]">Fill out the parameters above to create your custom teaching content.</p>
+                <p className="text-sm font-medium max-w-[280px]">Fill out the precise parameters above to create your specific content.</p>
               </div>
             )}
             
@@ -570,8 +1207,8 @@ export default function AITools() {
                     <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
                   </div>
                 </div>
-                <h3 className="text-lg font-bold text-surface-800 tracking-tight font-display mb-1 animate-pulse">Orchestrating AI Magic...</h3>
-                <p className="text-sm text-surface-500 font-medium">Drafting the perfect content for your classroom.</p>
+                <h3 className="text-lg font-bold text-surface-800 tracking-tight font-display mb-1 animate-pulse">Running {activeTool.title}...</h3>
+                <p className="text-sm text-surface-500 font-medium">Generating your customized request now.</p>
               </div>
             )}
           </div>

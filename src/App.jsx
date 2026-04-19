@@ -2,6 +2,11 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import PublicLayout from './components/PublicLayout'
+import Home from './pages/Home'
+import Certificates from './pages/Certificates'
+import Todo from './pages/Todo'
+import Gradebook from './pages/Gradebook'
+import Locker from './pages/Locker'
 import Login from './pages/Login'
 import Feed from './pages/Feed'
 import TeacherProfile from './pages/TeacherProfile'
@@ -91,22 +96,19 @@ export default function App() {
 
       {/* Main App — exactly like before */}
       <Route path="/" element={<Layout />}>
-        <Route index element={<Feed />} />
+        <Route index element={<Home />} />
+        <Route path="certificates" element={<Certificates />} />
+        <Route path="todo" element={<Todo />} />
+        <Route path="gradebook" element={<Gradebook />} />
+        <Route path="locker" element={<Locker />} />
         <Route path="profile" element={<ProtectedRoute><ProfileRouter /></ProtectedRoute>} />
         <Route path="jobs" element={<Jobs />} />
         <Route path="resources" element={<Resources />} />
         <Route path="ai-tools" element={<AITools />} />
-        <Route path="groups" element={<Groups />} />
         <Route path="dashboard" element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
-        <Route path="teacher-search" element={<TeacherSearch />} />
         <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="messaging" element={<ProtectedRoute><Messaging /></ProtectedRoute>} />
         <Route path="events" element={<Events />} />
-        <Route path="leaderboard" element={<Leaderboard />} />
         <Route path="marketplace" element={<Marketplace />} />
-        <Route path="mentorship" element={<ProtectedRoute><Mentorship /></ProtectedRoute>} />
-        <Route path="audio-rooms" element={<AudioRooms />} />
-        <Route path="user/:userId" element={<UserProfile />} />
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         {/* Redirect /feed → / */}
         <Route path="feed" element={<Navigate to="/" replace />} />

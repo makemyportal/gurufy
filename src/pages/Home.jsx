@@ -1,0 +1,172 @@
+import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
+import { tools as aiTools } from './AITools'
+import { 
+  Sparkles, Briefcase, FolderOpen, Award, CheckSquare, 
+  Calculator, Lock, ArrowRight, CalendarDays
+} from 'lucide-react'
+
+// App configs for the grid
+const utilityApps = [
+  {
+    id: 'todo',
+    title: 'Tasks & Reminders',
+    description: 'Manage your daily teaching to-do list.',
+    icon: CheckSquare,
+    path: '/todo',
+    bg: 'bg-emerald-500',
+    hover: 'group-hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]'
+  },
+  {
+    id: 'gradebook',
+    title: 'Smart Gradebook',
+    description: 'Calculate marks and track student progress.',
+    icon: Calculator,
+    path: '/gradebook',
+    bg: 'bg-blue-500',
+    hover: 'group-hover:shadow-[0_0_20px_rgba(59,130,246,0.4)]'
+  },
+  {
+    id: 'certificates',
+    title: 'Certificate Generator',
+    description: 'Create & print beautiful student awards.',
+    icon: Award,
+    path: '/certificates',
+    bg: 'bg-amber-500',
+    hover: 'group-hover:shadow-[0_0_20px_rgba(245,158,11,0.4)]'
+  },
+  {
+    id: 'locker',
+    title: 'Private Locker',
+    description: 'Securely store personal notes and files.',
+    icon: Lock,
+    path: '/locker',
+    bg: 'bg-slate-700',
+    hover: 'group-hover:shadow-[0_0_20px_rgba(51,65,85,0.4)]'
+  }
+]
+
+export default function Home() {
+  const { currentUser, userProfile } = useAuth()
+  const [time, setTime] = useState(new Date())
+
+  // Clock tick
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const formattedTime = time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+  const formattedDate = time.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  const greeting = time.getHours() < 12 ? 'Good morning' : time.getHours() < 18 ? 'Good afternoon' : 'Good evening'
+
+  const displayName = userProfile?.name 
+    ? userProfile.name.split(' ')[0] 
+    : currentUser?.email ? currentUser.email.split('@')[0] : 'Educator'
+
+  return (
+    <div className="max-w-[1200px] mx-auto animate-fade-in-up pb-24 lg:pb-8">
+      {/* Top Hero / Welcome Panel */}
+      <div className="relative overflow-hidden bg-slate-900 rounded-[32px] p-8 sm:p-10 mb-8 shadow-2xl border border-slate-800">
+        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/3 w-[600px] h-[600px] bg-gradient-to-tr from-indigo-500/20 to-emerald-500/20 rounded-full blur-[100px] pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <div className="flex items-center gap-2 text-slate-400 font-bold tracking-wide uppercase text-xs mb-3">
+              <CalendarDays className="w-4 h-4" /> {formattedDate}
+            </div>
+            <h1 className="text-3xl sm:text-5xl font-extrabold font-display text-white tracking-tight leading-tight">
+              {greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-emerald-400">{displayName}</span>
+            </h1>
+            <p className="mt-3 text-slate-300 font-medium max-w-xl text-sm md:text-base">
+              Welcome to your Teacher Desktop. Access your AI assistants, class utilities, and workflow tools instantly.
+            </p>
+          </div>
+          
+          <div className="flex flex-col items-end">
+            <div className="text-3xl sm:text-5xl font-black font-display tracking-tighter text-white tabular-nums drop-shadow-lg">
+              {formattedTime}
+            </div>
+            <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold shadow-glow-sm">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Workspace Active
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* AI Magic Tools Section */}
+      <div className="mb-10">
+        <div className="flex items-center gap-3 mb-6 px-1">
+          <Sparkles className="w-6 h-6 text-indigo-500" />
+          <h2 className="text-xl sm:text-2xl font-extrabold text-surface-900 font-display tracking-tight">AI Teaching Assistants</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+          {aiTools.map((tool, idx) => (
+            <Link
+              key={tool.id}
+              to={`/ai-tools?tool=${tool.id}`}
+              className="group relative overflow-hidden bg-white border border-surface-200 rounded-[28px] p-6 hover:-translate-y-1 transition-all duration-300 hover:shadow-xl hover:border-indigo-300 animate-fade-in-up flex flex-col h-full"
+              style={{ animationDelay: `${idx * 0.05}s` }}
+            >
+              <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${tool.color} flex items-center justify-center text-white mb-5 transition-transform duration-300 group-hover:scale-110 shadow-md`}>
+                <tool.icon className="w-7 h-7" />
+              </div>
+              
+              <h3 className="text-[17px] font-bold text-surface-900 mb-2 group-hover:text-indigo-600 transition-colors">
+                {tool.title}
+              </h3>
+              
+              <p className="text-xs sm:text-sm text-surface-500 font-medium leading-relaxed mb-6 flex-1">
+                {tool.description}
+              </p>
+              
+              <div className="flex items-center text-xs font-black text-surface-400 group-hover:text-indigo-600 transition-colors uppercase tracking-widest mt-auto">
+                Launch AI <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Utilities Section */}
+      <div className="mb-10">
+        <div className="flex items-center justify-between mb-6 px-1">
+          <h2 className="text-xl sm:text-2xl font-extrabold text-surface-900 font-display tracking-tight">Core Utilities</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+          {utilityApps.map((app, idx) => (
+            <Link
+              key={app.id}
+              to={app.path}
+              className={`group relative overflow-hidden bg-white border border-surface-200 rounded-[28px] p-6 hover:-translate-y-1 transition-all duration-300 hover:shadow-xl hover:border-surface-300 animate-fade-in-up flex flex-col h-full`}
+              style={{ animationDelay: `${idx * 0.05}s` }}
+            >
+              <div className={`w-14 h-14 rounded-2xl ${app.bg} flex items-center justify-center text-white mb-5 transition-all duration-300 ${app.hover}`}>
+                <app.icon className="w-7 h-7" />
+              </div>
+              
+              <h3 className="text-[17px] font-bold text-surface-900 mb-2 group-hover:text-primary-600 transition-colors">
+                {app.title}
+              </h3>
+              
+              <p className="text-xs sm:text-sm text-surface-500 font-medium leading-relaxed mb-6 flex-1">
+                {app.description}
+              </p>
+              
+              <div className="flex items-center text-xs font-black text-surface-400 group-hover:text-primary-600 transition-colors uppercase tracking-widest mt-auto">
+                Launch App <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+      
+      {/* Footer hint */}
+      <div className="mt-12 text-center text-surface-300 text-xs font-bold uppercase tracking-[0.2em]">
+        End of Workspace
+      </div>
+    </div>
+  )
+}

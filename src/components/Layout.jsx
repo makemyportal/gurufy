@@ -20,59 +20,32 @@ import ProfileCompletion from './ProfileCompletion'
 
 // Nav array builders — called inside component to get reactive translations
 function getTeacherNav(t, settings) {
-  let nav = [
-    { to: '/', icon: Home, label: t('feed'), color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
-    { to: '/groups', icon: Users, label: t('groups'), color: 'from-violet-500 to-purple-600', shadow: 'rgba(139,92,246,0.4)' },
-    { to: '/jobs', icon: Briefcase, label: 'Jobs', color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
-    { to: '/resources', icon: FolderOpen, label: t('resources'), color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
-    { to: '/marketplace', icon: ShoppingCart, label: 'Marketplace', color: 'from-blue-600 to-purple-600', shadow: 'rgba(99,102,241,0.4)' },
-    { to: '/ai-tools', icon: Sparkles, label: t('aiMagic'), color: 'from-pink-500 to-rose-600', shadow: 'rgba(244,63,94,0.4)' },
+  return [
+    { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/resources', icon: FolderOpen, label: 'My Files & Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
+    { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
   ];
-  if (settings?.enableMentorship !== false) nav.push({ to: '/mentorship', icon: GraduationCap, label: 'Mentorship', color: 'from-cyan-500 to-blue-600', shadow: 'rgba(6,182,212,0.4)' });
-  if (settings?.enableAudioRooms !== false) nav.push({ to: '/audio-rooms', icon: Radio, label: 'Audio Rooms', color: 'from-rose-500 to-pink-600', shadow: 'rgba(244,63,94,0.4)' });
-  
-  nav.push(
-    { to: '/events', icon: CalendarDays, label: t('events'), color: 'from-fuchsia-500 to-violet-600', shadow: 'rgba(217,70,239,0.4)' },
-    { to: '/leaderboard', icon: Trophy, label: t('leaderboard'), color: 'from-yellow-400 to-amber-500', shadow: 'rgba(251,191,36,0.4)' },
-    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
-    { to: '/profile', icon: User, label: t('myProfile'), color: 'from-indigo-500 to-blue-600', shadow: 'rgba(99,102,241,0.35)' }
-  );
-  return nav;
 }
 function getSchoolNav(t, settings) {
-  let nav = [
-    { to: '/', icon: Home, label: t('feed'), color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
-    { to: '/jobs', icon: Briefcase, label: t('jobs'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
-    { to: '/teacher-search', icon: Search, label: t('findTalent'), color: 'from-violet-500 to-purple-600', shadow: 'rgba(139,92,246,0.4)' },
-    { to: '/resources', icon: FolderOpen, label: t('resources'), color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
-    { to: '/events', icon: CalendarDays, label: t('events'), color: 'from-fuchsia-500 to-violet-600', shadow: 'rgba(217,70,239,0.4)' },
-    { to: '/marketplace', icon: ShoppingCart, label: 'Marketplace', color: 'from-blue-600 to-purple-600', shadow: 'rgba(99,102,241,0.4)' }
+  return [
+    { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/resources', icon: FolderOpen, label: 'Shared Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
+    { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
   ];
-  if (settings?.enableAudioRooms !== false) nav.push({ to: '/audio-rooms', icon: Radio, label: 'Audio Rooms', color: 'from-rose-500 to-pink-600', shadow: 'rgba(244,63,94,0.4)' });
-
-  nav.push(
-    { to: '/leaderboard', icon: Trophy, label: t('leaderboard'), color: 'from-yellow-400 to-amber-500', shadow: 'rgba(251,191,36,0.4)' },
-    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
-    { to: '/profile', icon: User, label: t('schoolProfile'), color: 'from-indigo-500 to-blue-600', shadow: 'rgba(99,102,241,0.35)' }
-  );
-  return nav;
 }
 function getTeacherMobileNav(t) {
   return [
-    { to: '/', icon: Home, label: t('feed'), color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
-    { to: '/jobs', icon: Briefcase, label: 'Jobs', color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
-    { to: '/ai-tools', icon: Sparkles, label: 'AI', color: 'from-pink-500 to-rose-600', shadow: 'rgba(244,63,94,0.4)' },
-    { to: '/marketplace', icon: ShoppingCart, label: 'Store', color: 'from-blue-600 to-purple-600', shadow: 'rgba(99,102,241,0.4)' },
-    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
-  ]
+    { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/resources', icon: FolderOpen, label: 'Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
+    { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
+  ];
 }
 function getSchoolMobileNav(t) {
   return [
-    { to: '/', icon: Home, label: t('feed'), color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
-    { to: '/jobs', icon: Briefcase, label: t('jobs'), color: 'from-emerald-500 to-teal-600', shadow: 'rgba(16,185,129,0.4)' },
-    { to: '/teacher-search', icon: Search, label: t('findTalent'), color: 'from-violet-500 to-purple-600', shadow: 'rgba(139,92,246,0.4)' },
-    { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard'), color: 'from-slate-500 to-slate-700', shadow: 'rgba(71,85,105,0.4)' },
-  ]
+    { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/resources', icon: FolderOpen, label: 'Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
+    { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
+  ];
 }
 
 // Map notification type to icon
@@ -216,16 +189,18 @@ export default function Layout() {
         </div>
 
         {/* Global Search (Desktop) */}
-        <div className="hidden md:flex relative w-[400px] group mx-4">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400 group-focus-within:text-primary-500 transition-colors" />
+        <div className="hidden md:flex relative w-full max-w-[600px] group mx-6 flex-1">
+          <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-surface-400 group-focus-within:text-slate-900 transition-colors" />
           <input
             type="text"
-            placeholder="Search resources, jobs, teachers..."
+            placeholder="Search tools, commands, or resources..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-14 py-2.5 bg-surface-100 border border-surface-200 rounded-full text-sm font-semibold text-surface-900 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-400 focus:bg-white transition-all placeholder:text-surface-400"
+            className="w-full pl-14 pr-16 py-3.5 bg-surface-100 hover:bg-surface-200 border-2 border-transparent text-[15px] font-medium text-surface-900 rounded-[20px] focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/10 transition-all placeholder:text-surface-400"
           />
-          <kbd className="absolute right-4 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center px-2 py-0.5 bg-surface-200/80 rounded-md text-[10px] font-bold text-surface-500 tracking-wider">⌘K</kbd>
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 hidden lg:flex items-center gap-1">
+            <kbd className="px-2.5 py-1.5 bg-white border border-surface-200 rounded-lg text-[10px] font-extrabold text-surface-500 tracking-wider shadow-sm uppercase">Cmd K</kbd>
+          </div>
         </div>
 
         {/* Right Actions */}
@@ -235,23 +210,7 @@ export default function Layout() {
             <Search className="w-5 h-5" />
           </button>
 
-          {/* XP / Streak Badge (Desktop) */}
-          {currentUser && (
-            <button
-              onClick={() => navigate('/leaderboard')}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200/50 rounded-full transition-all cursor-pointer group"
-            >
-              <span className="text-sm">{currentLevel.emoji}</span>
-              <span className="text-xs font-extrabold text-amber-700">{userProfile?.xp ?? stats?.xp ?? 0} XP</span>
-              {(stats.streak || 0) > 0 && (
-                <>
-                  <span className="text-amber-300">·</span>
-                  <Flame className="w-3.5 h-3.5 text-orange-500" />
-                  <span className="text-xs font-bold text-orange-600">{stats.streak}</span>
-                </>
-              )}
-            </button>
-          )}
+
           
           {/* Notifications Dropdown */}
           {currentUser && (
@@ -561,20 +520,7 @@ export default function Layout() {
         </nav>
       </div>
 
-      <AIChatWidget isHidden={showChat} />
-      {!showChat && currentUser && (
-        <button
-          onClick={() => setShowChat(true)}
-          className="fixed bottom-[140px] xl:bottom-[108px] right-4 sm:right-[30px] w-12 h-12 sm:w-[52px] sm:h-[52px] bg-slate-900 hover:bg-slate-800 text-white rounded-full shadow-[0_8px_20px_rgba(0,0,0,0.15)] flex items-center justify-center transition-all duration-200 z-[85] group hover:-translate-y-0.5 border border-slate-700/50"
-          title="Messages"
-        >
-          <div className="relative flex items-center justify-center">
-            <MessageCircle className="w-5 h-5 sm:w-5 sm:h-5 transition-transform group-hover:scale-105" strokeWidth={2} />
-            <span className="absolute -top-[3px] -right-[3px] w-2.5 h-2.5 bg-rose-500 border-2 border-slate-900 rounded-full"></span>
-          </div>
-        </button>
-      )}
-      <ChatPanel isOpen={showChat} onClose={() => setShowChat(false)} />
+
       {showProfileCompletion && (
         <ProfileCompletion onComplete={() => setShowProfileCompletion(false)} />
       )}
