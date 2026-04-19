@@ -267,7 +267,14 @@ export default function AdminDashboard() {
     const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended'
     try {
       await updateDoc(doc(db, 'users', userId), { status: newStatus })
+      
+      const postsQ = query(collection(db, 'posts'), where('authorId', '==', userId))
+      const pSnap = await getDocs(postsQ)
+      const pBatch = pSnap.docs.map(d => updateDoc(d.ref, { authorStatus: newStatus }))
+      await Promise.all(pBatch)
+
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u))
+      setPosts(prev => prev.map(p => p.authorId === userId ? { ...p, authorStatus: newStatus } : p))
       showToast(`User ${newStatus === 'suspended' ? 'suspended' : 'activated'}`)
     } catch (err) { showToast('Action failed', 'error') }
   }

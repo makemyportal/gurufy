@@ -10,7 +10,7 @@ service cloud.firestore {
     }
     
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return request.auth != null && request.auth.uid == userId;
     }
     
     function isAdmin() {
@@ -48,12 +48,12 @@ service cloud.firestore {
     // SOCIAL CONTENT (posts, comments)
     // ----------------------------------------------------
     match /posts/{postId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.authorId || isAdmin());
       
       match /comments/{commentId} {
-        allow read: if isAuthenticated();
+        allow read: if true;
         // Here we assume comment doc has authorId
         allow create: if isAuthenticated();
         allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.authorId || isAdmin());
@@ -64,7 +64,7 @@ service cloud.firestore {
     // CONTENT HUBS (resources, events, audioRooms, jobs, groups)
     // ----------------------------------------------------
     match /resources/{resourceId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create: if isAuthenticated();
       // Allow updates to 'downloads' counter via array-remove/increment, but restrict full edit to owner
       allow update: if isAuthenticated(); // Broad update for download tallying, ideally restrict specific fields
@@ -72,7 +72,7 @@ service cloud.firestore {
     }
 
     match /jobs/{jobId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create: if isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'school';
       allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.authorId || isAdmin());
     }
@@ -111,7 +111,7 @@ service cloud.firestore {
     }
 
     match /marketplace/{itemId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.sellerId || isAdmin());
     }
@@ -138,13 +138,6 @@ service cloud.firestore {
       }
     }
 
-    match /notifications/{notificationId} {
-      // Wait, codebase uses users/{userId}/notifications? Or a root notifications collection?
-      // Noticed: collection(db, 'users', toUserId, 'notifications')
-      // Handled globally if root, but handled in users collection above if nested.
-      // I'll add nested subcollection rule for users here just in case:
-    }
-    
     // Proper nested notifications block for user profile
     match /users/{userId}/notifications/{notificationId} {
        allow read: if isOwner(userId);
@@ -154,7 +147,7 @@ service cloud.firestore {
     }
 
     match /gamification/{userId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       // Allow authenticated users to create/update gamification score
       // Note: In production you'd use Cloud Functions to increment XP securely.
       allow create, update: if isAuthenticated(); 
@@ -167,7 +160,7 @@ service cloud.firestore {
     }
     
     match /userStats/{userId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create, update: if isAuthenticated();
       allow delete: if isAdmin();
     }
@@ -178,7 +171,7 @@ service cloud.firestore {
     }
 
     match /platformSettings/{settingId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAdmin();
     }
   }

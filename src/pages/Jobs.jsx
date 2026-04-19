@@ -41,6 +41,9 @@ export default function Jobs() {
     const unsub = onSnapshot(q, snap => {
       setJobs(snap.docs.map(d => ({ id: d.id, ...d.data() })))
       setLoading(false)
+    }, (error) => {
+      console.error('Firebase jobs fetch error:', error)
+      setLoading(false)
     })
     return () => unsub()
   }, [])

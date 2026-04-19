@@ -60,6 +60,9 @@ export default function Resources() {
     const unsub = onSnapshot(q, snap => {
       setResources(snap.docs.map(d => ({ id: d.id, ...d.data() })))
       setLoading(false)
+    }, (error) => {
+      console.error('Firebase resources error:', error)
+      setLoading(false)
     })
     return () => unsub()
   }, [])

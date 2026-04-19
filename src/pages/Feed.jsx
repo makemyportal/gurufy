@@ -319,6 +319,9 @@ export default function Feed() {
     const unsub = onSnapshot(q, async (snap) => {
       setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })))
       setLoading(false)
+    }, (error) => {
+      console.error('Firebase feed error:', error)
+      setLoading(false)
     })
     return () => unsub()
   }, [])
@@ -1153,7 +1156,7 @@ export default function Feed() {
           )}
 
           {/* ─── POST CARDS (only shown when "All" filter is active) ─── */}
-          {activeFilter === 'all' && posts.map((post, idx) => {
+          {activeFilter === 'all' && posts.filter(p => p.authorStatus !== 'suspended').map((post, idx) => {
             const liked = currentUser && (post.likes || []).includes(currentUser.uid)
             const disliked = currentUser && (post.dislikes || []).includes(currentUser.uid)
             const isOwner = currentUser && post.authorId === currentUser.uid
