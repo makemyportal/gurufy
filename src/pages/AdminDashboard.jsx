@@ -116,9 +116,7 @@ const TABS = [
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'resources', label: 'Vault', icon: FolderOpen },
-  { id: 'gamification', label: 'Gamification', icon: Trophy },
-  { id: 'moderation', label: 'Moderation', icon: AlertTriangle },
-  { id: 'announcements', label: 'Announce', icon: Megaphone },
+  { id: 'gamification', label: 'Economy', icon: Trophy },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
@@ -136,6 +134,7 @@ export default function AdminDashboard() {
   const [resources, setResources] = useState([])
   const [reports, setReports] = useState([])
   const [gamificationData, setGamificationData] = useState([])
+  const [paymentRequests, setPaymentRequests] = useState([])
   const [platformSettings, setPlatformSettings] = useState({ maintenanceMode: false, registrationDisabled: false })
   const [announcementText, setAnnouncementText] = useState('')
 
@@ -148,16 +147,18 @@ export default function AdminDashboard() {
   async function loadAllData() {
     setLoading(true)
     try {
-      const [usersSnap, resourcesSnap, reportsSnap, gamSnap] = await Promise.all([
+      const [usersSnap, resourcesSnap, reportsSnap, gamSnap, paymentsSnap] = await Promise.all([
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'resources')).catch(() => ({ docs: [] })),
         getDocs(collection(db, 'reports')).catch(() => ({ docs: [] })),
         getDocs(collection(db, 'gamification')).catch(() => ({ docs: [] })),
+        getDocs(query(collection(db, 'paymentRequests'), orderBy('createdAt', 'desc'))).catch(() => ({ docs: [] }))
       ])
       setUsers(usersSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setResources(resourcesSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setReports(reportsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setGamificationData(gamSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setPaymentRequests(paymentsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
 
       // Load platform settings
       const settingsDoc = await getDoc(doc(db, 'platformSettings', 'global')).catch(() => null)
@@ -275,6 +276,35 @@ export default function AdminDashboard() {
     } catch (err) { showToast('Failed to update coins', 'error') }
   }
 
+  async function handleApprovePayment(reqId) {
+    try {
+      const req = paymentRequests.find(r => r.id === reqId)
+      if (!req) return
+      
+      const userGamRef = doc(db, 'gamification', req.userId)
+      const userGamSnap = await getDoc(userGamRef)
+      const currentCoins = userGamSnap.exists() ? (userGamSnap.data().coins || 0) : 0
+      const newCoins = currentCoins + req.coins
+
+      await updateDoc(userGamRef, { coins: newCoins }).catch(async () => {
+        // If gamification doc doesn't exist yet, construct it
+        await setDoc(userGamRef, { xp: 0, coins: newCoins, badges: [] })
+      })
+      await updateDoc(doc(db, 'paymentRequests', reqId), { status: 'approved' })
+      
+      setGamificationData(prev => {
+        const existing = prev.find(g => g.id === req.userId)
+        if (existing) return prev.map(g => g.id === req.userId ? { ...g, coins: newCoins } : g)
+        return [...prev, { id: req.userId, xp: 0, coins: newCoins, badges: [] }]
+      })
+      setPaymentRequests(prev => prev.map(r => r.id === reqId ? { ...r, status: 'approved' } : r))
+      showToast(`Approved! Added ${req.coins} 🪙 to user.`)
+    } catch (err) {
+      console.error(err)
+      showToast('Failed to approve payment', 'error')
+    }
+  }
+
   async function handleSendAnnouncement() {
     if (!announcementText.trim()) return
     try {
@@ -339,6 +369,14 @@ export default function AdminDashboard() {
     try {
       await setDoc(doc(db, 'platformSettings', 'global'), { ...platformSettings, [key]: newVal }, { merge: true })
       setPlatformSettings(prev => ({ ...prev, [key]: newVal }))
+      showToast('Setting updated')
+    } catch (err) { showToast('Failed', 'error') }
+  }
+
+  async function handleTextSetting(key, val) {
+    try {
+      await setDoc(doc(db, 'platformSettings', 'global'), { ...platformSettings, [key]: val }, { merge: true })
+      setPlatformSettings(prev => ({ ...prev, [key]: val }))
       showToast('Setting updated')
     } catch (err) { showToast('Failed', 'error') }
   }
@@ -730,8 +768,10 @@ export default function AdminDashboard() {
                   {[
                     { title: "Daily Login", coins: "+5 🪙", xp: "+5 XP", desc: "First login of the day" },
                     { title: "Share Resource", coins: "+15 🪙", xp: "+15 XP", desc: "Uploading a Vault resource" },
-                    { title: "Use AI Tools", coins: "-5 🪙", xp: "+5 XP", desc: "Generating content with AI" },
+                    { title: "Use AI Tools", coins: "-5 🪙", xp: "+5 XP", desc: "Each AI generation costs coins" },
+                    { title: "Workspace Tools", coins: "-5 🪙", xp: "0 XP", desc: "Gradebook, Certificates, Locker, Tasks" },
                     { title: "New Account", coins: "+50 🪙", xp: "0 XP", desc: "Starting bonus for new users" },
+                    { title: "Buy Coins", coins: "💰", xp: "0 XP", desc: "Purchase via UPI from Token Store" },
                   ].map((rule, idx) => (
                     <div key={idx} className="bg-surface-50 border border-surface-200 rounded-2xl p-5 hover:border-amber-300 transition-colors">
                       <p className="font-bold text-surface-900 mb-2">{rule.title}</p>
@@ -744,6 +784,38 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               </div>
+
+              {/* Payment Verification Queue */}
+              {paymentRequests.length > 0 && (
+                <div>
+                  <h2 className="text-xl font-extrabold text-surface-900 mb-1">💸 Pending UPI Payments</h2>
+                  <p className="text-sm text-surface-500 font-medium mb-6">Verify the UTR number in your bank app, then approve to fund coins.</p>
+                  <div className="space-y-3">
+                    {paymentRequests.map(req => (
+                      <div key={req.id} className={`p-5 rounded-2xl border ${req.status === 'pending' ? 'bg-amber-50 border-amber-200' : 'bg-surface-50 border-surface-200'} flex flex-col md:flex-row md:items-center justify-between gap-4`}>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${req.status === 'pending' ? 'bg-amber-200 text-amber-800' : 'bg-emerald-200 text-emerald-800'}`}>
+                              {req.status}
+                            </span>
+                            <span className="font-bold text-surface-900">{req.userName}</span>
+                            <span className="text-xs font-semibold text-surface-500">{req.userEmail}</span>
+                          </div>
+                          <p className="text-sm font-medium text-surface-700">Requested <strong>{req.coins} 🪙</strong> for ₹{req.amount}</p>
+                          <p className="text-xs font-bold text-indigo-600 mt-1">UTR: {req.utr}</p>
+                        </div>
+                        {req.status === 'pending' && (
+                          <div className="flex shrink-0">
+                            <button onClick={() => handleApprovePayment(req.id)} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all shadow-md flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4" /> Approve & Fund
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* User Gamification Stats */}
               <div>
@@ -890,7 +962,50 @@ export default function AdminDashboard() {
                   </label>
                 </div>
 
+                <div className="p-6 bg-surface-50 border border-surface-200 rounded-2xl">
+                  <h4 className="font-bold text-surface-900 mb-1">Token Store UPI ID</h4>
+                  <p className="text-sm font-medium text-surface-500 mb-4">Users will send manual payments to this UPI address. It dynamically updates the QR Code in the Store.</p>
+                  <div className="flex gap-3">
+                    <input 
+                      type="text" 
+                      id="upi-id-input"
+                      defaultValue={platformSettings.upiId || 'teacherhub@upi'} 
+                      className="flex-1 px-4 py-2 bg-white border border-surface-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 font-bold font-mono"
+                    />
+                    <button 
+                      onClick={() => handleTextSetting('upiId', document.getElementById('upi-id-input').value)}
+                      className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
 
+                <div className="p-6 bg-surface-50 border border-surface-200 rounded-2xl">
+                  <h4 className="font-bold text-surface-900 mb-1">📢 Live Announcement</h4>
+                  <p className="text-sm font-medium text-surface-500 mb-4">This message will appear as a banner on every user's Home page. Leave empty to hide.</p>
+                  <div className="flex gap-3">
+                    <input 
+                      type="text" 
+                      id="announcement-input"
+                      defaultValue={platformSettings.announcement || ''} 
+                      placeholder="e.g. Platform maintenance on Sunday 10 PM..."
+                      className="flex-1 px-4 py-2 bg-white border border-surface-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 font-bold"
+                    />
+                    <button 
+                      onClick={() => handleTextSetting('announcement', document.getElementById('announcement-input').value)}
+                      className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all"
+                    >
+                      Save
+                    </button>
+                    <button 
+                      onClick={() => { handleTextSetting('announcement', ''); document.getElementById('announcement-input').value = '' }}
+                      className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 font-bold rounded-xl transition-all"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
 
                 <div className="mt-8 pt-6 border-t border-surface-200">
                   <button onClick={() => setConfirmModal({ title: 'Force Logout All Users', message: 'This will invalidate all active sessions immediately. Users will need to log in again.', danger: true, onConfirm: async () => { showToast('All sessions invalidated'); setConfirmModal(null) } })}

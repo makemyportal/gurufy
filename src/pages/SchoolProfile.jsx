@@ -8,15 +8,20 @@ import {
 import { uploadToCloudinary } from '../utils/cloudinary'
 import {
   MapPin, Phone, Globe, Mail, Users, Briefcase,
-  Edit3, Building2, Camera, Loader2, Save, X
+  Edit3, Building2, Camera, Loader2, Save, X,
+  Trophy, Sparkles, Star, Zap, Info
 } from 'lucide-react'
+import { useGamification, getLevelProgress, BADGE_DEFS, getLevel } from '../contexts/GamificationContext'
+import TokenShopModal from '../components/TokenShopModal'
 
 export default function SchoolProfile() {
   const { currentUser, userProfile, fetchUserProfile } = useAuth()
+  const { stats } = useGamification()
+  const level = getLevel(stats?.xp || 0)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
-  const [myJobs, setMyJobs] = useState([])
+  const [showShop, setShowShop] = useState(false)
 
   const [form, setForm] = useState({
     schoolName: '',
@@ -42,19 +47,6 @@ export default function SchoolProfile() {
     }
   }, [userProfile])
 
-  // Load school's own job listings
-  useEffect(() => {
-    if (!currentUser) return
-    const q = query(
-      collection(db, 'jobs'),
-      where('schoolId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
-    )
-    const unsub = onSnapshot(q, snap => {
-      setMyJobs(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    })
-    return () => unsub()
-  }, [currentUser])
 
   async function handleLogoUpload(e) {
     const file = e.target.files[0]
@@ -170,17 +162,40 @@ export default function SchoolProfile() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 mt-6">
-            {[
-              { label: 'Jobs Posted', value: myJobs.length },
-              { label: 'Active Jobs', value: myJobs.filter(j => j.status === 'active').length },
-              { label: 'Total Applicants', value: myJobs.reduce((a, j) => a + (j.applicantsCount || 0), 0) },
-            ].map(stat => (
-              <div key={stat.label} className="text-center p-3 bg-surface-50 rounded-xl">
-                <p className="text-xl font-bold text-surface-900">{stat.value}</p>
-                <p className="text-xs text-surface-500">{stat.label}</p>
+          {/* GAMIFICATION & ECONOMY DASHBOARD */}
+          <div className="mt-8 bg-gradient-to-br from-indigo-900 via-slate-900 to-black rounded-[24px] p-6 sm:p-8 shadow-xl relative overflow-hidden text-white border border-indigo-500/20">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-purple-500/20 rounded-full blur-2xl -ml-10 -mb-10"></div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h3 className="text-xl font-extrabold flex items-center gap-2"><Building2 className="w-5 h-5 text-amber-400" /> Enterprise Workspace Stats</h3>
+                  <p className="text-indigo-200 text-sm mt-1">Level {level.name} • {stats.xp} Total XP</p>
+                </div>
+                <div className="text-center bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-5 py-3">
+                  <p className="text-xs font-bold text-indigo-200 uppercase tracking-widest mb-0.5">Tokens</p>
+                  <p className="text-2xl font-black flex justify-center items-center gap-1.5 mb-2"><span className="text-amber-400">🪙</span> {stats.coins}</p>
+                  <button onClick={() => setShowShop(true)} className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-amber-950 text-[10px] uppercase tracking-wider font-black rounded-lg transition-colors w-full">Buy / Fund</button>
+                </div>
               </div>
-            ))}
+
+              {/* Earn Coins Guide */}
+              <div className="bg-indigo-500/10 rounded-2xl p-5 border border-indigo-400/20">
+                <h4 className="text-sm font-bold text-white flex items-center gap-2 mb-3"><Info className="w-4 h-4 text-indigo-300" /> Organization Funding</h4>
+                <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                  <div className="flex items-start gap-2 text-indigo-200">
+                    <span className="text-emerald-400 font-black">+5</span>
+                    <span><strong className="text-white">Daily Login:</strong> Administrative login points.</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-indigo-200">
+                    <span className="text-emerald-400 font-black">+15</span>
+                    <span><strong className="text-white">Vault Uploads:</strong> Share internal resources.</span>
+                  </div>
+                </div>
+                <p className="text-xs text-indigo-300 mt-4 border-t border-indigo-400/20 pt-3 flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" /> Tokens power premium AI tasks, scheduling logic, and institutional automated reports.</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -241,29 +256,7 @@ export default function SchoolProfile() {
         </div>
       </div>
 
-      {/* Jobs Section */}
-      <div className="glass-card-solid p-5">
-        <h3 className="font-semibold text-surface-900 mb-4">Job Listings</h3>
-        {myJobs.length === 0 ? (
-          <p className="text-sm text-surface-500 text-center py-6">
-            No jobs posted yet. Go to the <strong>Job Portal</strong> to post a job opening!
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {myJobs.map(job => (
-              <div key={job.id} className="flex items-center justify-between p-4 bg-surface-50 rounded-xl hover:bg-surface-100 transition-colors">
-                <div>
-                  <p className="font-semibold text-sm text-surface-900">{job.title}</p>
-                  <p className="text-xs text-surface-500">{job.salary} · {job.applicantsCount || 0} applicants</p>
-                </div>
-                <span className={`badge text-xs ${job.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-200 text-surface-600'}`}>
-                  {job.status === 'active' ? 'Active' : 'Closed'}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {showShop && <TokenShopModal onClose={() => setShowShop(false)} />}
     </div>
   )
 }

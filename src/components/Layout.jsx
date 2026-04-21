@@ -18,6 +18,7 @@ import { db } from '../utils/firebase'
 import AIChatWidget from './AIChatWidget'
 import ChatPanel from './ChatPanel'
 import ProfileCompletion from './ProfileCompletion'
+import TokenShopModal from './TokenShopModal'
 
 // Nav array builders — called inside component to get reactive translations
 function getTeacherNav(t, settings) {
@@ -110,6 +111,7 @@ export default function Layout() {
   const [showMobileSearch, setShowMobileSearch] = useState(false)
   const [showChat, setShowChat] = useState(false)
   const [showProfileCompletion, setShowProfileCompletion] = useState(false)
+  const [showTokenShop, setShowTokenShop] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -213,11 +215,17 @@ export default function Layout() {
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {/* Platform Economy: Coins */}
           {currentUser && (
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-full cursor-help transition-transform hover:scale-105" title="EduCoins: Earn by contributing, spend on AI">
-              <span className="text-base">🪙</span>
-              <span className="font-extrabold text-amber-700 dark:text-amber-400 text-sm">
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-full">
+              <span className="text-base" title="EduCoins">🪙</span>
+              <span className="font-extrabold text-amber-700 dark:text-amber-400 text-sm mr-1">
                 {stats?.coins || 0}
               </span>
+              <button 
+                onClick={() => setShowTokenShop(true)}
+                className="px-2 py-0.5 bg-amber-500 hover:bg-amber-400 text-amber-950 text-[10px] uppercase font-black tracking-wider rounded-md shadow-sm transition-colors"
+              >
+                Buy
+              </button>
             </div>
           )}
 
@@ -234,80 +242,7 @@ export default function Layout() {
             {theme === 'dark' ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
           </button>
 
-          
-          {/* Notifications Dropdown */}
-          {currentUser && (
-            <div className="relative" ref={notifRef}>
-              <button 
-                onClick={() => { setShowNotifications(!showNotifications); setDropdownOpen(false); }}
-                className={`relative p-2 rounded-full transition-all duration-200 ${showNotifications ? 'bg-primary-50 text-primary-600 shadow-sm' : 'text-surface-600 hover:bg-surface-100'}`}
-              >
-                <Bell className="w-[22px] h-[22px]" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 rounded-full text-[10px] font-bold text-white border-2 border-white animate-pulse px-1">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
 
-              {showNotifications && (
-                <div className="absolute top-full mt-3 w-80 sm:w-96 glass-modal overflow-hidden z-50 animate-slide-down right-0 origin-top-right shadow-2xl">
-                  <div className="px-5 py-4 border-b border-surface-100 flex items-center justify-between">
-                    <h3 className="font-bold text-surface-900">Notifications</h3>
-                    {unreadCount > 0 && (
-                      <button 
-                        onClick={markAllAsRead}
-                        className="text-xs font-bold text-primary-600 hover:text-primary-700 px-2 py-1 rounded-lg hover:bg-primary-50 transition-colors"
-                      >
-                        Mark all as read
-                      </button>
-                    )}
-                  </div>
-                  <div className="max-h-[400px] overflow-y-auto no-scrollbar">
-                    {notifications.length === 0 ? (
-                      <div className="p-8 text-center">
-                        <Bell className="w-10 h-10 text-surface-300 mx-auto mb-3" />
-                        <p className="text-sm font-medium text-surface-500">No notifications yet</p>
-                        <p className="text-xs text-surface-400 mt-1">We'll let you know when something happens!</p>
-                      </div>
-                    ) : (
-                      notifications.map(notification => {
-                        const NotifIcon = getNotificationIcon(notification.type)
-                        return (
-                          <div 
-                            key={notification.id} 
-                            className={`p-4 border-b border-surface-50 flex gap-3 hover:bg-surface-50/80 transition-colors cursor-pointer ${notification.read ? '' : 'bg-primary-50/30'}`}
-                            onClick={() => {
-                              if (!notification.read) markAsRead(notification.id)
-                              if (notification.type === 'message') {
-                                navigate('/messaging')
-                                setShowNotifications(false)
-                              }
-                            }}
-                          >
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${!notification.read ? 'bg-primary-100 text-primary-700' : 'bg-surface-100 text-surface-500'}`}>
-                              <NotifIcon className="w-5 h-5" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm leading-snug ${!notification.read ? 'font-bold text-surface-900' : 'font-medium text-surface-700'}`}>{notification.title}</p>
-                              {notification.body && <p className="text-xs text-surface-500 mt-0.5 truncate">{notification.body}</p>}
-                              <p className="text-xs font-semibold text-surface-400 mt-1">{timeAgo(notification.createdAt)}</p>
-                            </div>
-                            {!notification.read && <div className="w-2 h-2 rounded-full bg-primary-600 mt-1 shrink-0" />}
-                          </div>
-                        )
-                      })
-                    )}
-                  </div>
-                  {notifications.length > 0 && (
-                    <div className="p-3 border-t border-surface-100 text-center">
-                      <button className="text-sm font-bold text-surface-600 hover:text-surface-900 transition-colors">View All Notifications</button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* User Profile Trigger or Login Button */}
           {currentUser ? (
@@ -547,6 +482,8 @@ export default function Layout() {
       {showProfileCompletion && (
         <ProfileCompletion onComplete={() => setShowProfileCompletion(false)} />
       )}
+
+      {showTokenShop && <TokenShopModal onClose={() => setShowTokenShop(false)} />}
     </div>
   )
 }

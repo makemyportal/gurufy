@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import PublicLayout from './components/PublicLayout'
+import CoinGate from './components/CoinGate'
 import Home from './pages/Home'
 import Certificates from './pages/Certificates'
 import Todo from './pages/Todo'
@@ -99,10 +100,10 @@ export default function App() {
       {/* Main App — exactly like before */}
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
-        <Route path="certificates" element={<Certificates />} />
-        <Route path="todo" element={<Todo />} />
-        <Route path="gradebook" element={<Gradebook />} />
-        <Route path="locker" element={<Locker />} />
+        <Route path="certificates" element={<CoinGate toolName="Certificate Generator"><Certificates /></CoinGate>} />
+        <Route path="todo" element={<CoinGate toolName="Tasks & Reminders"><Todo /></CoinGate>} />
+        <Route path="gradebook" element={<CoinGate toolName="Smart Gradebook"><Gradebook /></CoinGate>} />
+        <Route path="locker" element={<CoinGate toolName="Private Locker"><Locker /></CoinGate>} />
         <Route path="profile" element={<ProtectedRoute><ProfileRouter /></ProtectedRoute>} />
         <Route path="jobs" element={<Jobs />} />
         <Route path="resources" element={<Resources />} />

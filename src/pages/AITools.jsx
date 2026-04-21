@@ -946,7 +946,7 @@ export default function AITools() {
 
     if (!isSuperAdmin) {
       if ((stats?.coins || 0) < COST) {
-        setError(`Not enough coins! You need ${COST} coins to generate. Earn free coins by logging in daily or sharing resources on the Feed! 🪙`)
+        setError(`Not enough coins! You need ${COST} coins to generate. Earn coins by daily login, sharing resources, or buy from the Token Store! 🪙`)
         setIsGenerating(false)
         return
       }

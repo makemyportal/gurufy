@@ -5,15 +5,21 @@ import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { 
   MapPin, BookOpen, Camera, Mail, 
-  GraduationCap, Clock, Loader2, Save, FileDown, User, Settings, CheckCircle2 
+  GraduationCap, Clock, Loader2, Save, FileDown, User, Settings, CheckCircle2,
+  Trophy, Sparkles, Star, Zap, Info, Coins
 } from 'lucide-react'
+import { useGamification, getLevelProgress, BADGE_DEFS, getLevel } from '../contexts/GamificationContext'
+import TokenShopModal from '../components/TokenShopModal'
 
 export default function TeacherProfile() {
   const { currentUser, userProfile, fetchUserProfile } = useAuth()
+  const { stats } = useGamification()
+  const level = getLevel(stats?.xp || 0)
   const [activeTab, setActiveTab] = useState('overview')
   const [saving, setSaving] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [savedSuccess, setSavedSuccess] = useState(false)
+  const [showShop, setShowShop] = useState(false)
 
   const [form, setForm] = useState({
     name: '',
@@ -167,45 +173,86 @@ export default function TeacherProfile() {
   return (
     <div className="max-w-4xl mx-auto animate-fade-in-up py-4 sm:py-8">
       
-      {/* SaaS Dashboard Profile Header */}
-      <div className="bg-white rounded-[32px] border border-surface-200 overflow-hidden shadow-sm mb-8">
-        <div className="h-32 bg-slate-900 relative">
-          <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/20 to-purple-600/20 opacity-50" />
+      {/* Premium Profile Header */}
+      <div className="bg-white rounded-[32px] border border-surface-200 overflow-hidden shadow-lg mb-8">
+        {/* Gradient Banner */}
+        <div className="h-40 sm:h-48 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-700" />
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-60" />
+          <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-3xl -mr-40 -mt-40" />
+          <div className="absolute bottom-0 left-0 w-60 h-60 bg-purple-400/20 rounded-full blur-3xl -ml-20 -mb-20" />
+          
+          {/* Level badge on banner */}
+          <div className="absolute top-4 right-4 bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-2 text-white">
+            <p className="text-[10px] font-black uppercase tracking-widest text-white/60">Level</p>
+            <p className="text-lg font-black">{level.emoji} {level.name}</p>
+          </div>
         </div>
-        <div className="px-6 pb-6">
-          <div className="flex flex-col sm:flex-row sm:items-end gap-6 -mt-12 relative z-10">
-            <div className="relative group">
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl ring-4 ring-white shadow-md overflow-hidden bg-white">
+
+        <div className="px-6 sm:px-8 pb-6">
+          {/* Avatar + Name Row */}
+          <div className="flex flex-col sm:flex-row sm:items-end gap-5 -mt-16 relative z-10">
+            <div className="relative group shrink-0">
+              <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl ring-4 ring-white shadow-xl overflow-hidden bg-white">
                 {userProfile?.profilePhoto
                   ? <img src={userProfile.profilePhoto} alt="Profile" className="w-full h-full object-cover" />
-                  : <div className="w-full h-full bg-surface-100 flex items-center justify-center text-surface-400 text-3xl font-bold font-display">{initials}</div>
+                  : <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-500 text-4xl font-black font-display">{initials}</div>
                 }
               </div>
-              <label className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+              <label className="absolute inset-0 rounded-3xl bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                 {uploadingPhoto
-                  ? <Loader2 className="w-6 h-6 text-white animate-spin" />
-                  : <Camera className="w-6 h-6 text-white" />}
+                  ? <Loader2 className="w-7 h-7 text-white animate-spin" />
+                  : <Camera className="w-7 h-7 text-white" />}
                 <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
               </label>
+              {userProfile?.isVerified && (
+                <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-blue-500 rounded-xl flex items-center justify-center border-2 border-white shadow-md">
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                </div>
+              )}
             </div>
             
             <div className="flex-1 pb-1">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl font-extrabold font-display text-surface-900">{name}</h1>
-                  <p className="text-surface-500 font-medium text-sm flex items-center gap-2 mt-1">
-                    <User className="w-4 h-4" /> Professional Account
+                  <h1 className="text-2xl sm:text-3xl font-extrabold font-display text-surface-900 tracking-tight">{name}</h1>
+                  <p className="text-surface-500 font-medium text-sm flex flex-wrap items-center gap-2 mt-1">
+                    <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" /> {userProfile?.subject || 'Educator'}</span>
                     <span className="text-surface-300">•</span>
-                    {currentUser?.email}
+                    <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" /> {currentUser?.email}</span>
+                    {userProfile?.location && <>
+                      <span className="text-surface-300">•</span>
+                      <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {userProfile.location}</span>
+                    </>}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={generateResume} className="px-5 py-2.5 bg-surface-100 hover:bg-surface-200 text-surface-700 text-sm font-bold rounded-xl transition-all flex items-center gap-2">
-                    <FileDown className="w-4 h-4" /> Export Resume
+                <div className="flex items-center gap-2">
+                  <button onClick={generateResume} className="px-4 py-2.5 bg-surface-100 hover:bg-surface-200 text-surface-700 text-sm font-bold rounded-xl transition-all flex items-center gap-2">
+                    <FileDown className="w-4 h-4" /> Resume
                   </button>
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Stats Strip */}
+          <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/50 rounded-2xl p-4 text-center">
+              <p className="text-2xl font-black text-amber-700">{stats?.coins || 0}</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-amber-500 mt-1">🪙 Coins</p>
+            </div>
+            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-200/50 rounded-2xl p-4 text-center">
+              <p className="text-2xl font-black text-indigo-700">{stats?.xp || 0}</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mt-1">⚡ XP</p>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/50 rounded-2xl p-4 text-center">
+              <p className="text-2xl font-black text-emerald-700">{stats?.badges?.length || 0}</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mt-1">🏅 Badges</p>
+            </div>
+            <button onClick={() => setShowShop(true)} className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl p-4 text-center text-white hover:from-purple-400 hover:to-indigo-500 transition-all shadow-md hover:shadow-lg group">
+              <p className="text-lg font-black group-hover:scale-110 transition-transform">🛒</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/80 mt-1">Buy Coins</p>
+            </button>
           </div>
         </div>
       </div>
@@ -240,45 +287,88 @@ export default function TeacherProfile() {
       {activeTab === 'overview' && (
         <div className="grid md:grid-cols-3 gap-6 animate-fade-in">
           <div className="md:col-span-2 space-y-6">
+            {/* Bio Card */}
             <div className="bg-white rounded-[24px] p-6 shadow-sm border border-surface-200">
               <h3 className="text-lg font-bold text-surface-900 mb-4">Professional Bio</h3>
-              <p className="text-surface-600 leading-relaxed min-h-[100px]">
+              <p className="text-surface-600 leading-relaxed min-h-[80px]">
                 {userProfile?.bio || "You haven't written a professional bio yet. Click over to Profile Settings to update your information."}
               </p>
             </div>
+
+            {/* Level Progress Card */}
+            <div className="bg-white rounded-[24px] p-6 shadow-sm border border-surface-200">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold text-surface-900 flex items-center gap-2"><Star className="w-5 h-5 text-indigo-500" /> Level Progress</h3>
+                <span className="text-sm font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg">{level.emoji} {level.name}</span>
+              </div>
+              <div className="w-full bg-surface-100 rounded-full h-4 overflow-hidden mb-2">
+                <div className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full transition-all duration-500" style={{ width: `${getLevelProgress(stats.xp)}%` }} />
+              </div>
+              <p className="text-xs font-semibold text-surface-400 text-right">{getLevelProgress(stats.xp)}% to next rank</p>
+            </div>
+
+            {/* Earn & Spend Guide */}
+            <div className="bg-white rounded-[24px] p-6 shadow-sm border border-surface-200">
+              <h3 className="text-lg font-bold text-surface-900 flex items-center gap-2 mb-5"><Info className="w-5 h-5 text-amber-500" /> Coin Economy</h3>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="bg-emerald-50 border border-emerald-200/50 rounded-2xl p-4">
+                  <p className="text-xs font-black uppercase tracking-widest text-emerald-600 mb-3">How to Earn</p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between"><span className="font-medium text-surface-700">Daily Login</span><span className="font-black text-emerald-600">+5 🪙</span></div>
+                    <div className="flex items-center justify-between"><span className="font-medium text-surface-700">Upload Resource</span><span className="font-black text-emerald-600">+15 🪙</span></div>
+                    <div className="flex items-center justify-between"><span className="font-medium text-surface-700">Buy from Store</span><span className="font-black text-emerald-600">💰</span></div>
+                  </div>
+                </div>
+                <div className="bg-amber-50 border border-amber-200/50 rounded-2xl p-4">
+                  <p className="text-xs font-black uppercase tracking-widest text-amber-600 mb-3">Where Coins Are Spent</p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between"><span className="font-medium text-surface-700">AI Tools</span><span className="font-black text-amber-600">-5 🪙</span></div>
+                    <div className="flex items-center justify-between"><span className="font-medium text-surface-700">Workspace Tools</span><span className="font-black text-amber-600">-5 🪙</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Badges */}
+            {stats.badges?.length > 0 && (
+              <div className="bg-white rounded-[24px] p-6 shadow-sm border border-surface-200">
+                <h3 className="text-lg font-bold text-surface-900 flex items-center gap-2 mb-4"><Sparkles className="w-5 h-5 text-amber-400" /> Earned Badges</h3>
+                <div className="flex flex-wrap gap-3">
+                  {stats.badges.map(bId => {
+                    const b = BADGE_DEFS[bId]
+                    if (!b) return null
+                    return (
+                      <div key={bId} className="flex items-center gap-2 bg-surface-50 hover:bg-surface-100 border border-surface-200 rounded-2xl px-4 py-2.5 transition-colors" title={b.desc}>
+                        <span className="text-xl">{b.emoji}</span>
+                        <span className="text-sm font-bold text-surface-800">{b.name}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
           
+          {/* Sidebar */}
           <div className="space-y-6">
             <div className="bg-white rounded-[24px] p-6 shadow-sm border border-surface-200">
               <h3 className="text-sm font-black uppercase tracking-widest text-surface-400 mb-5">Professional Details</h3>
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
-                  <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><GraduationCap className="w-5 h-5" /></div>
-                  <div>
-                    <p className="text-xs font-bold uppercase text-surface-400">Education</p>
-                    <p className="text-sm font-semibold text-surface-900">{userProfile?.qualification || 'Not specified'}</p>
-                  </div>
+                  <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl"><GraduationCap className="w-5 h-5" /></div>
+                  <div><p className="text-xs font-bold uppercase text-surface-400">Education</p><p className="text-sm font-semibold text-surface-900">{userProfile?.qualification || 'Not specified'}</p></div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="p-2 bg-purple-50 text-purple-600 rounded-xl"><BookOpen className="w-5 h-5" /></div>
-                  <div>
-                    <p className="text-xs font-bold uppercase text-surface-400">Subject</p>
-                    <p className="text-sm font-semibold text-surface-900">{userProfile?.subject || 'Not specified'}</p>
-                  </div>
+                  <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl"><BookOpen className="w-5 h-5" /></div>
+                  <div><p className="text-xs font-bold uppercase text-surface-400">Subject</p><p className="text-sm font-semibold text-surface-900">{userProfile?.subject || 'Not specified'}</p></div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><Clock className="w-5 h-5" /></div>
-                  <div>
-                    <p className="text-xs font-bold uppercase text-surface-400">Experience</p>
-                    <p className="text-sm font-semibold text-surface-900">{userProfile?.experience || 'Not specified'}</p>
-                  </div>
+                  <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl"><Clock className="w-5 h-5" /></div>
+                  <div><p className="text-xs font-bold uppercase text-surface-400">Experience</p><p className="text-sm font-semibold text-surface-900">{userProfile?.experience || 'Not specified'}</p></div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="p-2 bg-amber-50 text-amber-600 rounded-xl"><MapPin className="w-5 h-5" /></div>
-                  <div>
-                    <p className="text-xs font-bold uppercase text-surface-400">Location</p>
-                    <p className="text-sm font-semibold text-surface-900">{userProfile?.location || 'Not specified'}</p>
-                  </div>
+                  <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl"><MapPin className="w-5 h-5" /></div>
+                  <div><p className="text-xs font-bold uppercase text-surface-400">Location</p><p className="text-sm font-semibold text-surface-900">{userProfile?.location || 'Not specified'}</p></div>
                 </div>
               </div>
             </div>
@@ -333,6 +423,7 @@ export default function TeacherProfile() {
         </form>
       )}
 
+      {showShop && <TokenShopModal onClose={() => setShowShop(false)} />}
     </div>
   )
 }
