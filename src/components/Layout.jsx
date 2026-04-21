@@ -23,6 +23,7 @@ import ProfileCompletion from './ProfileCompletion'
 function getTeacherNav(t, settings) {
   return [
     { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/ai-directory', icon: Sparkles, label: 'AI Platforms', color: 'from-pink-500 to-rose-600', shadow: 'rgba(236,72,153,0.4)' },
     { to: '/history', icon: History, label: 'Generation History', color: 'from-purple-500 to-violet-600', shadow: 'rgba(139,92,246,0.4)' },
     { to: '/resources', icon: FolderOpen, label: 'My Files & Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
     { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
@@ -31,6 +32,7 @@ function getTeacherNav(t, settings) {
 function getSchoolNav(t, settings) {
   return [
     { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/ai-directory', icon: Sparkles, label: 'AI Platforms', color: 'from-pink-500 to-rose-600', shadow: 'rgba(236,72,153,0.4)' },
     { to: '/resources', icon: FolderOpen, label: 'Shared Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
     { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
   ];
@@ -38,6 +40,7 @@ function getSchoolNav(t, settings) {
 function getTeacherMobileNav(t) {
   return [
     { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/ai-directory', icon: Sparkles, label: 'AI Platforms', color: 'from-pink-500 to-rose-600', shadow: 'rgba(236,72,153,0.4)' },
     { to: '/resources', icon: FolderOpen, label: 'Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
     { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
   ];
@@ -45,6 +48,7 @@ function getTeacherMobileNav(t) {
 function getSchoolMobileNav(t) {
   return [
     { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/ai-directory', icon: Sparkles, label: 'AI Platforms', color: 'from-pink-500 to-rose-600', shadow: 'rgba(236,72,153,0.4)' },
     { to: '/resources', icon: FolderOpen, label: 'Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
     { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
   ];
@@ -207,6 +211,16 @@ export default function Layout() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          {/* Platform Economy: Coins */}
+          {currentUser && (
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-full cursor-help transition-transform hover:scale-105" title="EduCoins: Earn by contributing, spend on AI">
+              <span className="text-base">🪙</span>
+              <span className="font-extrabold text-amber-700 dark:text-amber-400 text-sm">
+                {stats?.coins || 0}
+              </span>
+            </div>
+          )}
+
           {/* Mobile Search */}
           <button onClick={() => setShowMobileSearch(!showMobileSearch)} className="md:hidden p-2 text-surface-600 hover:bg-surface-100 rounded-full transition-colors">
             <Search className="w-5 h-5" />

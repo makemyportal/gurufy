@@ -14,6 +14,7 @@ import SchoolProfile from './pages/SchoolProfile'
 import Jobs from './pages/Jobs'
 import Resources from './pages/Resources'
 import AITools from './pages/AITools'
+import AIDirectory from './pages/AIDirectory'
 import GenerationHistory from './pages/GenerationHistory'
 import Groups from './pages/Groups'
 import TeacherDashboard from './pages/TeacherDashboard'
@@ -106,6 +107,7 @@ export default function App() {
         <Route path="jobs" element={<Jobs />} />
         <Route path="resources" element={<Resources />} />
         <Route path="ai-tools" element={<AITools />} />
+        <Route path="ai-directory" element={<AIDirectory />} />
         <Route path="history" element={<ProtectedRoute><GenerationHistory /></ProtectedRoute>} />
         <Route path="dashboard" element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
         <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

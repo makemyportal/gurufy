@@ -46,63 +46,12 @@ function EditorModal({ type, initialData, onSave, onCancel }) {
       { key: 'role', label: 'Role', type: 'select', options: ['teacher', 'school', 'admin', 'superadmin'] },
       { key: 'status', label: 'Status', type: 'select', options: ['active', 'suspended'] }
     ],
-    post: [
-      { key: 'content', label: 'Content', type: 'textarea' }
-    ],
-    job: [
-      { key: 'title', label: 'Job Title', type: 'text' },
-      { key: 'schoolName', label: 'School Name', type: 'text' },
-      { key: 'location', label: 'Location', type: 'text' },
-      { key: 'salary', label: 'Salary', type: 'text' },
-      { key: 'experience', label: 'Experience Required', type: 'text' },
-      { key: 'type', label: 'Job Type', type: 'select', options: ['Full-time', 'Part-time', 'Contract'] },
-      { key: 'subject', label: 'Subject', type: 'select', options: ['All Subjects', 'Mathematics', 'English', 'Science', 'Computer Science', 'Hindi', 'Social Studies', 'Music', 'Art', 'Physics', 'Chemistry', 'Biology'] },
-      { key: 'status', label: 'Status', type: 'select', options: ['open', 'closed', 'active'] },
-      { key: 'description', label: 'Description', type: 'textarea' },
-      { key: 'requirements', label: 'Requirements', type: 'textarea' },
-    ],
     resource: [
       { key: 'title', label: 'Title', type: 'text' },
       { key: 'subject', label: 'Subject', type: 'text' },
       { key: 'authorName', label: 'Author Name', type: 'text' },
       { key: 'fileUrl', label: 'File/Link URL', type: 'text' },
       { key: 'description', label: 'Description', type: 'textarea' },
-    ],
-    event: [
-      { key: 'title', label: 'Event Title', type: 'text' },
-      { key: 'type', label: 'Event Type', type: 'select', options: ['Workshop', 'Webinar', 'Conference', 'PTM', 'Training', 'Competition', 'Meetup'] },
-      { key: 'date', label: 'Date', type: 'date' },
-      { key: 'time', label: 'Time', type: 'text' },
-      { key: 'location', label: 'Location', type: 'text' },
-      { key: 'link', label: 'Meeting Link', type: 'text' },
-      { key: 'maxAttendees', label: 'Max Attendees', type: 'number' },
-      { key: 'description', label: 'Description', type: 'textarea' },
-    ],
-    marketplace: [
-      { key: 'title', label: 'Product Title', type: 'text' },
-      { key: 'author', label: 'Author Name', type: 'text' },
-      { key: 'authorLevel', label: 'Author Level', type: 'select', options: ['Expert', 'Guru', 'Contributor', 'Rising Star'] },
-      { key: 'price', label: 'XP Cost', type: 'number' },
-      { key: 'rating', label: 'Rating', type: 'number' },
-      { key: 'type', label: 'Category', type: 'select', options: ['PDF Notes', 'Mock Tests', 'Presentation', 'Worksheets'] },
-      { key: 'image', label: 'Image URL', type: 'text' },
-    ],
-    mentorship: [
-      { key: 'name', label: 'Mentor Name', type: 'text' },
-      { key: 'subject', label: 'Subject', type: 'text' },
-      { key: 'experience', label: 'Experience', type: 'text' },
-      { key: 'price', label: 'XP Cost', type: 'number' },
-      { key: 'rating', label: 'Rating', type: 'number' },
-      { key: 'nextAvailable', label: 'Next Available', type: 'text' },
-      { key: 'image', label: 'Image URL', type: 'text' },
-      { key: 'tags', label: 'Tags (comma separated)', type: 'text' },
-    ],
-    audioRoom: [
-      { key: 'title', label: 'Room Title', type: 'text' },
-      { key: 'host', label: 'Host Name', type: 'text' },
-      { key: 'listeners', label: 'Initial Listeners', type: 'number' },
-      { key: 'speakers', label: 'Initial Speakers', type: 'number' },
-      { key: 'tags', label: 'Tags (comma separated)', type: 'text' }
     ]
   }
 
@@ -166,15 +115,9 @@ function EditorModal({ type, initialData, onSave, onCancel }) {
 const TABS = [
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'users', label: 'Users', icon: Users },
-  { id: 'posts', label: 'Posts', icon: FileText },
-  { id: 'jobs', label: 'Jobs', icon: Briefcase },
-  { id: 'resources', label: 'Resources', icon: FolderOpen },
-  { id: 'events', label: 'Events', icon: CalendarDays },
-  { id: 'marketplace', label: 'Marketplace', icon: ShoppingCart },
-  { id: 'mentorship', label: 'Mentorship', icon: GraduationCap },
-  { id: 'audioRooms', label: 'Audio Rooms', icon: Radio },
-  { id: 'moderation', label: 'Moderation', icon: AlertTriangle },
+  { id: 'resources', label: 'Vault', icon: FolderOpen },
   { id: 'gamification', label: 'Gamification', icon: Trophy },
+  { id: 'moderation', label: 'Moderation', icon: AlertTriangle },
   { id: 'announcements', label: 'Announce', icon: Megaphone },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
@@ -190,13 +133,7 @@ export default function AdminDashboard() {
 
   // Data states
   const [users, setUsers] = useState([])
-  const [posts, setPosts] = useState([])
-  const [jobs, setJobs] = useState([])
   const [resources, setResources] = useState([])
-  const [events, setEvents] = useState([])
-  const [marketplace, setMarketplace] = useState([])
-  const [mentorship, setMentorship] = useState([])
-  const [audioRooms, setAudioRooms] = useState([])
   const [reports, setReports] = useState([])
   const [gamificationData, setGamificationData] = useState([])
   const [platformSettings, setPlatformSettings] = useState({ maintenanceMode: false, registrationDisabled: false })
@@ -211,28 +148,16 @@ export default function AdminDashboard() {
   async function loadAllData() {
     setLoading(true)
     try {
-      const [usersSnap, postsSnap, jobsSnap, resourcesSnap, eventsSnap, reportsSnap, gamSnap, marketSnap, mentorSnap, audioSnap] = await Promise.all([
+      const [usersSnap, resourcesSnap, reportsSnap, gamSnap] = await Promise.all([
         getDocs(collection(db, 'users')),
-        getDocs(collection(db, 'posts')).catch(() => ({ docs: [] })),
-        getDocs(collection(db, 'jobs')).catch(() => ({ docs: [] })),
         getDocs(collection(db, 'resources')).catch(() => ({ docs: [] })),
-        getDocs(collection(db, 'events')).catch(() => ({ docs: [] })),
         getDocs(collection(db, 'reports')).catch(() => ({ docs: [] })),
         getDocs(collection(db, 'gamification')).catch(() => ({ docs: [] })),
-        getDocs(collection(db, 'marketplace')).catch(() => ({ docs: [] })),
-        getDocs(collection(db, 'mentorship')).catch(() => ({ docs: [] })),
-        getDocs(collection(db, 'audioRooms')).catch(() => ({ docs: [] })),
       ])
       setUsers(usersSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-      setPosts(postsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-      setJobs(jobsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setResources(resourcesSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-      setEvents(eventsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setReports(reportsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setGamificationData(gamSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-      setMarketplace(marketSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-      setMentorship(mentorSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-      setAudioRooms(audioSnap.docs.map(d => ({ id: d.id, ...d.data() })))
 
       // Load platform settings
       const settingsDoc = await getDoc(doc(db, 'platformSettings', 'global')).catch(() => null)
@@ -264,17 +189,10 @@ export default function AdminDashboard() {
   }
 
   async function handleToggleSuspend(userId, currentStatus) {
-    const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended'
+      const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended'
     try {
       await updateDoc(doc(db, 'users', userId), { status: newStatus })
-      
-      const postsQ = query(collection(db, 'posts'), where('authorId', '==', userId))
-      const pSnap = await getDocs(postsQ)
-      const pBatch = pSnap.docs.map(d => updateDoc(d.ref, { authorStatus: newStatus }))
-      await Promise.all(pBatch)
-
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u))
-      setPosts(prev => prev.map(p => p.authorId === userId ? { ...p, authorStatus: newStatus } : p))
       showToast(`User ${newStatus === 'suspended' ? 'suspended' : 'activated'}`)
     } catch (err) { showToast('Action failed', 'error') }
   }
@@ -286,43 +204,9 @@ export default function AdminDashboard() {
       if (user.role === 'teacher') await updateDoc(doc(db, 'teachers', user.id), { isVerified, verificationColor: color || null }).catch(() => {})
       if (user.role === 'school') await updateDoc(doc(db, 'schools', user.id), { isVerified, verificationColor: color || null }).catch(() => {})
       
-      const postsQ = query(collection(db, 'posts'), where('authorId', '==', user.id))
-      const pSnap = await getDocs(postsQ)
-      const pBatch = pSnap.docs.map(d => updateDoc(d.ref, { authorVerified: isVerified, authorVerificationColor: color || null }))
-      await Promise.all(pBatch)
-
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isVerified, verificationColor: color || null } : u))
-      setPosts(prev => prev.map(p => p.authorId === user.id ? { ...p, authorVerified: isVerified, authorVerificationColor: color || null } : p))
       showToast(`User ${isVerified ? 'verified' : 'unverified'} successfully`)
     } catch (err) { console.error(err); showToast('Action failed', 'error') }
-  }
-
-  async function handleDeletePost(postId) {
-    setConfirmModal({
-      title: 'Delete Post', message: 'This post will be permanently removed.', danger: true,
-      onConfirm: async () => {
-        try {
-          await deleteDoc(doc(db, 'posts', postId))
-          setPosts(prev => prev.filter(p => p.id !== postId))
-          showToast('Post deleted')
-        } catch (err) { showToast('Failed', 'error') }
-        setConfirmModal(null)
-      }
-    })
-  }
-
-  async function handleDeleteJob(jobId) {
-    setConfirmModal({
-      title: 'Delete Job', message: 'This job listing will be permanently removed.', danger: true,
-      onConfirm: async () => {
-        try {
-          await deleteDoc(doc(db, 'jobs', jobId))
-          setJobs(prev => prev.filter(j => j.id !== jobId))
-          showToast('Job deleted')
-        } catch (err) { showToast('Failed', 'error') }
-        setConfirmModal(null)
-      }
-    })
   }
 
   async function handleDeleteResource(resId) {
@@ -333,62 +217,6 @@ export default function AdminDashboard() {
           await deleteDoc(doc(db, 'resources', resId))
           setResources(prev => prev.filter(r => r.id !== resId))
           showToast('Resource deleted')
-        } catch (err) { showToast('Failed', 'error') }
-        setConfirmModal(null)
-      }
-    })
-  }
-
-  async function handleDeleteEvent(evtId) {
-    setConfirmModal({
-      title: 'Delete Event', message: 'This event will be permanently removed.', danger: true,
-      onConfirm: async () => {
-        try {
-          await deleteDoc(doc(db, 'events', evtId))
-          setEvents(prev => prev.filter(e => e.id !== evtId))
-          showToast('Event deleted')
-        } catch (err) { showToast('Failed', 'error') }
-        setConfirmModal(null)
-      }
-    })
-  }
-
-  async function handleDeleteMarketplace(id) {
-    setConfirmModal({
-      title: 'Delete Product', message: 'This product will be removed from the Marketplace.', danger: true,
-      onConfirm: async () => {
-        try {
-          await deleteDoc(doc(db, 'marketplace', id))
-          setMarketplace(prev => prev.filter(e => e.id !== id))
-          showToast('Product deleted')
-        } catch (err) { showToast('Failed', 'error') }
-        setConfirmModal(null)
-      }
-    })
-  }
-
-  async function handleDeleteMentorship(id) {
-    setConfirmModal({
-      title: 'Delete Mentor', message: 'This mentor profile will be removed.', danger: true,
-      onConfirm: async () => {
-        try {
-          await deleteDoc(doc(db, 'mentorship', id))
-          setMentorship(prev => prev.filter(e => e.id !== id))
-          showToast('Mentor deleted')
-        } catch (err) { showToast('Failed', 'error') }
-        setConfirmModal(null)
-      }
-    })
-  }
-
-  async function handleDeleteAudioRoom(id) {
-    setConfirmModal({
-      title: 'Delete Room', message: 'This audio room will be removed.', danger: true,
-      onConfirm: async () => {
-        try {
-          await deleteDoc(doc(db, 'audioRooms', id))
-          setAudioRooms(prev => prev.filter(e => e.id !== id))
-          showToast('Room deleted')
         } catch (err) { showToast('Failed', 'error') }
         setConfirmModal(null)
       }
@@ -412,18 +240,8 @@ export default function AdminDashboard() {
         try {
           // Delete the actual content
           if (report.contentId) {
-            if (report.type === 'post') {
-              // Delete post comments first, then the post
-              const commSnap = await getDocs(collection(db, 'posts', report.contentId, 'comments')).catch(() => ({ docs: [] }))
-              await Promise.all(commSnap.docs.map(d => deleteDoc(d.ref)))
-              await deleteDoc(doc(db, 'posts', report.contentId))
-              setPosts(prev => prev.filter(p => p.id !== report.contentId))
-            } else if (report.type === 'comment') {
-              // For future comment reports
-              if (report.parentId) {
-                await deleteDoc(doc(db, 'posts', report.parentId, 'comments', report.contentId)).catch(() => {})
-              }
-            } else if (report.type === 'resource') {
+              // Post takes down removed, resource support
+              if (report.type === 'resource') {
               await deleteDoc(doc(db, 'resources', report.contentId))
               setResources(prev => prev.filter(r => r.id !== report.contentId))
             }
@@ -447,6 +265,14 @@ export default function AdminDashboard() {
       setGamificationData(prev => prev.map(g => g.id === userId ? { ...g, xp: parseInt(newXP) || 0 } : g))
       showToast('XP updated')
     } catch (err) { showToast('Failed', 'error') }
+  }
+
+  async function handleUpdateCoins(userId, newCoins) {
+    try {
+      await updateDoc(doc(db, 'gamification', userId), { coins: parseInt(newCoins) || 0 })
+      setGamificationData(prev => prev.map(g => g.id === userId ? { ...g, coins: parseInt(newCoins) || 0 } : g))
+      showToast('Coins updated successfully! 🪙')
+    } catch (err) { showToast('Failed to update coins', 'error') }
   }
 
   async function handleSendAnnouncement() {
@@ -520,13 +346,10 @@ export default function AdminDashboard() {
   async function handleSaveItem(formData) {
     const { type, data } = editingItem
     const isNew = !data?.id
-    const colName = type === 'user' ? 'users' : type === 'post' ? 'posts' : type === 'job' ? 'jobs' : type === 'resource' ? 'resources' : type === 'event' ? 'events' : type === 'marketplace' ? 'marketplace' : type === 'mentorship' ? 'mentorship' : type === 'audioRoom' ? 'audioRooms' : 'reports'
+    const colName = type === 'user' ? 'users' : type === 'resource' ? 'resources' : 'reports'
     
     try {
       const processedData = { ...formData }
-      if (['audioRoom', 'mentorship'].includes(type) && typeof processedData.tags === 'string') {
-        processedData.tags = processedData.tags.split(',').map(t => t.trim()).filter(Boolean)
-      }
 
       if (isNew) {
         if (type === 'user') {
@@ -538,32 +361,19 @@ export default function AdminDashboard() {
           ...processedData,
           createdAt: new Date().toISOString()
         }
-        if (type === 'job') newDoc.status = newDoc.status || 'open'
         if (type === 'resource') newDoc.authorName = newDoc.authorName || 'Platform Admin'
-        if (type === 'audioRoom') newDoc.live = true
         
         const docRef = await addDoc(collection(db, colName), newDoc)
         newDoc.id = docRef.id
         
-        if (type === 'job') setJobs([newDoc, ...jobs])
         if (type === 'resource') setResources([newDoc, ...resources])
-        if (type === 'event') setEvents([newDoc, ...events])
-        if (type === 'marketplace') setMarketplace([newDoc, ...marketplace])
-        if (type === 'mentorship') setMentorship([newDoc, ...mentorship])
-        if (type === 'audioRoom') setAudioRooms([newDoc, ...audioRooms])
         showToast(`${type} added successfully`)
       } else {
         await updateDoc(doc(db, colName, data.id), processedData)
         
         const updater = items => items.map(i => i.id === data.id ? { ...i, ...processedData } : i)
         if (type === 'user') setUsers(updater(users))
-        if (type === 'post') setPosts(updater(posts))
-        if (type === 'job') setJobs(updater(jobs))
         if (type === 'resource') setResources(updater(resources))
-        if (type === 'event') setEvents(updater(events))
-        if (type === 'marketplace') setMarketplace(updater(marketplace))
-        if (type === 'mentorship') setMentorship(updater(mentorship))
-        if (type === 'audioRoom') setAudioRooms(updater(audioRooms))
         showToast(`${type} updated successfully`)
       }
     } catch (err) {
@@ -575,16 +385,16 @@ export default function AdminDashboard() {
 
   // --- FILTER HELPERS ---
   const filteredUsers = users.filter(u => !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || u.email?.toLowerCase().includes(searchQuery.toLowerCase()))
-  const filteredPosts = posts.filter(p => !searchQuery || p.content?.toLowerCase().includes(searchQuery.toLowerCase()) || p.authorName?.toLowerCase().includes(searchQuery.toLowerCase()))
-  const filteredJobs = jobs.filter(j => !searchQuery || j.title?.toLowerCase().includes(searchQuery.toLowerCase()) || j.schoolName?.toLowerCase().includes(searchQuery.toLowerCase()))
 
   // --- KPIs ---
+  const totalCoins = gamificationData.reduce((acc, curr) => acc + (curr.coins || 0), 0)
+  const totalAIGen = gamificationData.reduce((acc, curr) => acc + (curr.aiUsages || 0), 0)
+
   const kpis = [
     { title: 'Total Users', value: users.length, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', sub: `${users.filter(u => u.role === 'teacher').length} teachers, ${users.filter(u => u.role === 'school').length} schools` },
-    { title: 'Total Posts', value: posts.length, icon: FileText, color: 'text-emerald-600', bg: 'bg-emerald-50', sub: 'All time' },
-    { title: 'Active Jobs', value: jobs.length, icon: Briefcase, color: 'text-amber-600', bg: 'bg-amber-50', sub: `${jobs.filter(j => j.status === 'open' || !j.status).length} open` },
-    { title: 'Resources', value: resources.length, icon: FolderOpen, color: 'text-purple-600', bg: 'bg-purple-50', sub: 'Shared by community' },
-    { title: 'Events', value: events.length, icon: CalendarDays, color: 'text-pink-600', bg: 'bg-pink-50', sub: 'Created' },
+    { title: 'AI Content Generated', value: totalAIGen, icon: Shield, color: 'text-indigo-600', bg: 'bg-indigo-50', sub: 'Across all workspaces' },
+    { title: 'Economy Value', value: totalCoins + ' 🪙', icon: Trophy, color: 'text-amber-600', bg: 'bg-amber-50', sub: 'Coins distributed' },
+    { title: 'Vault Resources', value: resources.length, icon: FolderOpen, color: 'text-purple-600', bg: 'bg-purple-50', sub: 'Shared internally' },
     { title: 'Flagged Reports', value: reports.length, icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50', sub: 'Pending review' },
   ]
 
@@ -786,44 +596,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ====== POSTS TAB ====== */}
-          {activeTab === 'posts' && (
-            <div className="animate-fade-in">
-              <h2 className="text-xl font-extrabold text-surface-900 mb-1">📝 Posts Management</h2>
-              <p className="text-sm text-surface-500 font-medium mb-6">{filteredPosts.length} posts</p>
-              <div className="space-y-3">
-                {filteredPosts.map(post => (
-                  <div key={post.id} className="bg-white border border-surface-200 rounded-2xl p-5 hover:border-primary-200 transition-all group">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-bold text-surface-900 text-sm">{post.authorName || 'Unknown'}</span>
-                          <span className="text-xs text-surface-400">•</span>
-                          <span className="text-xs font-medium text-surface-400">{formatDate(post.createdAt)}</span>
-                        </div>
-                        <p className="text-sm text-surface-700 font-medium line-clamp-2">{post.content || 'No content'}</p>
-                        <div className="flex items-center gap-4 mt-3 text-xs font-bold text-surface-500">
-                          <span>❤️ {post.likes?.length || post.likesCount || 0}</span>
-                          <span>💬 {post.comments?.length || post.commentsCount || 0}</span>
-                        </div>
-                      </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => setEditingItem({ type: 'post', data: post })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Edit">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleDeletePost(post.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Delete">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {filteredPosts.length === 0 && <div className="p-12 text-center text-surface-400 font-medium">No posts found</div>}
-              </div>
-            </div>
-          )}
-
-          {/* ====== JOBS TAB ====== */}
+          {/* ====== POST TAB REMOVED ====== */}
           {activeTab === 'jobs' && (
             <div className="animate-fade-in">
               <div className="flex items-center justify-between mb-1">
@@ -895,129 +668,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ====== EVENTS TAB ====== */}
-          {activeTab === 'events' && (
-            <div className="animate-fade-in">
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="text-xl font-extrabold text-surface-900">📅 Events Management</h2>
-                <button onClick={() => setEditingItem({ type: 'event', data: { type: 'Workshop' } })} className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold rounded-lg flex items-center gap-1.5 transition-colors">
-                  <Plus className="w-4 h-4" /> Add Event
-                </button>
-              </div>
-              <p className="text-sm text-surface-500 font-medium mb-6">{events.length} events</p>
-              <div className="space-y-3">
-                {events.filter(e => !searchQuery || e.title?.toLowerCase().includes(searchQuery.toLowerCase())).map(evt => (
-                  <div key={evt.id} className="bg-white border border-surface-200 rounded-2xl p-5 hover:border-primary-200 transition-all group">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <h3 className="font-bold text-surface-900">{evt.title || 'Untitled Event'}</h3>
-                        <p className="text-sm font-medium text-surface-500 mt-1">{evt.date || 'No date'} • {evt.location || 'Online'}</p>
-                        <p className="text-xs text-surface-400 mt-2">Attendees: {evt.attendees?.length || 0} • Created by {evt.creatorName || 'Unknown'}</p>
-                      </div>
-                      <div className="flex gap-1 shrink-0">
-                        <button onClick={() => setEditingItem({ type: 'event', data: evt })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Edit"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleDeleteEvent(evt.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {events.length === 0 && <div className="p-12 text-center text-surface-400 font-medium">No events found</div>}
-              </div>
-            </div>
-          )}
 
-          {/* ====== MARKETPLACE TAB ====== */}
-          {activeTab === 'marketplace' && (
-            <div className="animate-fade-in">
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="text-xl font-extrabold text-surface-900">🛒 Marketplace Management</h2>
-                <button onClick={() => setEditingItem({ type: 'marketplace', data: { type: 'PDF Notes' } })} className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold rounded-lg flex items-center gap-1.5 transition-colors">
-                  <Plus className="w-4 h-4" /> Add Product
-                </button>
-              </div>
-              <p className="text-sm text-surface-500 font-medium mb-6">{marketplace.length} products</p>
-              <div className="space-y-3">
-                {marketplace.filter(p => !searchQuery || p.title?.toLowerCase().includes(searchQuery.toLowerCase())).map(product => (
-                  <div key={product.id} className="bg-white border border-surface-200 rounded-2xl p-5 hover:border-primary-200 transition-all group">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <h3 className="font-bold text-surface-900">{product.title || 'Untitled'}</h3>
-                        <p className="text-sm font-medium text-surface-500 mt-1">{product.author || 'Unknown'} • ₹{product.price || 0}</p>
-                        <p className="text-xs text-surface-400 mt-2">{product.type || 'Resource'}</p>
-                      </div>
-                      <div className="flex gap-1 shrink-0">
-                        <button onClick={() => setEditingItem({ type: 'marketplace', data: product })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleDeleteMarketplace(product.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {marketplace.length === 0 && <div className="p-12 text-center text-surface-400 font-medium">No products found</div>}
-              </div>
-            </div>
-          )}
-
-          {/* ====== MENTORSHIP TAB ====== */}
-          {activeTab === 'mentorship' && (
-            <div className="animate-fade-in">
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="text-xl font-extrabold text-surface-900">👩‍🏫 Mentorship Management</h2>
-                <button onClick={() => setEditingItem({ type: 'mentorship', data: {} })} className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold rounded-lg flex items-center gap-1.5 transition-colors">
-                  <Plus className="w-4 h-4" /> Add Mentor
-                </button>
-              </div>
-              <p className="text-sm text-surface-500 font-medium mb-6">{mentorship.length} mentors</p>
-              <div className="space-y-3">
-                {mentorship.filter(p => !searchQuery || p.name?.toLowerCase().includes(searchQuery.toLowerCase())).map(mentor => (
-                  <div key={mentor.id} className="bg-white border border-surface-200 rounded-2xl p-5 hover:border-primary-200 transition-all group">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <h3 className="font-bold text-surface-900">{mentor.name || 'Unknown'}</h3>
-                        <p className="text-sm font-medium text-surface-500 mt-1">{mentor.subject || 'General'} • {mentor.experience || 'No Exp'}</p>
-                        <p className="text-xs text-surface-400 mt-2">Fee: {mentor.price === 0 ? 'Free' : `₹${mentor.price}`} • {(mentor.tags || []).join(', ')}</p>
-                      </div>
-                      <div className="flex gap-1 shrink-0">
-                        <button onClick={() => setEditingItem({ type: 'mentorship', data: mentor })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleDeleteMentorship(mentor.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {mentorship.length === 0 && <div className="p-12 text-center text-surface-400 font-medium">No mentors found</div>}
-              </div>
-            </div>
-          )}
-
-          {/* ====== AUDIO ROOMS TAB ====== */}
-          {activeTab === 'audioRooms' && (
-            <div className="animate-fade-in">
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="text-xl font-extrabold text-surface-900">🎙️ Audio Rooms Management</h2>
-                <button onClick={() => setEditingItem({ type: 'audioRoom', data: {} })} className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold rounded-lg flex items-center gap-1.5 transition-colors">
-                  <Plus className="w-4 h-4" /> Start Room
-                </button>
-              </div>
-              <p className="text-sm text-surface-500 font-medium mb-6">{audioRooms.length} active rooms</p>
-              <div className="space-y-3">
-                {audioRooms.filter(p => !searchQuery || p.title?.toLowerCase().includes(searchQuery.toLowerCase())).map(room => (
-                  <div key={room.id} className="bg-white border border-surface-200 rounded-2xl p-5 hover:border-primary-200 transition-all group">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <h3 className="font-bold text-surface-900">{room.title || 'Untitled'}</h3>
-                        <p className="text-sm font-medium text-surface-500 mt-1">Host: {room.host || 'Unknown'}</p>
-                        <p className="text-xs text-surface-400 mt-2">Listeners: {room.listeners || 0} • Speakers: {room.speakers || 0}</p>
-                      </div>
-                      <div className="flex gap-1 shrink-0">
-                        <button onClick={() => setEditingItem({ type: 'audioRoom', data: room })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleDeleteAudioRoom(room.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {audioRooms.length === 0 && <div className="p-12 text-center text-surface-400 font-medium">No live rooms found</div>}
-              </div>
-            </div>
-          )}
 
           {/* ====== MODERATION TAB ====== */}
           {activeTab === 'moderation' && (
@@ -1069,15 +720,41 @@ export default function AdminDashboard() {
 
           {/* ====== GAMIFICATION TAB ====== */}
           {activeTab === 'gamification' && (
-            <div className="animate-fade-in">
-              <h2 className="text-xl font-extrabold text-surface-900 mb-1">🏆 Gamification Control</h2>
-              <p className="text-sm text-surface-500 font-medium mb-6">{gamificationData.length} user profiles</p>
-              <div className="border border-surface-200 rounded-2xl overflow-hidden">
+            <div className="animate-fade-in space-y-8">
+              
+              {/* Economy Blueprint */}
+              <div>
+                <h2 className="text-xl font-extrabold text-surface-900 mb-1">🏦 Economy Blueprint</h2>
+                <p className="text-sm text-surface-500 font-medium mb-6">These are the rules dictating how coins & XP are generated inside the platform.</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { title: "Daily Login", coins: "+5 🪙", xp: "+5 XP", desc: "First login of the day" },
+                    { title: "Share Resource", coins: "+15 🪙", xp: "+15 XP", desc: "Uploading a Vault resource" },
+                    { title: "Use AI Tools", coins: "-5 🪙", xp: "+5 XP", desc: "Generating content with AI" },
+                    { title: "New Account", coins: "+50 🪙", xp: "0 XP", desc: "Starting bonus for new users" },
+                  ].map((rule, idx) => (
+                    <div key={idx} className="bg-surface-50 border border-surface-200 rounded-2xl p-5 hover:border-amber-300 transition-colors">
+                      <p className="font-bold text-surface-900 mb-2">{rule.title}</p>
+                      <div className="flex items-center gap-3">
+                        <span className="font-black text-amber-600 text-lg">{rule.coins}</span>
+                        <span className="font-black text-primary-600 text-sm">{rule.xp}</span>
+                      </div>
+                      <p className="text-xs font-semibold text-surface-400 mt-2">{rule.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* User Gamification Stats */}
+              <div>
+                <h2 className="text-xl font-extrabold text-surface-900 mb-1">🏆 Player Balances</h2>
+                <p className="text-sm text-surface-500 font-medium mb-6">{gamificationData.length} user profiles in the economy</p>
+                <div className="border border-surface-200 rounded-2xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse min-w-[600px]">
                     <thead>
                       <tr className="bg-surface-50 border-b border-surface-200 text-xs uppercase tracking-wider text-surface-500">
-                        <th className="p-4 font-bold">User ID</th><th className="p-4 font-bold">XP</th><th className="p-4 font-bold">Streak</th><th className="p-4 font-bold">Badges</th><th className="p-4 font-bold text-right">Edit XP</th>
+                        <th className="p-4 font-bold">User</th><th className="p-4 font-bold">XP</th><th className="p-4 font-bold">Coins 🪙</th><th className="p-4 font-bold text-right">Fund / Edit</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-surface-100">
@@ -1087,12 +764,19 @@ export default function AdminDashboard() {
                           <tr key={g.id} className="hover:bg-surface-50/50">
                             <td className="p-4"><p className="font-bold text-surface-900 text-sm">{user?.name || g.id.substring(0, 12) + '...'}</p><p className="text-xs text-surface-400">{user?.email || ''}</p></td>
                             <td className="p-4 font-extrabold text-primary-700">{g.xp || 0}</td>
-                            <td className="p-4"><span className="flex items-center gap-1 text-sm font-bold">🔥 {g.streak || 0}</span></td>
-                            <td className="p-4"><span className="text-sm">{(g.badges || []).length} badges</span></td>
+                            <td className="p-4 font-extrabold text-amber-600">{g.coins || 0}</td>
                             <td className="p-4 text-right">
-                              <div className="inline-flex items-center gap-2">
-                                <input type="number" defaultValue={g.xp || 0} className="w-20 px-2 py-1 border border-surface-200 rounded-lg text-sm text-center font-bold" id={`xp-${g.id}`} />
-                                <button onClick={() => handleUpdateXP(g.id, document.getElementById(`xp-${g.id}`).value)} className="px-3 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-bold hover:bg-primary-700">Save</button>
+                              <div className="flex items-center justify-end gap-3 flex-wrap">
+                                <div className="inline-flex items-center gap-1.5 bg-surface-50 p-1 rounded-xl border border-surface-200">
+                                  <span className="text-[10px] font-bold text-surface-400 uppercase ml-1">XP</span>
+                                  <input type="number" defaultValue={g.xp || 0} className="w-16 px-1.5 py-1 bg-white border border-surface-200 rounded-lg text-xs text-center font-bold" id={`xp-${g.id}`} />
+                                  <button onClick={() => handleUpdateXP(g.id, document.getElementById(`xp-${g.id}`).value)} className="px-2 py-1 bg-primary-600 text-white rounded-lg text-[10px] font-bold hover:bg-primary-700">Save</button>
+                                </div>
+                                <div className="inline-flex items-center gap-1.5 bg-amber-50 p-1 rounded-xl border border-amber-200">
+                                  <span className="text-[10px] font-bold text-amber-500 uppercase ml-1">Coins</span>
+                                  <input type="number" defaultValue={g.coins || 0} className="w-16 px-1.5 py-1 bg-white border border-amber-200 rounded-lg text-xs text-center font-bold" id={`coin-${g.id}`} />
+                                  <button onClick={() => handleUpdateCoins(g.id, document.getElementById(`coin-${g.id}`).value)} className="px-2 py-1 bg-amber-500 text-white rounded-lg text-[10px] font-bold hover:bg-amber-600">Fund</button>
+                                </div>
                               </div>
                             </td>
                           </tr>
@@ -1103,6 +787,7 @@ export default function AdminDashboard() {
                 </div>
                 {gamificationData.length === 0 && <div className="p-12 text-center text-surface-400 font-medium">No gamification data</div>}
               </div>
+            </div>
             </div>
           )}
 
@@ -1205,99 +890,7 @@ export default function AdminDashboard() {
                   </label>
                 </div>
 
-                {/* Modules Toggles */}
-                <div className="p-6 bg-surface-50 border border-surface-200 rounded-2xl flex items-center justify-between">
-                  <div><h4 className="font-bold text-surface-900 mb-1">Enable Mentorship Module</h4><p className="text-sm font-medium text-surface-500">Show the 1:1 Mentorship section in the user sidebar.</p></div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" checked={platformSettings.enableMentorship !== false} onChange={() => handleToggleSetting('enableMentorship', true)} />
-                    <div className="w-11 h-6 bg-surface-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-                  </label>
-                </div>
 
-                <div className="p-6 bg-surface-50 border border-surface-200 rounded-2xl flex items-center justify-between">
-                  <div><h4 className="font-bold text-surface-900 mb-1">Enable Audio Rooms Module</h4><p className="text-sm font-medium text-surface-500">Show the Live Audio Rooms section in the user sidebar.</p></div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" checked={platformSettings.enableAudioRooms !== false} onChange={() => handleToggleSetting('enableAudioRooms', true)} />
-                    <div className="w-11 h-6 bg-surface-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-                  </label>
-                </div>
-
-                {/* AI Bot Profile Management */}
-                <div className="p-6 bg-gradient-to-r from-pink-50 to-indigo-50 border border-pink-200/50 rounded-2xl">
-                  <div className="flex items-center gap-3 mb-5">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600 flex items-center justify-center text-white text-xl font-black shadow-lg">🤖</div>
-                    <div>
-                      <h4 className="font-extrabold text-surface-900">LDMS AI Bot Profile</h4>
-                      <p className="text-xs font-medium text-surface-500">Manage the AI assistant that auto-replies to posts</p>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    {/* AI Bot Enable/Disable */}
-                    <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-surface-200">
-                      <div>
-                        <p className="text-sm font-bold text-surface-900">Enable AI Bot Posts</p>
-                        <p className="text-xs font-medium text-surface-500 mt-0.5">AI bot will auto-post educational content & memes on the feed</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" checked={platformSettings.enableAIBot !== false} onChange={() => handleToggleSetting('enableAIBot', true)} />
-                        <div className="w-11 h-6 bg-surface-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-                      </label>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-surface-500 uppercase tracking-widest mb-1.5">Bot Display Name</label>
-                      <input
-                        type="text"
-                        defaultValue={platformSettings.aiBotName || 'LDMS AI'}
-                        id="admin-ai-bot-name"
-                        className="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-pink-300 outline-none"
-                        placeholder="LDMS AI"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-surface-500 uppercase tracking-widest mb-1.5">Bot Bio / Description</label>
-                      <textarea
-                        defaultValue={platformSettings.aiBotBio || 'Your intelligent teaching assistant powered by AI'}
-                        id="admin-ai-bot-bio"
-                        rows={2}
-                        className="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-pink-300 outline-none resize-none"
-                        placeholder="Short description..."
-                      />
-                    </div>
-                    <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-surface-200">
-                      <div>
-                        <p className="text-sm font-bold text-surface-900">Auto-Reply to Posts</p>
-                        <p className="text-xs font-medium text-surface-500 mt-0.5">AI bot automatically comments on new posts</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked={platformSettings.aiBotAutoReply !== false} id="admin-ai-bot-autoreply" />
-                        <div className="w-11 h-6 bg-surface-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-                      </label>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        const name = document.getElementById('admin-ai-bot-name').value.trim()
-                        const bio = document.getElementById('admin-ai-bot-bio').value.trim()
-                        const autoReply = document.getElementById('admin-ai-bot-autoreply').checked
-                        try {
-                          await setDoc(doc(db, 'platformSettings', 'global'), {
-                            ...platformSettings,
-                            aiBotName: name || 'LDMS AI',
-                            aiBotBio: bio,
-                            aiBotAutoReply: autoReply,
-                          }, { merge: true })
-                          setPlatformSettings(p => ({ ...p, aiBotName: name, aiBotBio: bio, aiBotAutoReply: autoReply }))
-                          showToast('AI Bot profile updated!')
-                        } catch (err) {
-                          console.error(err)
-                          showToast('Failed to save', 'error')
-                        }
-                      }}
-                      className="w-full py-3 bg-gradient-to-r from-pink-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
-                    >
-                      <Award className="w-4 h-4" /> Save AI Bot Profile
-                    </button>
-                  </div>
-                </div>
 
                 <div className="mt-8 pt-6 border-t border-surface-200">
                   <button onClick={() => setConfirmModal({ title: 'Force Logout All Users', message: 'This will invalidate all active sessions immediately. Users will need to log in again.', danger: true, onConfirm: async () => { showToast('All sessions invalidated'); setConfirmModal(null) } })}

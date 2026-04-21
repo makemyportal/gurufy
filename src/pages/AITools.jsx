@@ -4,6 +4,7 @@ import { generateAIContent } from '../utils/aiService'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useAuth } from '../contexts/AuthContext'
+import { useGamification } from '../contexts/GamificationContext'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { db } from '../utils/firebase'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
@@ -894,7 +895,8 @@ YOU MUST STRICTLY USE THIS FORMAT:
 ]
 
 export default function AITools() {
-  const { currentUser } = useAuth()
+  const { currentUser, userProfile } = useAuth()
+  const { stats, spendCoins } = useGamification()
   const navigate = useNavigate()
   const location = useLocation()
   
@@ -938,6 +940,24 @@ export default function AITools() {
     setError('')
     setGeneratedContent('')
     setCopied(false)
+
+    const COST = 5
+    const isSuperAdmin = userProfile?.role === 'superadmin'
+
+    if (!isSuperAdmin) {
+      if ((stats?.coins || 0) < COST) {
+        setError(`Not enough coins! You need ${COST} coins to generate. Earn free coins by logging in daily or sharing resources on the Feed! 🪙`)
+        setIsGenerating(false)
+        return
+      }
+      
+      const success = await spendCoins(COST, 'AI Generation')
+      if (!success) {
+        setError('Transaction failed. Please try again.')
+        setIsGenerating(false)
+        return
+      }
+    }
 
     try {
       let langInstruction = ''
@@ -1238,7 +1258,14 @@ export default function AITools() {
                       <>
                         <Sparkles className="w-5 h-5 group-hover:text-accent-400 transition-colors" />
                         <span>Generate Content</span>
-                        <kbd className="hidden sm:inline-block ml-2 px-2 py-0.5 bg-white/20 rounded text-[10px] font-bold tracking-wider">Ctrl+Enter</kbd>
+                        {userProfile?.role === 'superadmin' ? (
+                          <span className="ml-1.5 px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold tracking-widest text-amber-200 uppercase flex items-center gap-1"><Sparkles className="w-3 h-3"/> Free</span>
+                        ) : (
+                          <span className="ml-1.5 px-2 py-0.5 bg-black/20 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                            <span className="text-[10px]">🪙</span> 5
+                          </span>
+                        )}
+                        <kbd className="hidden sm:inline-block ml-2 px-2 py-0.5 bg-white/10 rounded text-[10px] font-bold tracking-wider opacity-80 border border-white/10">Ctrl+Enter</kbd>
                       </>
                     )}
                   </button>
