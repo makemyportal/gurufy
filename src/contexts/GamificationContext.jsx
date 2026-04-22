@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { doc, getDoc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, increment, serverTimestamp, onSnapshot } from 'firebase/firestore'
 import { db } from '../utils/firebase'
 import { useAuth } from './AuthContext'
 
@@ -37,18 +37,21 @@ const BADGE_DEFS = {
   verified_educator: { name: 'Verified', emoji: '✅', desc: 'Verified School Teacher' },
 }
 
-// XP values for actions
-export const XP_VALUES = {
-  daily_login: 5,
+// Default XP/Coin values (overridden by Firestore platformSettings.coinConfig)
+export const DEFAULT_XP_VALUES = {
+  daily_login: 50,
   create_post: 10,
   receive_like: 2,
   leave_comment: 3,
   receive_comment: 2,
-  share_resource: 15,
+  share_resource: 25,
   use_ai_tool: 5,
   follow_someone: 2,
   get_followed: 3,
 }
+
+// This will be updated dynamically
+export let XP_VALUES = { ...DEFAULT_XP_VALUES }
 
 export function getLevel(xp) {
   let current = LEVELS[0]
@@ -95,8 +98,22 @@ export function GamificationProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [xpPopup, setXpPopup] = useState(null)
   const [coinPopup, setCoinPopup] = useState(null)
+  const [coinConfig, setCoinConfig] = useState(DEFAULT_XP_VALUES)
 
-  // Load user gamification data
+  // Load coin config from platformSettings (real-time)
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (snap) => {
+      if (snap.exists() && snap.data().coinConfig) {
+        const cfg = snap.data().coinConfig
+        const merged = { ...DEFAULT_XP_VALUES, ...cfg }
+        setCoinConfig(merged)
+        XP_VALUES = merged
+      }
+    }, (err) => console.error('coinConfig listener error:', err))
+    return () => unsub()
+  }, [])
+
+  // Real-time listener for user gamification data
   useEffect(() => {
     if (!currentUser) {
       setStats({ xp: 0, coins: 0, streak: 0, longestStreak: 0, lastLoginDate: null, badges: [], totalPosts: 0, totalLikes: 0, totalComments: 0, totalResources: 0, aiUsages: 0 })
@@ -104,34 +121,35 @@ export function GamificationProvider({ children }) {
       return
     }
 
-    async function loadStats() {
-      try {
-        const ref = doc(db, 'gamification', currentUser.uid)
-        const snap = await getDoc(ref)
-        if (snap.exists()) {
-          const data = snap.data()
-          setStats(data)
-          // Check daily login streak
+    let checkedStreak = false
+    const ref = doc(db, 'gamification', currentUser.uid)
+
+    const unsub = onSnapshot(ref, async (snap) => {
+      if (snap.exists()) {
+        const data = snap.data()
+        setStats(data)
+        if (!checkedStreak) {
+          checkedStreak = true
           await checkDailyStreak(ref, data)
-        } else {
-          // Initialize gamification doc
-          const initial = {
-            xp: 0, coins: 50, streak: 1, longestStreak: 1,
-            lastLoginDate: new Date().toISOString().split('T')[0],
-            badges: [], totalPosts: 0, totalLikes: 0, totalComments: 0,
-            totalResources: 0, aiUsages: 0,
-            createdAt: serverTimestamp(),
-          }
-          await setDoc(ref, initial)
-          setStats(initial)
         }
-      } catch (err) {
-        console.error('Gamification load error:', err)
+      } else {
+        // Initialize gamification doc
+        const initial = {
+          xp: 0, coins: coinConfig.daily_login, streak: 1, longestStreak: 1,
+          lastLoginDate: new Date().toISOString().split('T')[0],
+          badges: [], totalPosts: 0, totalLikes: 0, totalComments: 0,
+          totalResources: 0, aiUsages: 0,
+          createdAt: serverTimestamp(),
+        }
+        await setDoc(ref, initial)
       }
       setLoading(false)
-    }
+    }, (err) => {
+      console.error('Gamification load error:', err)
+      setLoading(false)
+    })
 
-    loadStats()
+    return () => unsub()
   }, [currentUser])
 
   async function checkDailyStreak(ref, data) {

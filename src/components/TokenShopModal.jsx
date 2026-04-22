@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { db } from '../utils/firebase'
-import { collection, addDoc, serverTimestamp, getDoc, doc } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, getDoc, doc, onSnapshot } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import { X, CheckCircle, ShieldAlert, Zap, Loader2 } from 'lucide-react'
 
-const PACKAGES = [
+const DEFAULT_PACKAGES = [
   { id: 'starter', coins: 100, price: 99, tag: 'Starter' },
   { id: 'pro', coins: 500, price: 399, tag: 'Most Popular', popular: true },
   { id: 'enterprise', coins: 1000, price: 699, tag: 'Best Value' },
@@ -12,8 +12,9 @@ const PACKAGES = [
 
 export default function TokenShopModal({ onClose }) {
   const { currentUser, userProfile } = useAuth()
-  const [selectedPack, setSelectedPack] = useState(PACKAGES[1])
-  const [step, setStep] = useState(1) // 1 = select, 2 = scan & pay, 3 = success
+  const [packages, setPackages] = useState(DEFAULT_PACKAGES)
+  const [selectedPack, setSelectedPack] = useState(DEFAULT_PACKAGES[1])
+  const [step, setStep] = useState(1)
   const [utrNumber, setUtrNumber] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -21,17 +22,20 @@ export default function TokenShopModal({ onClose }) {
   const [upiImageUrl, setUpiImageUrl] = useState(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=teacherhub@upi%26pn=LDMS%20Workspace`)
 
   useEffect(() => {
-    async function fetchUpi() {
-      try {
-        const docSnap = await getDoc(doc(db, 'platformSettings', 'global'))
-        if (docSnap.exists() && docSnap.data().upiId) {
-          const fetchedUpi = docSnap.data().upiId
-          setUpiId(fetchedUpi)
-          setUpiImageUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=${fetchedUpi}%26pn=LDMS%20Workspace`)
+    const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data()
+        if (data.upiId) {
+          setUpiId(data.upiId)
+          setUpiImageUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=${data.upiId}%26pn=LDMS%20Workspace`)
         }
-      } catch(err) { console.error('Failed to fetch UPI ID', err) }
-    }
-    fetchUpi()
+        if (data.tokenPlans && data.tokenPlans.length > 0) {
+          setPackages(data.tokenPlans)
+          setSelectedPack(data.tokenPlans.find(p => p.popular) || data.tokenPlans[0])
+        }
+      }
+    }, (err) => console.error('Token shop listener error:', err))
+    return () => unsub()
   }, [])
 
   const handleSubmit = async (e) => {
@@ -91,7 +95,7 @@ export default function TokenShopModal({ onClose }) {
             <div className="animate-fade-in-up">
               <h3 className="text-lg font-bold text-surface-900 mb-4 text-center">Select a Funding Package</h3>
               <div className="space-y-3">
-                {PACKAGES.map(pack => (
+                {packages.map(pack => (
                   <button
                     key={pack.id}
                     onClick={() => setSelectedPack(pack)}

@@ -760,28 +760,132 @@ export default function AdminDashboard() {
           {activeTab === 'gamification' && (
             <div className="animate-fade-in space-y-8">
               
-              {/* Economy Blueprint */}
+              {/* Economy Blueprint — EDITABLE */}
               <div>
                 <h2 className="text-xl font-extrabold text-surface-900 mb-1">🏦 Economy Blueprint</h2>
-                <p className="text-sm text-surface-500 font-medium mb-6">These are the rules dictating how coins & XP are generated inside the platform.</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <p className="text-sm text-surface-500 font-medium mb-6">Configure how coins & XP are earned. Changes apply instantly to all users.</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {[
-                    { title: "Daily Login", coins: "+5 🪙", xp: "+5 XP", desc: "First login of the day" },
-                    { title: "Share Resource", coins: "+15 🪙", xp: "+15 XP", desc: "Uploading a Vault resource" },
-                    { title: "Use AI Tools", coins: "-5 🪙", xp: "+5 XP", desc: "Each AI generation costs coins" },
-                    { title: "Workspace Tools", coins: "-5 🪙", xp: "0 XP", desc: "Gradebook, Certificates, Locker, Tasks" },
-                    { title: "New Account", coins: "+50 🪙", xp: "0 XP", desc: "Starting bonus for new users" },
-                    { title: "Buy Coins", coins: "💰", xp: "0 XP", desc: "Purchase via UPI from Token Store" },
-                  ].map((rule, idx) => (
-                    <div key={idx} className="bg-surface-50 border border-surface-200 rounded-2xl p-5 hover:border-amber-300 transition-colors">
-                      <p className="font-bold text-surface-900 mb-2">{rule.title}</p>
-                      <div className="flex items-center gap-3">
-                        <span className="font-black text-amber-600 text-lg">{rule.coins}</span>
-                        <span className="font-black text-primary-600 text-sm">{rule.xp}</span>
+                    { key: 'daily_login', title: 'Daily Login', desc: 'First login of the day', emoji: '📅' },
+                    { key: 'share_resource', title: 'Share Resource', desc: 'Uploading a Vault resource', emoji: '📚' },
+                    { key: 'use_ai_tool', title: 'Use AI Tools', desc: 'AI generation reward', emoji: '🤖' },
+                    { key: 'create_post', title: 'Create Post', desc: 'Publishing content', emoji: '📝' },
+                    { key: 'follow_someone', title: 'Follow Someone', desc: 'Following a user', emoji: '👤' },
+                    { key: 'get_followed', title: 'Get Followed', desc: 'Someone follows you', emoji: '🌟' },
+                  ].map(rule => {
+                    const currentVal = platformSettings?.coinConfig?.[rule.key] ?? 
+                      ({daily_login:50,share_resource:25,use_ai_tool:5,create_post:10,follow_someone:2,get_followed:3}[rule.key] || 5)
+                    return (
+                      <div key={rule.key} className="bg-surface-50 border border-surface-200 rounded-2xl p-5 hover:border-amber-300 transition-colors">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-lg">{rule.emoji}</span>
+                          <p className="font-bold text-surface-900 text-sm">{rule.title}</p>
+                        </div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-[10px] font-bold text-amber-600 uppercase">Coins/XP</span>
+                          <input type="number" id={`coin-cfg-${rule.key}`} defaultValue={currentVal}
+                            className="w-20 px-2 py-1.5 bg-white border border-amber-200 rounded-lg text-sm font-extrabold text-amber-700 text-center focus:ring-2 focus:ring-amber-400 outline-none" />
+                          <button onClick={async () => {
+                            const val = parseInt(document.getElementById(`coin-cfg-${rule.key}`).value) || 0
+                            const newConfig = { ...(platformSettings?.coinConfig || {}), [rule.key]: val }
+                            try {
+                              await setDoc(doc(db, 'platformSettings', 'global'), { ...platformSettings, coinConfig: newConfig }, { merge: true })
+                              setPlatformSettings(prev => ({ ...prev, coinConfig: newConfig }))
+                              showToast(`${rule.title} updated to ${val} 🪙`)
+                            } catch (err) { showToast('Failed to update', 'error') }
+                          }} className="px-2.5 py-1.5 bg-amber-500 text-white rounded-lg text-[10px] font-bold hover:bg-amber-600 transition-colors">
+                            Save
+                          </button>
+                        </div>
+                        <p className="text-xs font-semibold text-surface-400">{rule.desc}</p>
                       </div>
-                      <p className="text-xs font-semibold text-surface-400 mt-2">{rule.desc}</p>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Token Store Plans — EDITABLE */}
+              <div>
+                <h2 className="text-xl font-extrabold text-surface-900 mb-1">💰 Token Store Plans</h2>
+                <p className="text-sm text-surface-500 font-medium mb-6">Edit the coin packages users can purchase. Changes sync to the Token Store instantly.</p>
+                <div className="space-y-3">
+                  {(platformSettings?.tokenPlans || [
+                    { id: 'starter', coins: 100, price: 99, tag: 'Starter' },
+                    { id: 'pro', coins: 500, price: 399, tag: 'Most Popular', popular: true },
+                    { id: 'enterprise', coins: 1000, price: 699, tag: 'Best Value' },
+                  ]).map((plan, idx) => (
+                    <div key={plan.id || idx} className="flex flex-wrap items-center gap-3 bg-surface-50 border border-surface-200 rounded-2xl p-4">
+                      <div className="flex items-center gap-2 flex-1 min-w-[150px]">
+                        <span className="text-amber-500 text-lg">🪙</span>
+                        <input type="number" id={`plan-coins-${idx}`} defaultValue={plan.coins} className="w-20 px-2 py-1.5 bg-white border border-surface-200 rounded-lg text-sm font-extrabold text-center" />
+                        <span className="text-xs font-bold text-surface-500">Coins</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-surface-500">₹</span>
+                        <input type="number" id={`plan-price-${idx}`} defaultValue={plan.price} className="w-20 px-2 py-1.5 bg-white border border-surface-200 rounded-lg text-sm font-extrabold text-center" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="text" id={`plan-tag-${idx}`} defaultValue={plan.tag} placeholder="Label" className="w-28 px-2 py-1.5 bg-white border border-surface-200 rounded-lg text-sm font-bold" />
+                      </div>
+                      <label className="flex items-center gap-1.5 text-xs font-bold text-surface-500 cursor-pointer">
+                        <input type="checkbox" id={`plan-pop-${idx}`} defaultChecked={plan.popular || false} className="rounded" /> Popular
+                      </label>
+                      <button onClick={async () => {
+                        const plans = (platformSettings?.tokenPlans || [
+                          { id: 'starter', coins: 100, price: 99, tag: 'Starter' },
+                          { id: 'pro', coins: 500, price: 399, tag: 'Most Popular', popular: true },
+                          { id: 'enterprise', coins: 1000, price: 699, tag: 'Best Value' },
+                        ]).filter((_, i) => i !== idx)
+                        try {
+                          await setDoc(doc(db, 'platformSettings', 'global'), { ...platformSettings, tokenPlans: plans }, { merge: true })
+                          setPlatformSettings(prev => ({ ...prev, tokenPlans: plans }))
+                          showToast('Plan removed')
+                        } catch (err) { showToast('Failed', 'error') }
+                      }} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   ))}
+                </div>
+                <div className="flex flex-wrap gap-3 mt-4">
+                  <button onClick={async () => {
+                    const currentPlans = platformSettings?.tokenPlans || [
+                      { id: 'starter', coins: 100, price: 99, tag: 'Starter' },
+                      { id: 'pro', coins: 500, price: 399, tag: 'Most Popular', popular: true },
+                      { id: 'enterprise', coins: 1000, price: 699, tag: 'Best Value' },
+                    ]
+                    // Collect edited values
+                    const updatedPlans = currentPlans.map((plan, idx) => ({
+                      id: plan.id || `plan_${idx}`,
+                      coins: parseInt(document.getElementById(`plan-coins-${idx}`)?.value) || plan.coins,
+                      price: parseInt(document.getElementById(`plan-price-${idx}`)?.value) || plan.price,
+                      tag: document.getElementById(`plan-tag-${idx}`)?.value || plan.tag,
+                      popular: document.getElementById(`plan-pop-${idx}`)?.checked || false,
+                    }))
+                    try {
+                      await setDoc(doc(db, 'platformSettings', 'global'), { ...platformSettings, tokenPlans: updatedPlans }, { merge: true })
+                      setPlatformSettings(prev => ({ ...prev, tokenPlans: updatedPlans }))
+                      showToast('All plans saved! 🪙')
+                    } catch (err) { showToast('Failed to save plans', 'error') }
+                  }} className="px-5 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-bold hover:bg-amber-600 transition-colors shadow-md">
+                    Save All Plans
+                  </button>
+                  <button onClick={async () => {
+                    const currentPlans = platformSettings?.tokenPlans || [
+                      { id: 'starter', coins: 100, price: 99, tag: 'Starter' },
+                      { id: 'pro', coins: 500, price: 399, tag: 'Most Popular', popular: true },
+                      { id: 'enterprise', coins: 1000, price: 699, tag: 'Best Value' },
+                    ]
+                    const newPlan = { id: `plan_${Date.now()}`, coins: 200, price: 149, tag: 'New Plan' }
+                    const newPlans = [...currentPlans, newPlan]
+                    try {
+                      await setDoc(doc(db, 'platformSettings', 'global'), { ...platformSettings, tokenPlans: newPlans }, { merge: true })
+                      setPlatformSettings(prev => ({ ...prev, tokenPlans: newPlans }))
+                      showToast('New plan added')
+                    } catch (err) { showToast('Failed', 'error') }
+                  }} className="px-5 py-2.5 bg-surface-100 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-200 transition-colors flex items-center gap-1.5">
+                    <Plus className="w-4 h-4" /> Add Plan
+                  </button>
                 </div>
               </div>
 
