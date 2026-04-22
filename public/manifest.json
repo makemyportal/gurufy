@@ -1,0 +1,26 @@
+{
+  "name": "LDMS - Intelligent Workspace for Educators",
+  "short_name": "LDMS",
+  "description": "The intelligent AI workspace for educators. AI tools, lesson planning, exam generation, classroom quizzes, and more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f14",
+  "theme_color": "#4f46e5",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "lang": "en"
+}

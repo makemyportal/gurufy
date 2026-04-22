@@ -7,7 +7,8 @@ import { db } from '../utils/firebase'
 import { collection, query, onSnapshot, orderBy, doc } from 'firebase/firestore'
 import { 
   Sparkles, Briefcase, FolderOpen, Award, CheckSquare, 
-  Calculator, Lock, ArrowRight, CalendarDays, TrendingUp, Zap, BarChart3, ShoppingCart, Coins, Megaphone, X
+  Calculator, Lock, ArrowRight, CalendarDays, TrendingUp, Zap, BarChart3, ShoppingCart, Coins, Megaphone, X,
+  BookOpen, FileQuestion, Gamepad2
 } from 'lucide-react'
 import TokenShopModal from '../components/TokenShopModal'
 
@@ -48,6 +49,42 @@ const utilityApps = [
     path: '/locker',
     bg: 'bg-slate-700',
     hover: 'group-hover:shadow-[0_0_20px_rgba(51,65,85,0.4)]'
+  },
+  {
+    id: 'lesson-planner',
+    title: 'Lesson Planner',
+    description: 'AI-powered step-by-step lesson plan generator.',
+    icon: BookOpen,
+    path: '/lesson-planner',
+    bg: 'bg-indigo-600',
+    hover: 'group-hover:shadow-[0_0_20px_rgba(79,70,229,0.4)]'
+  },
+  {
+    id: 'timetable',
+    title: 'Timetable Builder',
+    description: 'Create weekly class schedules visually.',
+    icon: CalendarDays,
+    path: '/timetable',
+    bg: 'bg-teal-600',
+    hover: 'group-hover:shadow-[0_0_20px_rgba(13,148,136,0.4)]'
+  },
+  {
+    id: 'exam-generator',
+    title: 'Exam Paper Generator',
+    description: 'AI-generated exam papers with answer keys.',
+    icon: FileQuestion,
+    path: '/exam-generator',
+    bg: 'bg-rose-600',
+    hover: 'group-hover:shadow-[0_0_20px_rgba(225,29,72,0.4)]'
+  },
+  {
+    id: 'classroom-quiz',
+    title: 'Classroom Quiz',
+    description: 'Create & present live quizzes Kahoot-style.',
+    icon: Gamepad2,
+    path: '/classroom-quiz',
+    bg: 'bg-violet-600',
+    hover: 'group-hover:shadow-[0_0_20px_rgba(124,58,237,0.4)]'
   }
 ]
 

@@ -30,6 +30,10 @@ import UserProfile from './pages/UserProfile'
 import Marketplace from './pages/Marketplace'
 import Mentorship from './pages/Mentorship'
 import AudioRooms from './pages/AudioRooms'
+import LessonPlanner from './pages/LessonPlanner'
+import Timetable from './pages/Timetable'
+import ExamPaperGen from './pages/ExamPaperGen'
+import ClassroomQuiz from './pages/ClassroomQuiz'
 // Public info pages
 import About from './pages/public/About'
 import HowItWorks from './pages/public/HowItWorks'
@@ -114,6 +118,10 @@ export default function App() {
         <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="events" element={<Events />} />
         <Route path="marketplace" element={<Marketplace />} />
+        <Route path="lesson-planner" element={<LessonPlanner />} />
+        <Route path="timetable" element={<Timetable />} />
+        <Route path="exam-generator" element={<ExamPaperGen />} />
+        <Route path="classroom-quiz" element={<ClassroomQuiz />} />
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         {/* Redirect /feed → / */}
         <Route path="feed" element={<Navigate to="/" replace />} />

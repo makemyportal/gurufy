@@ -3,7 +3,7 @@ import {
   Sparkles, MessageSquare, Brain, Search, GraduationCap, 
   Image as ImageIcon, LayoutDashboard, PenTool, ExternalLink,
   Bot, Mic, Music, Play, Smile, FileText, MonitorPlay, Zap,
-  Bookmark, BookmarkCheck, Copy, Check, MessageSquareQuote, 
+  Bookmark, BookmarkCheck, Copy, Check, MessageSquareQuote, X,
   Calculator, ShieldCheck, Star, Globe, Code, Activity,
   FlaskConical, Atom, Dna, Microscope, TestTubes, Orbit, MapPin, Cpu, Lightbulb, Beaker
 } from 'lucide-react'
@@ -80,15 +80,15 @@ const interactiveLabs = [
   { id: 'biodigital', name: 'BioDigital Human', provider: 'BioDigital', description: 'Explore the human body in stunning 3D. Interactive anatomy, diseases, and treatments visualized with medical-grade accuracy.', url: 'https://human.biodigital.com/explore', category: 'Biology & Anatomy', color: 'from-teal-500 to-emerald-600', icon: Dna },
   { id: 'zperiod', name: 'Z Period', provider: 'ZPeriod', description: 'Interactive periodic table and element explorer with detailed properties, electron configurations, and visual data.', url: 'https://zperiod.app/', category: 'Chemistry', color: 'from-violet-500 to-purple-700', icon: Atom },
   { id: 'nobook-chem', name: 'NoBook Chemistry', provider: 'NoBook', description: 'Virtual chemistry lab with realistic experiment simulations. Mix chemicals, observe reactions, and learn lab safety — all risk-free.', url: 'https://chemistry-en.nobook.com/console/templates/resource', category: 'Chemistry', color: 'from-cyan-500 to-blue-600', icon: FlaskConical },
-  { id: 'phet', name: 'PhET Simulations', provider: 'University of Colorado', description: 'World-famous free interactive math and science simulations. Physics, chemistry, biology, earth science, and more.', url: 'https://phet.colorado.edu/', category: 'Multi-Subject', color: 'from-green-500 to-teal-600', icon: Atom },
+  { id: 'phet', name: 'PhET Simulations', provider: 'University of Colorado', description: 'World-famous free interactive math and science simulations. Physics, chemistry, biology, earth science, and more.', url: 'https://phet.colorado.edu/', category: 'Multi-Subject', color: 'from-green-500 to-teal-600', icon: Atom, embeddable: true },
   { id: 'visible-body', name: 'Visible Body', provider: 'Visible Body', description: '3D anatomy and physiology app with stunning models of the skeletal, muscular, circulatory, and nervous systems.', url: 'https://www.visiblebody.com/', category: 'Biology & Anatomy', color: 'from-red-500 to-rose-700', icon: Dna },
   { id: 'anatomylearning', name: 'Anatomy Learning', provider: 'AnatomyLearning', description: 'Free 3D atlas of human anatomy. Rotate, zoom, and explore every bone, muscle, organ, and system in full detail.', url: 'https://anatomylearning.com/', category: 'Biology & Anatomy', color: 'from-blue-500 to-indigo-700', icon: Microscope },
   { id: 'cellcraft', name: 'CellCraft', provider: 'Carolina Biological', description: 'Build and manage a living cell in this interactive game. Learn about organelles, cell division, and immune responses.', url: 'https://www.cellcraft.net/', category: 'Biology & Anatomy', color: 'from-lime-500 to-green-600', icon: Microscope },
 
   // Chemistry
-  { id: 'molview', name: 'MolView', provider: 'MolView', description: 'Visualize and build 3D molecular structures in your browser. Supports structural formula editor and 3D model viewer.', url: 'https://molview.org/', category: 'Chemistry', color: 'from-blue-400 to-cyan-600', icon: Atom },
+  { id: 'molview', name: 'MolView', provider: 'MolView', description: 'Visualize and build 3D molecular structures in your browser. Supports structural formula editor and 3D model viewer.', url: 'https://molview.org/', category: 'Chemistry', color: 'from-blue-400 to-cyan-600', icon: Atom, embeddable: true },
   { id: 'chemcollective', name: 'ChemCollective', provider: 'Carnegie Mellon', description: 'Virtual chemistry labs and scenario-based learning activities. Practice titrations, acid-base reactions, and more.', url: 'https://chemcollective.org/vlabs', category: 'Chemistry', color: 'from-amber-500 to-orange-600', icon: TestTubes },
-  { id: 'ptable', name: 'Ptable', provider: 'Ptable', description: 'The most advanced interactive periodic table on the web. Dynamic layouts, orbital diagrams, isotope data, and compound info.', url: 'https://ptable.com/', category: 'Chemistry', color: 'from-indigo-500 to-blue-700', icon: Atom },
+  { id: 'ptable', name: 'Ptable', provider: 'Ptable', description: 'The most advanced interactive periodic table on the web. Dynamic layouts, orbital diagrams, isotope data, and compound info.', url: 'https://ptable.com/', category: 'Chemistry', color: 'from-indigo-500 to-blue-700', icon: Atom, embeddable: true },
 
   // Physics
   { id: 'myphysicslab', name: 'MyPhysicsLab', provider: 'MyPhysicsLab', description: 'Interactive physics simulations covering pendulums, springs, collisions, roller coasters, and more with real-time graphs.', url: 'https://www.myphysicslab.com/', category: 'Physics', color: 'from-orange-500 to-red-600', icon: Orbit },
@@ -97,8 +97,8 @@ const interactiveLabs = [
   { id: 'algodoo', name: 'Algodoo', provider: 'Algoryx', description: 'Physics sandbox for creating interactive simulations. Draw objects and watch them interact with realistic 2D physics.', url: 'https://www.algodoo.com/', category: 'Physics', color: 'from-sky-400 to-blue-600', icon: Orbit },
 
   // Math & Logic
-  { id: 'desmos', name: 'Desmos Graphing', provider: 'Desmos', description: 'Beautiful, free online graphing calculator. Plot functions, create tables, add sliders, animate graphs, and explore geometry.', url: 'https://www.desmos.com/calculator', category: 'Math & Logic', color: 'from-green-500 to-emerald-600', icon: Calculator },
-  { id: 'geogebra', name: 'GeoGebra', provider: 'GeoGebra', description: 'Dynamic mathematics for everyone. Covers geometry, algebra, statistics, calculus, and 3D math with interactive tools.', url: 'https://www.geogebra.org/', category: 'Math & Logic', color: 'from-blue-500 to-purple-600', icon: Calculator },
+  { id: 'desmos', name: 'Desmos Graphing', provider: 'Desmos', description: 'Beautiful, free online graphing calculator. Plot functions, create tables, add sliders, animate graphs, and explore geometry.', url: 'https://www.desmos.com/calculator', category: 'Math & Logic', color: 'from-green-500 to-emerald-600', icon: Calculator, embeddable: true },
+  { id: 'geogebra', name: 'GeoGebra', provider: 'GeoGebra', description: 'Dynamic mathematics for everyone. Covers geometry, algebra, statistics, calculus, and 3D math with interactive tools.', url: 'https://www.geogebra.org/', category: 'Math & Logic', color: 'from-blue-500 to-purple-600', icon: Calculator, embeddable: true },
   { id: 'mathigon', name: 'Mathigon', provider: 'Mathigon', description: 'The textbook of the future. Interactive courses, virtual manipulatives, and Polypad — a powerful mathematical canvas.', url: 'https://mathigon.org/', category: 'Math & Logic', color: 'from-rose-500 to-pink-600', icon: Calculator },
 
   // Geography & Earth
@@ -107,9 +107,9 @@ const interactiveLabs = [
   { id: 'worldwind', name: 'NASA WorldWind', provider: 'NASA', description: 'Open-source virtual globe with satellite imagery, terrain data, and geographic information for immersive Earth exploration.', url: 'https://worldwind.arc.nasa.gov/', category: 'Geography & Earth', color: 'from-cyan-600 to-blue-700', icon: Globe },
 
   // Coding & CS
-  { id: 'scratch', name: 'Scratch', provider: 'MIT Media Lab', description: 'Block-based visual programming language. Students create interactive stories, games, and animations while learning code logic.', url: 'https://scratch.mit.edu/', category: 'Coding & CS', color: 'from-orange-400 to-yellow-500', icon: Code },
+  { id: 'scratch', name: 'Scratch', provider: 'MIT Media Lab', description: 'Block-based visual programming language. Students create interactive stories, games, and animations while learning code logic.', url: 'https://scratch.mit.edu/', category: 'Coding & CS', color: 'from-orange-400 to-yellow-500', icon: Code, embeddable: true },
   { id: 'codecombat', name: 'CodeCombat', provider: 'CodeCombat', description: 'Learn Python, JavaScript, and more by playing a real game. Students write actual code to control characters and defeat challenges.', url: 'https://codecombat.com/', category: 'Coding & CS', color: 'from-slate-800 to-gray-900', icon: Cpu },
-  { id: 'tinkercad', name: 'Tinkercad', provider: 'Autodesk', description: 'Free 3D modeling, electronics, and coding tool. Perfect for STEM education with drag-and-drop circuit and design simulations.', url: 'https://www.tinkercad.com/', category: 'Coding & CS', color: 'from-blue-400 to-cyan-500', icon: Cpu },
+  { id: 'tinkercad', name: 'Tinkercad', provider: 'Autodesk', description: 'Free 3D modeling, electronics, and coding tool. Perfect for STEM education with drag-and-drop circuit and design simulations.', url: 'https://www.tinkercad.com/', category: 'Coding & CS', color: 'from-blue-400 to-cyan-500', icon: Cpu, embeddable: true },
 
   // Multi-Subject
   { id: 'labster', name: 'Labster', provider: 'Labster', description: 'Virtual science lab simulations covering biology, chemistry, physics, and engineering. Lab experiences without physical equipment.', url: 'https://www.labster.com/', category: 'Multi-Subject', color: 'from-purple-500 to-indigo-600', icon: FlaskConical },
@@ -172,6 +172,7 @@ export default function AIDirectory() {
     return saved ? JSON.parse(saved) : []
   })
   const [copiedPrompt, setCopiedPrompt] = useState(null)
+  const [embedLab, setEmbedLab] = useState(null)
 
   useEffect(() => {
     localStorage.setItem('ldms_saved_tools', JSON.stringify(savedTools))
@@ -464,14 +465,24 @@ export default function AIDirectory() {
                       {lab.description}
                     </p>
 
-                    <a 
-                      href={lab.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full flex items-center justify-center gap-2 py-3.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl transition-colors border border-emerald-200 hover:border-emerald-300"
-                    >
-                      Launch Lab <ExternalLink className="w-4 h-4 ml-1" />
-                    </a>
+                    <div className="flex gap-2">
+                      <a 
+                        href={lab.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl transition-colors border border-emerald-200 hover:border-emerald-300 text-sm"
+                      >
+                        Open <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                      {lab.embeddable && (
+                        <button
+                          onClick={() => setEmbedLab(lab)}
+                          className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl transition-colors border border-indigo-200 hover:border-indigo-300 text-sm"
+                        >
+                          Embed ▶
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -552,6 +563,35 @@ export default function AIDirectory() {
           )}
         </div>
       )}
+
+      {/* Embedded Lab Iframe Modal */}
+      {embedLab && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex flex-col animate-fade-in">
+          <div className="flex items-center justify-between p-4 bg-slate-900/90 backdrop-blur-md border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${embedLab.color} flex items-center justify-center text-white`}>
+                <embedLab.icon className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-white font-extrabold text-sm">{embedLab.name}</h3>
+                <p className="text-slate-400 text-xs font-medium">{embedLab.provider}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <a href={embedLab.url} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-lg transition-colors">
+                Open Full Site ↗
+              </a>
+              <button onClick={() => setEmbedLab(null)} className="p-2 bg-white/10 hover:bg-red-500/80 text-white rounded-lg transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1">
+            <iframe src={embedLab.url} className="w-full h-full border-0" allow="fullscreen; autoplay; clipboard-write" sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals" title={embedLab.name} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
