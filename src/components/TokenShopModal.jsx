@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { db } from '../utils/firebase'
 import { collection, addDoc, serverTimestamp, getDoc, doc, onSnapshot } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
@@ -68,8 +69,8 @@ export default function TokenShopModal({ onClose }) {
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white w-full max-w-xl rounded-3xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
         <button 
           onClick={onClose}
@@ -182,4 +183,10 @@ export default function TokenShopModal({ onClose }) {
       </div>
     </div>
   )
+
+  // Use createPortal to attach the modal to the document body, avoiding stacking context / transform issues
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body)
+  }
+  return null
 }
