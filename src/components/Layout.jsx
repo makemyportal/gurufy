@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import { useGamification } from '../contexts/GamificationContext'
@@ -112,11 +112,13 @@ export default function Layout() {
   const [showChat, setShowChat] = useState(false)
   const [showProfileCompletion, setShowProfileCompletion] = useState(false)
   const [showTokenShop, setShowTokenShop] = useState(false)
+  const [walletOpen, setWalletOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
   const dropdownRef = useRef(null)
   const notifRef = useRef(null)
+  const walletRef = useRef(null)
 
   // Detect incomplete profile (Google login with no name or email-as-name)
   useEffect(() => {
@@ -137,6 +139,9 @@ export default function Layout() {
       }
       if (notifRef.current && !notifRef.current.contains(e.target)) {
         setShowNotifications(false)
+      }
+      if (walletRef.current && !walletRef.current.contains(e.target)) {
+        setWalletOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -190,10 +195,12 @@ export default function Layout() {
           >
             <Menu className="w-5 h-5 text-surface-700" />
           </button>
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center overflow-hidden shadow-lg">
-            <img src="/logo.png" alt="LDMS" className="w-[120%] h-[120%] object-contain mix-blend-multiply" />
-          </div>
-          <span className="text-[18px] sm:text-[20px] font-extrabold font-display tracking-tight text-surface-900 hidden sm:block">LDMS</span>
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 hover:opacity-90 transition-opacity">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center overflow-hidden shadow-lg">
+              <img src="/logo.png" alt="LDMS" className="w-[120%] h-[120%] object-contain mix-blend-multiply" />
+            </div>
+            <span className="text-[18px] sm:text-[20px] font-extrabold font-display tracking-tight text-surface-900 hidden sm:block">LDMS</span>
+          </Link>
         </div>
 
         {/* Global Search (Desktop) */}
@@ -213,19 +220,56 @@ export default function Layout() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          {/* Platform Economy: Coins */}
+          {/* Platform Economy: Premium Wallet */}
           {currentUser && (
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-full">
-              <span className="text-base" title="EduCoins">🪙</span>
-              <span className="font-extrabold text-amber-700 dark:text-amber-400 text-sm mr-1">
-                {stats?.coins || 0}
-              </span>
+            <div className="relative" ref={walletRef}>
               <button 
-                onClick={() => setShowTokenShop(true)}
-                className="px-2 py-0.5 bg-amber-500 hover:bg-amber-400 text-amber-950 text-[10px] uppercase font-black tracking-wider rounded-md shadow-sm transition-colors"
+                onClick={() => { setWalletOpen(!walletOpen); setDropdownOpen(false); setShowNotifications(false); }}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-full hover:bg-amber-100 transition-colors"
               >
-                Buy
+                <span className="text-base" title="EduCoins">🪙</span>
+                <span className="font-extrabold text-amber-700 dark:text-amber-400 text-sm mr-1">
+                  {stats?.coins || 0}
+                </span>
+                <div className="px-2 py-0.5 bg-amber-500 hover:bg-amber-400 text-amber-950 text-[10px] uppercase font-black tracking-wider rounded-md shadow-sm transition-colors">
+                  Wallet
+                </div>
               </button>
+
+              {walletOpen && (
+                <div className="absolute top-full right-0 mt-3 w-80 bg-gradient-to-br from-indigo-900 via-slate-900 to-black rounded-[24px] shadow-2xl z-50 overflow-hidden border border-indigo-500/20 animate-slide-down">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/20 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+                  <div className="relative z-10 p-5">
+                    <div className="flex items-center gap-4 mb-5">
+                      <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg text-2xl">🪙</div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-0.5">Token Balance</p>
+                        <p className="text-2xl font-black text-white leading-none mb-1">{stats?.coins || 0} <span className="text-amber-400 text-sm">Coins</span></p>
+                        <p className="text-[11px] font-semibold text-indigo-200">{currentLevel.emoji} Level {currentLevel.name} • {stats?.xp || 0} XP</p>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-3 mb-4">
+                      <p className="text-[10px] text-indigo-300 font-bold uppercase tracking-widest mb-2 border-b border-white/10 pb-1">Earn Free Tokens</p>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs text-white/80 font-medium">Daily Login</span>
+                        <span className="text-xs text-emerald-400 font-bold">+{platformSettings?.coinConfig?.daily_login ?? 50} 🪙</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-white/80 font-medium">Share Resource</span>
+                        <span className="text-xs text-emerald-400 font-bold">+{platformSettings?.coinConfig?.share_resource ?? 25} 🪙</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => { setShowTokenShop(true); setWalletOpen(false); }}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-extrabold rounded-xl shadow-lg transition-all hover:scale-[1.02]"
+                    >
+                      <ShoppingCart className="w-4 h-4" /> Buy Coins
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

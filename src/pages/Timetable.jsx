@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle } from 'lucide-react'
+import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
 import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc } from 'firebase/firestore'
@@ -66,8 +66,17 @@ export default function Timetable() {
   const [currentTimetableId, setCurrentTimetableId] = useState(() => localStorage.getItem('ldms_timetable_id') || null)
   const [cloudTimetables, setCloudTimetables] = useState([])
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false)
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [session, setSession] = useState(() => localStorage.getItem('ldms_timetable_session') || '')
+  const [classTeacher, setClassTeacher] = useState(() => localStorage.getItem('ldms_timetable_teacher') || '')
+  const [principalName, setPrincipalName] = useState(() => localStorage.getItem('ldms_timetable_principal') || '')
   
+  const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false)
+  const [selectedTeacherForView, setSelectedTeacherForView] = useState('')
+  const [teacherViewGrid, setTeacherViewGrid] = useState({})
+  const [allTeachersList, setAllTeachersList] = useState([])
+
   const [editingClass, setEditingClass] = useState(false)
   const [showPanel, setShowPanel] = useState(false)
   const [newTeacher, setNewTeacher] = useState('')
@@ -83,6 +92,9 @@ export default function Timetable() {
   useEffect(() => { localStorage.setItem('ldms_timetable_v2', JSON.stringify(grid)) }, [grid])
   useEffect(() => { localStorage.setItem('ldms_timetable_class', className) }, [className])
   useEffect(() => { localStorage.setItem('ldms_timetable_school', schoolName) }, [schoolName])
+  useEffect(() => { localStorage.setItem('ldms_timetable_session', session) }, [session])
+  useEffect(() => { localStorage.setItem('ldms_timetable_teacher', classTeacher) }, [classTeacher])
+  useEffect(() => { localStorage.setItem('ldms_timetable_principal', principalName) }, [principalName])
   useEffect(() => { localStorage.setItem('ldms_timetable_details', details) }, [details])
   useEffect(() => { if (currentTimetableId) localStorage.setItem('ldms_timetable_id', currentTimetableId); else localStorage.removeItem('ldms_timetable_id') }, [currentTimetableId])
   useEffect(() => { localStorage.setItem('ldms_teachers', JSON.stringify(teachers)) }, [teachers])
@@ -131,16 +143,98 @@ export default function Timetable() {
   }
 
   const loadTimetables = async () => {
-    if (!currentUser) return
+    if (!currentUser) return []
     try {
       const q = query(collection(db, 'timetables'), where('userId', '==', currentUser.uid))
       const snapshot = await getDocs(q)
       const tbs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       tbs.sort((a,b) => (b.updatedAt?.toMillis() || 0) - (a.updatedAt?.toMillis() || 0))
       setCloudTimetables(tbs)
+      
+      const tSet = new Set()
+      tbs.forEach(tb => {
+        if (tb.teachers) tb.teachers.forEach(t => tSet.add(t))
+      })
+      setAllTeachersList(Array.from(tSet).sort())
+      
+      return tbs
     } catch (error) {
       console.error('Error loading timetables:', error)
+      return []
     }
+  }
+
+  const handleOpenTeacherView = async () => {
+    if (!currentUser) return alert('Please login to use Teacher View.')
+    const tbs = await loadTimetables()
+    if (tbs.length === 0) return alert('No timetables found in the cloud. Save some classes first!')
+    setIsTeacherModalOpen(true)
+    setSelectedTeacherForView('')
+    setTeacherViewGrid({})
+  }
+
+  const generateTeacherGrid = (teacherName) => {
+    if (!teacherName) return
+    const g = {}
+    ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = [] }) })
+    
+    cloudTimetables.forEach(tb => {
+      const activeDs = tb.activeDays || ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+      activeDs.forEach(d => {
+        PERIODS.forEach(p => {
+          const cell = tb.grid?.[d]?.[p]
+          if (cell && cell.teacher === teacherName) {
+            g[d][p].push({
+              className: tb.className || 'Unnamed Class',
+              subject: cell.subject,
+              schoolName: tb.schoolName
+            })
+          }
+        })
+      })
+    })
+    setTeacherViewGrid(g)
+  }
+
+  useEffect(() => {
+    if (selectedTeacherForView) generateTeacherGrid(selectedTeacherForView)
+  }, [selectedTeacherForView, cloudTimetables])
+
+  const executeTeacherPrint = () => {
+    if (!selectedTeacherForView) return
+    const w = window.open('', '_blank')
+    w.document.write(`<html><head><title>Teacher Timetable - ${selectedTeacherForView}</title><style>body{font-family:Inter,sans-serif;padding:30px;max-width:1000px;margin:0 auto}table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:40px}th,td{border:1px solid #cbd5e1;padding:10px;text-align:center}th{background:#1e293b;color:white;font-weight:bold}.clash{background:#fee2e2;color:#991b1b;border:2px solid #ef4444}.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #e2e8f0;padding-bottom:20px}.header h1{margin:0 0 10px 0;font-size:28px;color:#0f172a}.header p{margin:0 0 5px 0;color:#475569;font-size:16px}</style></head><body>`)
+    
+    w.document.write(`<div class="header">`)
+    w.document.write(`<h1>${selectedTeacherForView}'s Schedule</h1>`)
+    w.document.write(`<p>Generated by LDMS Teacher View</p>`)
+    w.document.write(`</div>`)
+    
+    w.document.write(`<table><thead><tr><th>Period</th>`)
+    ALL_DAYS.forEach(d => w.document.write(`<th>${d}</th>`))
+    w.document.write(`</tr></thead><tbody>`)
+    PERIODS.forEach(p => {
+      w.document.write(`<tr><td><strong>${p}</strong></td>`)
+      ALL_DAYS.forEach(d => {
+        const assignments = teacherViewGrid[d]?.[p] || []
+        if (assignments.length === 0) {
+          w.document.write(`<td>-</td>`)
+        } else {
+          const isClash = assignments.length > 1
+          w.document.write(`<td class="${isClash ? 'clash' : ''}">`)
+          assignments.forEach((a, i) => {
+            if (i > 0) w.document.write(`<hr style="margin:4px 0; border:0; border-top:1px solid ${isClash ? '#fca5a5' : '#cbd5e1'}">`)
+            w.document.write(`<strong>${a.className}</strong><br><small>${a.subject || 'No Subject'}</small>`)
+          })
+          w.document.write(`</td>`)
+        }
+      })
+      w.document.write(`</tr>`)
+    })
+    w.document.write(`</tbody></table>`)
+    w.document.write(`</body></html>`)
+    w.document.close()
+    setTimeout(() => w.print(), 500)
   }
 
   const handleLoadTimetable = (tb) => {
@@ -236,10 +330,18 @@ export default function Timetable() {
     return s2 + (c?.teacher && absentTeachers.includes(c.teacher) && !c.substitute ? 1 : 0)
   }, 0), 0)
 
-  const handlePrint = () => {
+  const executePrint = () => {
+    setIsPrintModalOpen(false)
     const w = window.open('', '_blank')
-    w.document.write(`<html><head><title>Timetable - ${className}</title><style>body{font-family:Inter,sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:8px;text-align:center}th{background:#1e293b;color:white}.sub{color:#dc2626;font-style:italic}.absent{text-decoration:line-through;color:#999}h1{text-align:center;margin-bottom:4px}p{text-align:center;color:#666;margin-bottom:16px}</style></head><body>`)
-    w.document.write(`<h1>${schoolName ? schoolName + ' - ' : ''}${className} Timetable</h1><p>${details ? details + '<br>' : ''}Generated by LDMS</p><table><thead><tr><th>Period</th>`)
+    w.document.write(`<html><head><title>Timetable - ${className}</title><style>body{font-family:Inter,sans-serif;padding:30px;max-width:1000px;margin:0 auto}table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:40px}th,td{border:1px solid #cbd5e1;padding:10px;text-align:center}th{background:#1e293b;color:white;font-weight:bold}.sub{color:#dc2626;font-style:italic;display:block;margin-top:4px}.absent{text-decoration:line-through;color:#94a3b8}.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #e2e8f0;padding-bottom:20px}.header h1{margin:0 0 10px 0;font-size:28px;color:#0f172a}.header p{margin:0 0 5px 0;color:#475569;font-size:16px}.footer{display:flex;justify-content:space-between;margin-top:60px;padding-top:20px}.sign-box{text-align:center;width:200px}.sign-line{border-top:1px solid #475569;margin-bottom:8px;padding-top:6px;font-weight:bold;font-size:14px;color:#0f172a}.sign-name{font-size:14px;color:#475569}</style></head><body>`)
+    
+    w.document.write(`<div class="header">`)
+    w.document.write(`<h1>${schoolName ? schoolName : 'School Timetable'}</h1>`)
+    w.document.write(`<p><strong>Class:</strong> ${className} ${session ? `&nbsp;|&nbsp; <strong>Session:</strong> ${session}` : ''}</p>`)
+    if (details) w.document.write(`<p style="font-style:italic;font-size:14px;margin-top:10px">${details}</p>`)
+    w.document.write(`</div>`)
+    
+    w.document.write(`<table><thead><tr><th>Period</th>`)
     activeDays.forEach(d => w.document.write(`<th>${d}</th>`))
     w.document.write(`</tr></thead><tbody>`)
     PERIODS.forEach(p => {
@@ -247,15 +349,27 @@ export default function Timetable() {
       activeDays.forEach(d => {
         const c = grid[d]?.[p] || {}
         const isAbsent = c.teacher && absentTeachers.includes(c.teacher)
-        let html = c.subject || '-'
+        let html = c.subject ? `<strong>${c.subject}</strong>` : '-'
         if (c.teacher) html += `<br><small class="${isAbsent ? 'absent' : ''}">${c.teacher}</small>`
         if (c.substitute) html += `<br><small class="sub">Sub: ${c.substitute}</small>`
         w.document.write(`<td>${html}</td>`)
       })
       w.document.write(`</tr>`)
     })
-    w.document.write(`</tbody></table></body></html>`)
-    w.document.close(); w.print()
+    w.document.write(`</tbody></table>`)
+    
+    w.document.write(`<div class="footer">`)
+    w.document.write(`<div class="sign-box"><div class="sign-line">Class Teacher Signature</div><div class="sign-name">${classTeacher || ''}</div></div>`)
+    w.document.write(`<div class="sign-box"><div class="sign-line">Principal Signature</div><div class="sign-name">${principalName || ''}</div></div>`)
+    w.document.write(`</div>`)
+    
+    w.document.write(`</body></html>`)
+    w.document.close()
+    setTimeout(() => w.print(), 500)
+  }
+
+  const handlePrintClick = () => {
+    setIsPrintModalOpen(true)
   }
 
   const handleReset = () => {
@@ -306,11 +420,14 @@ export default function Timetable() {
         <button onClick={() => setShowPanel(!showPanel)} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${showPanel ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border border-surface-200 text-surface-700 hover:bg-surface-50'}`}>
           <Users className="w-4 h-4" /> Teachers {absentTeachers.length > 0 && <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">{absentTeachers.length}</span>}
         </button>
-        <button onClick={handlePrint} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm"><Printer className="w-4 h-4" /> Print</button>
+        <button onClick={handlePrintClick} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm"><Printer className="w-4 h-4" /> Print</button>
         
         <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-end">
           {currentUser && (
             <>
+              <button onClick={handleOpenTeacherView} className="flex items-center gap-2 px-4 py-2.5 bg-fuchsia-50 border border-fuchsia-200 text-fuchsia-700 rounded-xl text-sm font-bold hover:bg-fuchsia-100 shadow-sm">
+                <User className="w-4 h-4" /> <span className="hidden sm:inline">Teacher View</span>
+              </button>
               <button onClick={() => { setIsCloudModalOpen(true); loadTimetables() }} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-sm font-bold hover:bg-indigo-100 shadow-sm">
                 <FolderOpen className="w-4 h-4" /> <span className="hidden sm:inline">My Timetables</span>
               </button>
@@ -588,6 +705,155 @@ export default function Timetable() {
                     </div>
                   </div>
                 ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Print Configuration Modal */}
+      {isPrintModalOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsPrintModalOpen(false)}>
+          <div className="bg-white rounded-[28px] shadow-2xl p-6 sm:p-8 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-extrabold text-surface-900 flex items-center gap-2"><Printer className="w-6 h-6 text-emerald-500" /> Print Configuration</h3>
+              <button onClick={() => setIsPrintModalOpen(false)} className="p-2 hover:bg-surface-100 rounded-xl transition-colors"><X className="w-5 h-5 text-surface-500" /></button>
+            </div>
+            
+            <div className="space-y-4 mb-8">
+              <div>
+                <label className="block text-xs font-bold text-surface-500 uppercase tracking-wider mb-1.5">School Name</label>
+                <input type="text" value={schoolName} onChange={e => setSchoolName(e.target.value)} placeholder="e.g. Springfield High School" className="w-full px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-emerald-400 focus:bg-white transition-colors" />
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-surface-500 uppercase tracking-wider mb-1.5">Class</label>
+                  <input type="text" value={className} onChange={e => setClassName(e.target.value)} className="w-full px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-emerald-400 focus:bg-white transition-colors" />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-surface-500 uppercase tracking-wider mb-1.5">Session</label>
+                  <input type="text" value={session} onChange={e => setSession(e.target.value)} placeholder="e.g. 2026-2027" className="w-full px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-emerald-400 focus:bg-white transition-colors" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-surface-500 uppercase tracking-wider mb-1.5">Class Teacher Name</label>
+                <input type="text" value={classTeacher} onChange={e => setClassTeacher(e.target.value)} placeholder="e.g. Mr. Sharma" className="w-full px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-emerald-400 focus:bg-white transition-colors" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-surface-500 uppercase tracking-wider mb-1.5">Principal Name</label>
+                <input type="text" value={principalName} onChange={e => setPrincipalName(e.target.value)} placeholder="e.g. Dr. A. Gupta" className="w-full px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-emerald-400 focus:bg-white transition-colors" />
+              </div>
+            </div>
+            
+            <button onClick={executePrint} className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+              <Printer className="w-4 h-4" /> Generate Print
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Teacher View Modal */}
+      {isTeacherModalOpen && (
+        <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsTeacherModalOpen(false)}>
+          <div className="bg-white rounded-[28px] shadow-2xl p-6 sm:p-8 w-full max-w-6xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <h3 className="text-xl sm:text-2xl font-extrabold text-surface-900 flex items-center gap-2 font-display">
+                <User className="w-6 h-6 text-fuchsia-500" /> Teacher-Wise Timetable
+              </h3>
+              <div className="flex items-center gap-2">
+                {selectedTeacherForView && (
+                  <button onClick={executeTeacherPrint} className="px-4 py-2 bg-white border border-surface-200 hover:bg-surface-50 text-surface-700 rounded-xl text-sm font-bold shadow-sm flex items-center gap-2">
+                    <Printer className="w-4 h-4" /> Print
+                  </button>
+                )}
+                <button onClick={() => setIsTeacherModalOpen(false)} className="p-2 hover:bg-surface-100 rounded-xl transition-colors"><X className="w-5 h-5 text-surface-500" /></button>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <label className="block text-xs font-bold text-surface-500 uppercase tracking-wider mb-2">Select Teacher</label>
+              <select 
+                value={selectedTeacherForView} 
+                onChange={(e) => setSelectedTeacherForView(e.target.value)}
+                className="w-full sm:w-[300px] px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl text-sm font-bold focus:outline-none focus:border-fuchsia-400 focus:bg-white transition-colors"
+              >
+                <option value="">-- Choose a Teacher --</option>
+                {allTeachersList.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar border border-surface-200 rounded-2xl bg-white relative">
+              {!selectedTeacherForView ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-surface-400 p-8 text-center">
+                  <User className="w-12 h-12 mb-3 text-surface-300" />
+                  <p className="text-lg font-bold text-surface-600">Select a teacher above</p>
+                  <p className="text-sm">Their combined schedule across all your saved classes will appear here.</p>
+                </div>
+              ) : (
+                <div className="min-w-[800px]">
+                  {/* Grid Header */}
+                  <div className="grid grid-cols-[80px_repeat(6,1fr)] bg-slate-900 text-white sticky top-0 z-10 text-xs sm:text-sm shadow-md">
+                    <div className="p-3 sm:p-4 font-bold border-b border-r border-slate-800 text-center uppercase tracking-wider">Period</div>
+                    {ALL_DAYS.map(day => (
+                      <div key={day} className="p-3 sm:p-4 font-bold border-b border-r border-slate-800 text-center uppercase tracking-wider">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Grid Body */}
+                  <div className="divide-y divide-surface-200">
+                    {PERIODS.map((period) => (
+                      <div key={period} className="grid grid-cols-[80px_repeat(6,1fr)]">
+                        {/* Period Column */}
+                        <div className="p-3 sm:p-4 bg-surface-50 border-r border-surface-200 font-bold text-surface-700 text-xs sm:text-sm text-center flex items-center justify-center">
+                          {period}
+                        </div>
+                        
+                        {/* Days Columns */}
+                        {ALL_DAYS.map(day => {
+                          const assignments = teacherViewGrid[day]?.[period] || []
+                          const isClash = assignments.length > 1
+                          
+                          return (
+                            <div 
+                              key={`${day}-${period}`} 
+                              className={`p-3 border-r border-surface-200 relative min-h-[80px] transition-colors
+                                ${assignments.length === 0 ? 'bg-white hover:bg-surface-50/50' : isClash ? 'bg-red-50 hover:bg-red-100' : 'bg-fuchsia-50/30 hover:bg-fuchsia-50/60'}`}
+                            >
+                              {assignments.length > 0 ? (
+                                <div className="space-y-2">
+                                  {assignments.map((a, i) => (
+                                    <div key={i} className={`p-2 rounded-lg text-center ${isClash ? 'bg-red-100/80 border border-red-200 shadow-sm' : 'bg-white border border-fuchsia-100 shadow-sm'}`}>
+                                      <div className={`text-xs sm:text-sm font-black ${isClash ? 'text-red-700' : 'text-fuchsia-700'}`}>
+                                        {a.className}
+                                      </div>
+                                      <div className={`text-[10px] sm:text-xs font-semibold mt-0.5 ${isClash ? 'text-red-600' : 'text-fuchsia-600/80'}`}>
+                                        {a.subject || 'No Subject'}
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {isClash && (
+                                    <div className="absolute top-1 right-1">
+                                      <span className="flex h-3 w-3 relative">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="h-full w-full flex items-center justify-center text-surface-300 font-medium text-xs">
+                                  -
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           </div>

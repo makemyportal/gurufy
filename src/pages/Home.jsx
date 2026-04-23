@@ -224,35 +224,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Economy Balance Widget */}
-      {currentUser && (
-        <div className="mb-10 bg-gradient-to-r from-indigo-900 via-slate-900 to-black rounded-[28px] p-6 sm:p-8 shadow-xl relative overflow-hidden border border-indigo-500/20">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-5">
-              <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg text-3xl">🪙</div>
-              <div>
-                <p className="text-xs font-black uppercase tracking-widest text-indigo-300 mb-1">Token Balance</p>
-                <p className="text-3xl font-black text-white">{stats?.coins || 0} <span className="text-amber-400 text-lg">Coins</span></p>
-                <p className="text-xs font-semibold text-indigo-300 mt-0.5">{level.emoji} Level {level.name} • {stats?.xp || 0} XP</p>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-center">
-                <p className="text-xs text-indigo-300 font-bold uppercase tracking-widest mb-0.5">Earn Free</p>
-                <p className="text-sm text-white font-bold">Daily Login: <span className="text-emerald-400">+5 🪙</span></p>
-                <p className="text-sm text-white font-bold">Share Resource: <span className="text-emerald-400">+15 🪙</span></p>
-              </div>
-              <button
-                onClick={() => setShowTokenShop(true)}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-extrabold rounded-2xl shadow-lg transition-all hover:scale-105"
-              >
-                <ShoppingCart className="w-5 h-5" /> Buy Coins
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* AI Magic Tools Section */}
       <div className="mb-10">
