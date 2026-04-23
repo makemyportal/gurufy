@@ -528,6 +528,8 @@ export default function Layout() {
       )}
 
       {showTokenShop && <TokenShopModal onClose={() => setShowTokenShop(false)} />}
+
+      <AIChatWidget pageContext={pageTitle} />
     </div>
   )
 }

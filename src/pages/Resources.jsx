@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useGamification } from '../contexts/GamificationContext'
 import { db } from '../utils/firebase'
 import {
   collection, addDoc, onSnapshot, query, orderBy,
@@ -7,7 +8,7 @@ import {
 } from 'firebase/firestore'
 import { uploadToCloudinary, formatFileSize } from '../utils/cloudinary'
 import {
-  Search, Download, Upload, Star, X, Loader2, FileText, CheckCircle2
+  Search, Download, Upload, Star, X, Loader2, FileText, CheckCircle2, Coins
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -38,6 +39,7 @@ const FORMAT_STYLES = {
 export default function Resources() {
   const navigate = useNavigate()
   const { currentUser, userProfile } = useAuth()
+  const { spendCoins, stats } = useGamification()
   const [resources, setResources] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -101,13 +103,16 @@ export default function Resources() {
 
     try {
       const result = await uploadToCloudinary(uploadFile)
+      const coinPrice = uploadForm.price === 'Free' ? 0 : Number(uploadForm.priceAmount) || 0
+      
       await addDoc(collection(db, 'resources'), {
         title: uploadForm.title,
         description: uploadForm.description,
         subject: uploadForm.subject,
         classLevel: uploadForm.classLevel,
         type: uploadForm.type || 'Other',
-        price: uploadForm.price === 'Free' ? 'Free' : uploadForm.priceAmount || 'Paid',
+        price: coinPrice === 0 ? 'Free' : `${coinPrice} Coins`,
+        coinPrice: coinPrice,
         fileUrl: result.url,
         format: result.format?.toUpperCase() || 'FILE',
         fileSize: formatFileSize(result.bytes),
@@ -134,6 +139,30 @@ export default function Resources() {
 
   async function handleDownload(resource) {
     if (!currentUser) return navigate('/login')
+    
+    // Check price and handle transaction
+    const price = resource.coinPrice || 0
+    if (price > 0 && currentUser.uid !== resource.authorId) {
+      if (stats.coins < price) {
+        alert(`You need ${price} Coins to download this premium resource. You currently have ${stats.coins} Coins.`)
+        return
+      }
+      if (!window.confirm(`This premium resource costs ${price} Coins. Do you want to spend ${price} Coins to unlock and download it?`)) return
+      
+      const success = await spendCoins(price, 'purchase_resource')
+      if (!success) {
+        alert("Transaction failed.")
+        return
+      }
+      
+      // Credit coins to author
+      try {
+        await updateDoc(doc(db, 'gamification', resource.authorId), { coins: increment(price) })
+      } catch (err) {
+        console.error("Failed to credit author", err)
+      }
+    }
+
     await updateDoc(doc(db, 'resources', resource.id), { downloads: increment(1) }).catch(() => {})
     window.open(resource.fileUrl, '_blank')
   }
@@ -144,25 +173,25 @@ export default function Resources() {
     <div className="max-w-6xl mx-auto animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="section-title">Resource Library</h1>
-          <p className="text-sm text-surface-500 mt-1 font-medium">Discover, share, and download premium teaching resources.</p>
+          <h1 className="section-title">Teacher Marketplace</h1>
+          <p className="text-sm text-surface-500 mt-1 font-medium">Discover, buy, and sell premium teaching resources for coins.</p>
         </div>
-        <button onClick={() => { if (!currentUser) return navigate('/login'); setShowUpload(true) }} className="btn-primary py-2.5 px-5 text-sm flex items-center gap-2 shrink-0 self-start sm:self-auto">
-          <Upload className="w-4 h-4" /> Upload Resource
+        <button onClick={() => { if (!currentUser) return navigate('/login'); setShowUpload(true) }} className="btn-primary py-2.5 px-5 text-sm flex items-center gap-2 shrink-0 self-start sm:self-auto bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md border-0">
+          <Upload className="w-4 h-4" /> Sell Resource
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 mb-6 bg-surface-100 p-1.5 rounded-xl w-max">
+      <div className="flex items-center gap-2 mb-6 bg-surface-100 p-1.5 rounded-xl w-full sm:w-max overflow-x-auto hide-scrollbar">
         <button 
           onClick={() => setActiveTab('community')}
-          className={`px-5 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'community' ? 'bg-white text-primary-700 shadow-sm' : 'text-surface-600 hover:text-surface-900'}`}
+          className={`px-4 sm:px-5 py-2 text-sm font-bold rounded-lg transition-all whitespace-nowrap shrink-0 ${activeTab === 'community' ? 'bg-white text-primary-700 shadow-sm' : 'text-surface-600 hover:text-surface-900'}`}
         >
-          Community Uploads
+          Marketplace
         </button>
         <button 
           onClick={() => setActiveTab('global')}
-          className={`px-5 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'global' ? 'bg-white text-primary-700 shadow-sm' : 'text-surface-600 hover:text-surface-900'}`}
+          className={`px-4 sm:px-5 py-2 text-sm font-bold rounded-lg transition-all whitespace-nowrap shrink-0 ${activeTab === 'global' ? 'bg-white text-primary-700 shadow-sm' : 'text-surface-600 hover:text-surface-900'}`}
         >
           Global Free Resources
         </button>
@@ -272,14 +301,14 @@ export default function Resources() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`font-bold text-sm ${resource.price === 'Free' ? 'text-emerald-600' : 'text-primary-700'}`}>
-                      {resource.price}
+                    <span className={`font-bold text-sm flex items-center gap-1 ${resource.price === 'Free' || !resource.coinPrice ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {resource.price === 'Free' || !resource.coinPrice ? 'Free' : <><span className="text-lg">🪙</span> {resource.coinPrice}</>}
                     </span>
                     <button
                       onClick={() => handleDownload(resource)}
-                      className="p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors active:scale-95"
+                      className={`p-2 text-white rounded-lg transition-colors active:scale-95 ${resource.price === 'Free' || !resource.coinPrice ? 'bg-primary-600 hover:bg-primary-700' : 'bg-amber-500 hover:bg-amber-600 shadow-[0_4px_12px_rgba(245,158,11,0.3)]'}`}
                     >
-                      <Download className="w-4 h-4" />
+                      {resource.price === 'Free' || !resource.coinPrice ? <Download className="w-4 h-4" /> : <Coins className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -295,7 +324,7 @@ export default function Resources() {
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowUpload(false)}>
           <div className="bg-white rounded-2xl shadow-glass w-full max-w-lg p-6 animate-slide-up" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold font-display">Upload Resource</h2>
+              <h2 className="text-xl font-bold font-display">Sell Resource</h2>
               <button onClick={() => setShowUpload(false)} className="p-1.5 hover:bg-surface-100 rounded-lg">
                 <X className="w-5 h-5 text-surface-500" />
               </button>
@@ -304,8 +333,8 @@ export default function Resources() {
             {uploadSuccess ? (
               <div className="text-center py-8">
                 <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-3" />
-                <p className="font-bold text-surface-900">Resource Uploaded!</p>
-                <p className="text-sm text-surface-500">It will appear in the library shortly.</p>
+                <p className="font-bold text-surface-900">Resource Listed!</p>
+                <p className="text-sm text-surface-500">It is now available in the marketplace.</p>
               </div>
             ) : (
               <form onSubmit={handleUpload} className="space-y-4">
@@ -354,26 +383,29 @@ export default function Resources() {
                   <input type="file" className="hidden" accept=".pdf,.ppt,.pptx,.doc,.docx,.jpg,.jpeg,.png" onChange={e => setUploadFile(e.target.files[0])} />
                 </label>
 
-                <div className="flex gap-3">
-                  <select value={uploadForm.price} onChange={e => setUploadForm(p => ({ ...p, price: e.target.value }))} className="input-field w-1/3">
-                    <option>Free</option>
-                    <option>Paid</option>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <select value={uploadForm.price} onChange={e => setUploadForm(p => ({ ...p, price: e.target.value }))} className="input-field w-full sm:w-1/3 font-bold text-amber-600 bg-amber-50">
+                    <option value="Free">Free</option>
+                    <option value="Paid">Premium (Coins)</option>
                   </select>
                   {uploadForm.price === 'Paid' && (
-                    <input
-                      type="text" placeholder="Price (e.g. ₹49)"
-                      value={uploadForm.priceAmount} onChange={e => setUploadForm(p => ({ ...p, priceAmount: e.target.value }))}
-                      className="input-field flex-1"
-                    />
+                    <div className="relative flex-1">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg">🪙</span>
+                      <input
+                        type="number" min="1" placeholder="Set Price (e.g. 50)" required
+                        value={uploadForm.priceAmount} onChange={e => setUploadForm(p => ({ ...p, priceAmount: e.target.value }))}
+                        className="input-field pl-12 font-bold w-full"
+                      />
+                    </div>
                   )}
                 </div>
 
                 <button
                   type="submit"
                   disabled={uploading || !uploadFile || !uploadForm.title}
-                  className="btn-primary w-full py-3 flex items-center justify-center gap-2"
+                  className="btn-primary w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-md border-0"
                 >
-                  {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</> : <><Upload className="w-4 h-4" /> Upload Resource</>}
+                  {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Publishing...</> : <><Coins className="w-4 h-4" /> List on Marketplace</>}
                 </button>
               </form>
             )}
