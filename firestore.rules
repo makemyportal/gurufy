@@ -109,6 +109,13 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.creatorId || isAdmin());
     }
 
+    match /timetables/{timetableId} {
+      // Allow users to read their own timetables or admin
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+    }
+
     match /audioRooms/{roomId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();

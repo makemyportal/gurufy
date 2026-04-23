@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag } from 'lucide-react'
+import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { db } from '../utils/firebase'
+import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc } from 'firebase/firestore'
 
 const ALL_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
 const PERIODS = ['Period 1','Period 2','Period 3','Period 4','Lunch','Period 5','Period 6','Period 7','Period 8']
@@ -26,12 +29,14 @@ const SC = {
 const gc = s => SC[s] || 'bg-indigo-100 text-indigo-800 border-indigo-200'
 
 export default function Timetable() {
+  const { currentUser } = useAuth()
+  
   // grid[day][period] = { subject, teacher, substitute }
   const [grid, setGrid] = useState(() => {
     const s = localStorage.getItem('ldms_timetable_v2')
     if (s) return JSON.parse(s)
     const g = {}
-    DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '' } }) })
+    ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '' } }) })
     return g
   })
   const [teachers, setTeachers] = useState(() => {
@@ -56,6 +61,13 @@ export default function Timetable() {
   })
   const [editing, setEditing] = useState(null)
   const [className, setClassName] = useState(() => localStorage.getItem('ldms_timetable_class') || 'Class 8-A')
+  const [schoolName, setSchoolName] = useState(() => localStorage.getItem('ldms_timetable_school') || '')
+  const [details, setDetails] = useState(() => localStorage.getItem('ldms_timetable_details') || '')
+  const [currentTimetableId, setCurrentTimetableId] = useState(() => localStorage.getItem('ldms_timetable_id') || null)
+  const [cloudTimetables, setCloudTimetables] = useState([])
+  const [isCloudModalOpen, setIsCloudModalOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  
   const [editingClass, setEditingClass] = useState(false)
   const [showPanel, setShowPanel] = useState(false)
   const [newTeacher, setNewTeacher] = useState('')
@@ -70,12 +82,92 @@ export default function Timetable() {
 
   useEffect(() => { localStorage.setItem('ldms_timetable_v2', JSON.stringify(grid)) }, [grid])
   useEffect(() => { localStorage.setItem('ldms_timetable_class', className) }, [className])
+  useEffect(() => { localStorage.setItem('ldms_timetable_school', schoolName) }, [schoolName])
+  useEffect(() => { localStorage.setItem('ldms_timetable_details', details) }, [details])
+  useEffect(() => { if (currentTimetableId) localStorage.setItem('ldms_timetable_id', currentTimetableId); else localStorage.removeItem('ldms_timetable_id') }, [currentTimetableId])
   useEffect(() => { localStorage.setItem('ldms_teachers', JSON.stringify(teachers)) }, [teachers])
   useEffect(() => { localStorage.setItem('ldms_absent', JSON.stringify(absentTeachers)) }, [absentTeachers])
   useEffect(() => { localStorage.setItem('ldms_break', JSON.stringify(onBreak)) }, [onBreak])
   useEffect(() => { localStorage.setItem('ldms_subjects', JSON.stringify(subjects)) }, [subjects])
   useEffect(() => { localStorage.setItem('ldms_active_days', JSON.stringify(activeDays)) }, [activeDays])
   useEffect(() => { localStorage.setItem('ldms_teacher_subjects', JSON.stringify(teacherSubjects)) }, [teacherSubjects])
+
+  const saveToCloud = async () => {
+    if (!currentUser) return alert('Please login to save to the cloud.')
+    if (!className.trim()) return alert('Please enter a class name.')
+    
+    setIsSaving(true)
+    try {
+      const timetableData = {
+        userId: currentUser.uid,
+        schoolName,
+        className,
+        details,
+        grid,
+        teachers,
+        absentTeachers,
+        onBreak,
+        subjects,
+        activeDays,
+        teacherSubjects,
+        updatedAt: serverTimestamp()
+      }
+
+      if (currentTimetableId) {
+        await updateDoc(doc(db, 'timetables', currentTimetableId), timetableData)
+        alert('Timetable updated in cloud successfully!')
+      } else {
+        timetableData.createdAt = serverTimestamp()
+        const docRef = await addDoc(collection(db, 'timetables'), timetableData)
+        setCurrentTimetableId(docRef.id)
+        alert('Timetable saved to cloud successfully!')
+      }
+    } catch (error) {
+      console.error('Error saving timetable:', error)
+      alert('Failed to save to cloud.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const loadTimetables = async () => {
+    if (!currentUser) return
+    try {
+      const q = query(collection(db, 'timetables'), where('userId', '==', currentUser.uid))
+      const snapshot = await getDocs(q)
+      const tbs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      tbs.sort((a,b) => (b.updatedAt?.toMillis() || 0) - (a.updatedAt?.toMillis() || 0))
+      setCloudTimetables(tbs)
+    } catch (error) {
+      console.error('Error loading timetables:', error)
+    }
+  }
+
+  const handleLoadTimetable = (tb) => {
+    setSchoolName(tb.schoolName || '')
+    setClassName(tb.className || '')
+    setDetails(tb.details || '')
+    setGrid(tb.grid || {})
+    setTeachers(tb.teachers || DEFAULT_TEACHERS)
+    setAbsentTeachers(tb.absentTeachers || [])
+    setOnBreak(tb.onBreak || [])
+    setSubjects(tb.subjects || DEFAULT_SUBJECTS)
+    setActiveDays(tb.activeDays || ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'])
+    setTeacherSubjects(tb.teacherSubjects || {})
+    setCurrentTimetableId(tb.id)
+    setIsCloudModalOpen(false)
+  }
+
+  const handleNewTimetable = () => {
+    if (!confirm('Start a new timetable? Current local unsaved changes will be cleared.')) return
+    setCurrentTimetableId(null)
+    setSchoolName('')
+    setClassName('New Class')
+    setDetails('')
+    const g = {}
+    ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '' } }) })
+    setGrid(g)
+  }
 
   const setCell = (day, period, subject) => {
     setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], subject } } }))
@@ -147,7 +239,7 @@ export default function Timetable() {
   const handlePrint = () => {
     const w = window.open('', '_blank')
     w.document.write(`<html><head><title>Timetable - ${className}</title><style>body{font-family:Inter,sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:8px;text-align:center}th{background:#1e293b;color:white}.sub{color:#dc2626;font-style:italic}.absent{text-decoration:line-through;color:#999}h1{text-align:center;margin-bottom:4px}p{text-align:center;color:#666;margin-bottom:16px}</style></head><body>`)
-    w.document.write(`<h1>${className} - Weekly Timetable</h1><p>Generated by LDMS</p><table><thead><tr><th>Period</th>`)
+    w.document.write(`<h1>${schoolName ? schoolName + ' - ' : ''}${className} Timetable</h1><p>${details ? details + '<br>' : ''}Generated by LDMS</p><table><thead><tr><th>Period</th>`)
     activeDays.forEach(d => w.document.write(`<th>${d}</th>`))
     w.document.write(`</tr></thead><tbody>`)
     PERIODS.forEach(p => {
@@ -169,7 +261,7 @@ export default function Timetable() {
   const handleReset = () => {
     if (!confirm('Reset entire timetable?')) return
     const g = {}
-    DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '' } }) })
+    ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '' } }) })
     setGrid(g)
   }
 
@@ -190,22 +282,48 @@ export default function Timetable() {
       </div>
 
       {/* Controls */}
+      {!currentUser && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3 text-sm text-amber-800 shadow-sm animate-fade-in">
+          <AlertCircle className="w-6 h-6 text-amber-500 shrink-0" />
+          <p><strong>You are using Timetable as a Guest.</strong> Your data is only saved locally on this browser. Login to save to the cloud securely and access it anywhere.</p>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-3 mb-6">
         {editingClass ? (
-          <div className="flex items-center gap-2">
-            <input type="text" value={className} onChange={e => setClassName(e.target.value)} autoFocus className="px-4 py-2.5 border-2 border-emerald-400 rounded-xl text-sm font-bold focus:outline-none" />
-            <button onClick={() => setEditingClass(false)} className="p-2 bg-emerald-600 text-white rounded-xl"><Save className="w-4 h-4" /></button>
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <input type="text" value={className} onChange={e => setClassName(e.target.value)} autoFocus placeholder="Class (e.g. 8-A)" className="px-4 py-2.5 border-2 border-emerald-400 rounded-xl text-sm font-bold focus:outline-none w-full sm:w-auto" />
+            <input type="text" value={schoolName} onChange={e => setSchoolName(e.target.value)} placeholder="School Name (optional)" className="px-4 py-2.5 border-2 border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:border-emerald-400 w-full sm:w-auto" />
+            <input type="text" value={details} onChange={e => setDetails(e.target.value)} placeholder="Details (optional)" className="hidden md:block px-4 py-2.5 border-2 border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:border-emerald-400 min-w-[200px]" />
+            <button onClick={() => setEditingClass(false)} className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-sm hover:bg-emerald-700 transition-colors"><Save className="w-5 h-5" /></button>
           </div>
         ) : (
-          <button onClick={() => setEditingClass(true)} className="px-5 py-2.5 bg-white border border-surface-200 rounded-xl text-sm font-extrabold text-surface-900 hover:bg-surface-50">
-            📚 {className}
+          <button onClick={() => setEditingClass(true)} className="px-5 py-2.5 bg-white border border-surface-200 rounded-xl text-sm font-extrabold text-surface-900 hover:bg-surface-50 text-left flex items-center gap-2 shadow-sm transition-all">
+            <span>📚 {className}</span>
+            {schoolName && <span className="text-surface-400 font-medium text-xs border-l border-surface-200 pl-2 ml-1">{schoolName}</span>}
           </button>
         )}
-        <button onClick={() => setShowPanel(!showPanel)} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${showPanel ? 'bg-indigo-600 text-white' : 'bg-white border border-surface-200 text-surface-700 hover:bg-surface-50'}`}>
+        <button onClick={() => setShowPanel(!showPanel)} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${showPanel ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border border-surface-200 text-surface-700 hover:bg-surface-50'}`}>
           <Users className="w-4 h-4" /> Teachers {absentTeachers.length > 0 && <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">{absentTeachers.length}</span>}
         </button>
-        <button onClick={handlePrint} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50"><Printer className="w-4 h-4" /> Print</button>
-        <button onClick={handleReset} className="flex items-center gap-2 px-5 py-2.5 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-bold hover:bg-red-100 ml-auto"><RotateCcw className="w-4 h-4" /> Reset</button>
+        <button onClick={handlePrint} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm"><Printer className="w-4 h-4" /> Print</button>
+        
+        <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-end">
+          {currentUser && (
+            <>
+              <button onClick={() => { setIsCloudModalOpen(true); loadTimetables() }} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-sm font-bold hover:bg-indigo-100 shadow-sm">
+                <FolderOpen className="w-4 h-4" /> <span className="hidden sm:inline">My Timetables</span>
+              </button>
+              <button onClick={saveToCloud} disabled={isSaving} className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 border border-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 shadow-sm">
+                <Cloud className="w-4 h-4" /> <span className="hidden sm:inline">{isSaving ? 'Saving...' : 'Save Cloud'}</span>
+              </button>
+              <button onClick={handleNewTimetable} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm"><Plus className="w-4 h-4" /></button>
+            </>
+          )}
+          {!currentUser && (
+            <button onClick={handleReset} className="flex items-center gap-2 px-5 py-2.5 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-bold hover:bg-red-100 shadow-sm"><RotateCcw className="w-4 h-4" /> Reset</button>
+          )}
+        </div>
       </div>
 
       {/* Absent Alert */}
@@ -431,6 +549,50 @@ export default function Timetable() {
           ))}
         </div>
       </div>
+
+      {/* Cloud Modal */}
+      {isCloudModalOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsCloudModalOpen(false)}>
+          <div className="bg-white rounded-[28px] shadow-2xl p-6 w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-xl font-extrabold text-surface-900 flex items-center gap-2"><Cloud className="w-6 h-6 text-indigo-500" /> My Saved Timetables</h3>
+              <button onClick={() => setIsCloudModalOpen(false)} className="p-2 hover:bg-surface-100 rounded-xl transition-colors"><X className="w-5 h-5 text-surface-500" /></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+              {cloudTimetables.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-surface-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Cloud className="w-8 h-8 text-surface-300" />
+                  </div>
+                  <h4 className="text-lg font-bold text-surface-900 mb-1">No Timetables Found</h4>
+                  <p className="text-surface-500 text-sm">Save your first timetable to the cloud to access it from anywhere.</p>
+                </div>
+              ) : (
+                cloudTimetables.map(tb => (
+                  <div key={tb.id} className="p-5 rounded-[20px] border border-surface-200 hover:border-indigo-300 hover:shadow-soft hover:-translate-y-0.5 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-extrabold text-surface-900 text-lg truncate">{tb.className || 'Unnamed Class'}</h4>
+                        {tb.updatedAt && <span className="text-[10px] font-bold text-surface-400 bg-surface-100 px-2 py-0.5 rounded-full whitespace-nowrap">{new Date(tb.updatedAt.toDate()).toLocaleDateString()}</span>}
+                      </div>
+                      <p className="text-sm font-semibold text-surface-600 truncate flex items-center gap-1.5">
+                        <BookOpen className="w-3.5 h-3.5" /> {tb.schoolName || 'No school specified'}
+                      </p>
+                      {tb.details && <p className="text-xs text-surface-500 mt-2 line-clamp-2 leading-relaxed bg-surface-50 p-2 rounded-lg">{tb.details}</p>}
+                    </div>
+                    <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                      <button onClick={() => handleLoadTimetable(tb)} className="flex-1 sm:flex-none px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 whitespace-nowrap shadow-sm active:scale-[0.98] transition-all">
+                        Load Schedule
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
