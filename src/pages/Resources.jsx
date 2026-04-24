@@ -89,8 +89,10 @@ export default function Resources() {
   }, [])
 
   const filtered = resources.filter(r => {
-    const matchSearch = r.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        r.authorName?.toLowerCase().includes(searchTerm.toLowerCase())
+    const title = r.title || ''
+    const author = r.authorName || ''
+    const matchSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        author.toLowerCase().includes(searchTerm.toLowerCase())
     const matchSubject = selectedSubject === 'All' || r.subject === selectedSubject
     const matchType = selectedType === 'All' || r.type === selectedType
     return matchSearch && matchSubject && matchType
@@ -239,10 +241,10 @@ export default function Resources() {
               <div className="p-5 flex flex-col h-full">
                 <div className="flex items-start gap-4 mb-4">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-primary-600 flex items-center justify-center text-white font-bold shrink-0 shadow-sm">
-                    {resource.title[0]}
+                    {resource.title ? resource.title[0] : '?'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-extrabold text-sm text-surface-900 leading-tight">{resource.title}</h3>
+                    <h3 className="font-extrabold text-sm text-surface-900 leading-tight">{resource.title || 'Untitled'}</h3>
                     <span className="inline-block px-2 py-0.5 mt-1.5 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-md uppercase tracking-wide">{resource.type}</span>
                   </div>
                 </div>

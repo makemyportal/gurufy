@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useGamification, getLevel, getLevelProgress } from '../contexts/GamificationContext'
-import { tools as aiTools } from './AITools'
+import { tools as aiTools } from '../data/toolsList'
 import { db } from '../utils/firebase'
 import { collection, query, onSnapshot, orderBy, doc } from 'firebase/firestore'
 import { 
@@ -85,7 +85,8 @@ const utilityApps = [
     path: '/classroom-quiz',
     bg: 'bg-violet-600',
     hover: 'group-hover:shadow-[0_0_20px_rgba(124,58,237,0.4)]'
-  }
+  },
+
 ]
 
 export default function Home() {

@@ -1,0 +1,32 @@
+// Standalone tools list — no firebase/context imports to avoid circular dependency
+import { Sparkles, FileText, FileQuestion, BookOpen, ListChecks, Mail, Smile, BrainCircuit, ClipboardList, Newspaper, FlaskConical, BookMarked, PenLine, GraduationCap, Heart, Lightbulb, Calendar } from 'lucide-react'
+
+export const tools = [
+  { id: 'lesson-plan', title: 'Lesson Planner', description: 'Generate comprehensive lesson plans with objectives, activities, and assessments.', icon: BookOpen, color: 'from-blue-500 to-indigo-600' },
+  { id: 'worksheet', title: 'Worksheet Generator', description: 'Create customized worksheets with various questions based on any topic.', icon: FileText, color: 'from-emerald-500 to-teal-600' },
+  { id: 'rubric', title: 'Rubric Creator', description: 'Generate detailed grading rubrics with distinct evaluation criteria.', icon: ListChecks, color: 'from-violet-500 to-purple-600' },
+  { id: 'report-card', title: 'Report Card Comments', description: 'Generate professional, empathetic narrative comments for student report cards.', icon: FileText, color: 'from-fuchsia-500 to-purple-600' },
+  { id: 'doubt-solver', title: 'AI Doubt Solver', description: 'Instantly get student-friendly explanations for complex concepts and hard questions.', icon: BrainCircuit, color: 'from-pink-500 to-rose-600' },
+  { id: 'behavior', title: 'Classroom Management', description: 'Get actionable, psychological strategies for specific classroom behavioral situations.', icon: BrainCircuit, color: 'from-red-500 to-rose-600' },
+  { id: 'quiz', title: 'Quiz Maker', description: 'Generate quick quizzes or assessments to check student understanding.', icon: FileQuestion, color: 'from-orange-500 to-red-600' },
+  { id: 'parent-email', title: 'Parent Email Drafter', description: 'Draft professional, empathetic emails regarding student progress or incidents.', icon: Mail, color: 'from-cyan-500 to-blue-600' },
+  { id: 'icebreaker', title: 'Icebreaker Activities', description: 'Generate fun, engaging 5-minute activities to start or energize the class.', icon: Smile, color: 'from-amber-400 to-orange-500' },
+  { id: 'pbl', title: 'PBL Project Designer', description: 'Design multi-day project-based learning assignments connecting concepts to the real world.', icon: Sparkles, color: 'from-amber-500 to-yellow-600' },
+  { id: 'differentiated', title: 'Differentiated Lesson Split', description: 'Break a single topic down into 3 levels: Remedial, Core, and Enrichment.', icon: ListChecks, color: 'from-emerald-400 to-green-600' },
+  { id: 'notice-writer', title: 'Notice / Circular Writer', description: 'Draft official school notices, circulars, and announcements instantly.', icon: FileText, color: 'from-slate-600 to-slate-800' },
+  { id: 'assembly-speech', title: 'Assembly Speech Writer', description: 'Generate engaging morning assembly speeches or special day addresses.', icon: BookOpen, color: 'from-indigo-500 to-blue-700' },
+  { id: 'exam-paper', title: 'Exam Paper Generator', description: 'Generate structured exam papers with sections, marks distribution, and answer keys.', icon: FileQuestion, color: 'from-rose-500 to-pink-700' },
+  { id: 'syllabus-planner', title: 'Syllabus Planner', description: 'Generate a complete term-wise or month-wise syllabus breakdown for any subject.', icon: Calendar, color: 'from-teal-500 to-cyan-600' },
+  { id: 'comprehension', title: 'Comprehension Passage Maker', description: 'Generate reading passages with comprehension questions for language classes.', icon: BookMarked, color: 'from-sky-500 to-blue-600' },
+  { id: 'math-word-problems', title: 'Math Word Problems', description: 'Generate age-appropriate math word problems on any topic with step-by-step solutions.', icon: Lightbulb, color: 'from-yellow-500 to-orange-600' },
+  { id: 'story-writer', title: 'Story / Moral Story Writer', description: 'Generate engaging stories with moral lessons perfect for primary and middle school.', icon: Heart, color: 'from-pink-400 to-rose-500' },
+  { id: 'vocabulary-builder', title: 'Vocabulary Builder', description: 'Generate word lists with meanings, synonyms, antonyms, and usage sentences.', icon: PenLine, color: 'from-lime-500 to-green-600' },
+  { id: 'recommendation-letter', title: 'Recommendation Letter', description: 'Write professional recommendation letters for students applying to colleges or scholarships.', icon: GraduationCap, color: 'from-blue-600 to-indigo-700' },
+  { id: 'class-newsletter', title: 'Class Newsletter', description: 'Generate weekly or monthly class newsletters to keep parents informed and engaged.', icon: Newspaper, color: 'from-purple-500 to-violet-600' },
+  { id: 'attendance-report', title: 'Attendance Report', description: 'Generate formatted monthly attendance summary reports for records or PTM.', icon: ClipboardList, color: 'from-gray-500 to-slate-700' },
+  { id: 'homework-planner', title: 'Homework Planner', description: 'Generate structured, meaningful homework assignments with clear instructions.', icon: ClipboardList, color: 'from-orange-500 to-amber-600' },
+  { id: 'iep-generator', title: 'IEP Generator', description: 'Create Individual Education Plans for students with special learning needs.', icon: Heart, color: 'from-teal-500 to-emerald-600' },
+  { id: 'lab-experiment', title: 'Lab Experiment Writer', description: 'Generate structured science practical/experiment write-ups with procedures and observations.', icon: FlaskConical, color: 'from-green-500 to-teal-600' },
+  { id: 'book-review', title: 'Book Review Generator', description: 'Generate structured book review templates for students with guided prompts.', icon: BookMarked, color: 'from-amber-600 to-yellow-700' },
+  { id: 'activity-based-learning', title: 'Activity Based Learning (CBSE)', description: 'Design CBSE-aligned hands-on activities using Art Integration & Experiential Learning pedagogy.', icon: Lightbulb, color: 'from-yellow-400 to-amber-500' },
+]

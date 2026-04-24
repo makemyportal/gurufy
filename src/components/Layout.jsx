@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useNotifications } from '../contexts/NotificationContext'
@@ -11,12 +11,12 @@ import {
   LayoutDashboard, Bell, Search, Menu, X, LogOut, ChevronDown,
   Settings, Shield, HelpCircle, GraduationCap, MessageSquare, CalendarDays,
   Heart, MessageCircle, UserPlus, Zap, Trophy, Flame, LogIn, Megaphone, ShoppingCart, Radio,
-  Moon, Sun, History
+  Moon, Sun, History, ArrowRight, CheckSquare, Calculator, Lock, FileQuestion, Gamepad2, Award, Command
 } from 'lucide-react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../utils/firebase'
+import { tools as aiToolsList } from '../data/toolsList'
 import AIChatWidget from './AIChatWidget'
-import ChatPanel from './ChatPanel'
 import ProfileCompletion from './ProfileCompletion'
 import TokenShopModal from './TokenShopModal'
 
@@ -109,16 +109,127 @@ export default function Layout() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showMobileSearch, setShowMobileSearch] = useState(false)
+  const [searchFocused, setSearchFocused] = useState(false)
+  const [selectedSearchIdx, setSelectedSearchIdx] = useState(0)
   const [showChat, setShowChat] = useState(false)
   const [showProfileCompletion, setShowProfileCompletion] = useState(false)
   const [showTokenShop, setShowTokenShop] = useState(false)
   const [walletOpen, setWalletOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const searchInputRef = useRef(null)
+  const mobileSearchInputRef = useRef(null)
+  const searchDropdownRef = useRef(null)
 
   const dropdownRef = useRef(null)
   const notifRef = useRef(null)
   const walletRef = useRef(null)
+
+  // Build searchable items list
+  const allSearchItems = useMemo(() => {
+    const items = []
+    // AI Tools
+    aiToolsList.forEach(tool => {
+      items.push({
+        id: `ai-${tool.id}`,
+        title: tool.title,
+        description: tool.description,
+        icon: tool.icon,
+        path: `/ai-tools?tool=${tool.id}`,
+        category: 'AI Tool',
+        color: tool.color
+      })
+    })
+    // Workspace utilities
+    const utilityItems = [
+      { id: 'todo', title: 'Tasks & Reminders', description: 'Manage your daily teaching to-do list.', icon: CheckSquare, path: '/todo', category: 'Utility', color: 'from-emerald-500 to-emerald-600' },
+      { id: 'gradebook', title: 'Smart Gradebook', description: 'Calculate marks and track student progress.', icon: Calculator, path: '/gradebook', category: 'Utility', color: 'from-blue-500 to-blue-600' },
+      { id: 'certificates', title: 'Certificate Generator', description: 'Create & print beautiful student awards.', icon: Award, path: '/certificates', category: 'Utility', color: 'from-amber-500 to-amber-600' },
+      { id: 'locker', title: 'Private Locker', description: 'Securely store personal notes and files.', icon: Lock, path: '/locker', category: 'Utility', color: 'from-slate-600 to-slate-700' },
+      { id: 'lesson-planner-page', title: 'Lesson Planner', description: 'AI-powered step-by-step lesson plan generator.', icon: BookOpen, path: '/lesson-planner', category: 'Utility', color: 'from-indigo-500 to-indigo-600' },
+      { id: 'timetable', title: 'Timetable Builder', description: 'Create weekly class schedules visually.', icon: CalendarDays, path: '/timetable', category: 'Utility', color: 'from-teal-500 to-teal-600' },
+      { id: 'exam-generator-page', title: 'Exam Paper Generator', description: 'AI-generated exam papers with answer keys.', icon: FileQuestion, path: '/exam-generator', category: 'Utility', color: 'from-rose-500 to-rose-600' },
+      { id: 'classroom-quiz', title: 'Classroom Quiz', description: 'Create & present live quizzes Kahoot-style.', icon: Gamepad2, path: '/classroom-quiz', category: 'Utility', color: 'from-violet-500 to-violet-600' },
+    ]
+    utilityItems.forEach(u => items.push(u))
+    // Navigation pages
+    const navPages = [
+      { id: 'nav-home', title: 'Workspace Home', description: 'Go to your main workspace dashboard.', icon: Home, path: '/', category: 'Navigation', color: 'from-blue-500 to-indigo-600' },
+      { id: 'nav-ai-directory', title: 'AI Platforms & Directory', description: 'Browse external AI tools and prompt library.', icon: Sparkles, path: '/ai-directory', category: 'Navigation', color: 'from-pink-500 to-rose-600' },
+      { id: 'nav-resources', title: 'My Files & Vault', description: 'Access your uploaded files and resources.', icon: FolderOpen, path: '/resources', category: 'Navigation', color: 'from-amber-500 to-orange-600' },
+      { id: 'nav-history', title: 'Generation History', description: 'View your past AI generations.', icon: History, path: '/history', category: 'Navigation', color: 'from-purple-500 to-violet-600' },
+      { id: 'nav-settings', title: 'Settings & Profile', description: 'Manage your account and preferences.', icon: Settings, path: '/settings', category: 'Navigation', color: 'from-slate-500 to-slate-700' },
+    ]
+    navPages.forEach(p => items.push(p))
+    return items
+  }, [])
+
+  // Filtered search results
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return []
+    const q = searchQuery.toLowerCase()
+    return allSearchItems.filter(item =>
+      item.title.toLowerCase().includes(q) ||
+      item.description.toLowerCase().includes(q) ||
+      item.category.toLowerCase().includes(q)
+    ).slice(0, 8)
+  }, [searchQuery, allSearchItems])
+
+  // Reset selected index when results change
+  useEffect(() => {
+    setSelectedSearchIdx(0)
+  }, [searchResults])
+
+  // Handle search item selection
+  const handleSearchSelect = useCallback((item) => {
+    setSearchQuery('')
+    setSearchFocused(false)
+    setShowMobileSearch(false)
+    navigate(item.path)
+  }, [navigate])
+
+  // Keyboard shortcut: Cmd+K / Ctrl+K to focus search
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+        setSearchFocused(true)
+      }
+      if (e.key === 'Escape') {
+        setSearchFocused(false)
+        setShowMobileSearch(false)
+        searchInputRef.current?.blur()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  // Keyboard navigation within search results
+  const handleSearchKeyDown = useCallback((e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSelectedSearchIdx(prev => Math.min(prev + 1, searchResults.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedSearchIdx(prev => Math.max(prev - 1, 0))
+    } else if (e.key === 'Enter' && searchResults.length > 0) {
+      e.preventDefault()
+      handleSearchSelect(searchResults[selectedSearchIdx])
+    }
+  }, [searchResults, selectedSearchIdx, handleSearchSelect])
+
+  // Close search dropdown on click outside
+  useEffect(() => {
+    function handleClickOutsideSearch(e) {
+      if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target) && searchInputRef.current && !searchInputRef.current.contains(e.target)) {
+        setSearchFocused(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutsideSearch)
+    return () => document.removeEventListener('mousedown', handleClickOutsideSearch)
+  }, [])
 
   // Detect incomplete profile (Google login with no name or email-as-name)
   useEffect(() => {
@@ -205,17 +316,66 @@ export default function Layout() {
 
         {/* Global Search (Desktop) */}
         <div className="hidden md:flex relative w-full max-w-[600px] group mx-6 flex-1">
-          <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-surface-400 group-focus-within:text-slate-900 transition-colors" />
+          <Search className={`absolute left-6 top-1/2 -translate-y-1/2 w-[18px] h-[18px] transition-colors ${searchFocused ? 'text-slate-900' : 'text-surface-400'}`} />
           <input
+            ref={searchInputRef}
             type="text"
             placeholder="Search tools, commands, or resources..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onKeyDown={handleSearchKeyDown}
             className="w-full pl-14 pr-16 py-3.5 bg-surface-100 hover:bg-surface-200 border-2 border-transparent text-[15px] font-medium text-surface-900 rounded-[20px] focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/10 transition-all placeholder:text-surface-400"
           />
           <div className="absolute right-4 top-1/2 -translate-y-1/2 hidden lg:flex items-center gap-1">
-            <kbd className="px-2.5 py-1.5 bg-white border border-surface-200 rounded-lg text-[10px] font-extrabold text-surface-500 tracking-wider shadow-sm uppercase">Cmd K</kbd>
+            <kbd className="px-2.5 py-1.5 bg-white border border-surface-200 rounded-lg text-[10px] font-extrabold text-surface-500 tracking-wider shadow-sm uppercase">⌘ K</kbd>
           </div>
+
+          {/* Search Results Dropdown */}
+          {searchFocused && searchQuery.trim() && (
+            <div ref={searchDropdownRef} className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-surface-200 overflow-hidden z-[60] animate-slide-down">
+              {searchResults.length > 0 ? (
+                <div className="py-2 max-h-[400px] overflow-y-auto">
+                  <p className="px-5 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-surface-400">Results</p>
+                  {searchResults.map((item, idx) => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleSearchSelect(item)}
+                      onMouseEnter={() => setSelectedSearchIdx(idx)}
+                      className={`w-full flex items-center gap-4 px-5 py-3 text-left transition-all duration-150 ${
+                        idx === selectedSearchIdx ? 'bg-indigo-50' : 'hover:bg-surface-50'
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center text-white shrink-0 shadow-sm`}>
+                        <item.icon className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-surface-900 truncate">{item.title}</p>
+                        <p className="text-xs text-surface-500 font-medium truncate">{item.description}</p>
+                      </div>
+                      <span className={`shrink-0 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${
+                        item.category === 'AI Tool' ? 'bg-indigo-100 text-indigo-700' :
+                        item.category === 'Utility' ? 'bg-emerald-100 text-emerald-700' :
+                        'bg-surface-100 text-surface-600'
+                      }`}>{item.category}</span>
+                      <ArrowRight className={`w-4 h-4 shrink-0 transition-all ${idx === selectedSearchIdx ? 'text-indigo-500 translate-x-0.5' : 'text-surface-300'}`} />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-10 text-center">
+                  <Search className="w-8 h-8 text-surface-300 mx-auto mb-3" />
+                  <p className="text-sm font-bold text-surface-500">No results for "{searchQuery}"</p>
+                  <p className="text-xs text-surface-400 mt-1">Try searching for a tool name or keyword</p>
+                </div>
+              )}
+              <div className="px-5 py-2.5 border-t border-surface-100 bg-surface-50/50 flex items-center gap-4 text-[10px] text-surface-400 font-bold">
+                <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-white border border-surface-200 rounded text-[9px] font-extrabold">↑↓</kbd> Navigate</span>
+                <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-white border border-surface-200 rounded text-[9px] font-extrabold">↵</kbd> Select</span>
+                <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-white border border-surface-200 rounded text-[9px] font-extrabold">Esc</kbd> Close</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Actions */}
@@ -346,24 +506,60 @@ export default function Layout() {
 
       {/* Mobile Search Overlay */}
       {showMobileSearch && (
-        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm md:hidden animate-fade-in" onClick={() => setShowMobileSearch(false)}>
-          <div className="bg-white p-4 shadow-2xl animate-slide-down" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm md:hidden animate-fade-in" onClick={() => { setShowMobileSearch(false); setSearchQuery('') }}>
+          <div className="bg-white p-4 shadow-2xl animate-slide-down rounded-b-3xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 pt-2">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
                 <input
+                  ref={mobileSearchInputRef}
                   autoFocus
                   type="text"
-                  placeholder="Search resources, jobs, teachers..."
+                  placeholder="Search tools, commands..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchResults.length > 0) {
+                      handleSearchSelect(searchResults[0])
+                    }
+                  }}
                   className="w-full pl-11 pr-4 py-3 bg-surface-100 border border-surface-200 rounded-2xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-400 focus:bg-white transition-all"
                 />
               </div>
-              <button onClick={() => setShowMobileSearch(false)} className="p-2 hover:bg-surface-100 rounded-xl">
+              <button onClick={() => { setShowMobileSearch(false); setSearchQuery('') }} className="p-2 hover:bg-surface-100 rounded-xl">
                 <X className="w-5 h-5 text-surface-600" />
               </button>
             </div>
+            {/* Mobile Search Results */}
+            {searchQuery.trim() && (
+              <div className="mt-3 max-h-[60vh] overflow-y-auto">
+                {searchResults.length > 0 ? (
+                  <div className="space-y-1">
+                    {searchResults.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => handleSearchSelect(item)}
+                        className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-50 transition-colors text-left"
+                      >
+                        <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center text-white shrink-0`}>
+                          <item.icon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-surface-900 truncate">{item.title}</p>
+                          <p className="text-[11px] text-surface-500 font-medium truncate">{item.description}</p>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-surface-300 shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center">
+                    <Search className="w-7 h-7 text-surface-300 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-surface-500">No results found</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

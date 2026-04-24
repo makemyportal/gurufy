@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User } from 'lucide-react'
+import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
 import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc } from 'firebase/firestore'
@@ -87,6 +87,8 @@ export default function Timetable() {
     return s ? JSON.parse(s) : {}
   }) // { 'Mr. Sharma': ['Mathematics', 'Physics'], ... }
   const [assigningSubjectsFor, setAssigningSubjectsFor] = useState(null)
+  const [expandedDay, setExpandedDay] = useState(ALL_DAYS[0])
+  const [teacherExpandedDay, setTeacherExpandedDay] = useState(ALL_DAYS[0])
   const tableRef = useRef(null)
 
   useEffect(() => { localStorage.setItem('ldms_timetable_v2', JSON.stringify(grid)) }, [grid])
@@ -142,6 +144,14 @@ export default function Timetable() {
     }
   }
 
+  useEffect(() => {
+    const tSet = new Set(teachers)
+    cloudTimetables.forEach(tb => {
+      if (tb.teachers) tb.teachers.forEach(t => tSet.add(t))
+    })
+    setAllTeachersList(Array.from(tSet).sort())
+  }, [teachers, cloudTimetables])
+
   const loadTimetables = async () => {
     if (!currentUser) return []
     try {
@@ -150,13 +160,6 @@ export default function Timetable() {
       const tbs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       tbs.sort((a,b) => (b.updatedAt?.toMillis() || 0) - (a.updatedAt?.toMillis() || 0))
       setCloudTimetables(tbs)
-      
-      const tSet = new Set()
-      tbs.forEach(tb => {
-        if (tb.teachers) tb.teachers.forEach(t => tSet.add(t))
-      })
-      setAllTeachersList(Array.from(tSet).sort())
-      
       return tbs
     } catch (error) {
       console.error('Error loading timetables:', error)
@@ -166,8 +169,7 @@ export default function Timetable() {
 
   const handleOpenTeacherView = async () => {
     if (!currentUser) return alert('Please login to use Teacher View.')
-    const tbs = await loadTimetables()
-    if (tbs.length === 0) return alert('No timetables found in the cloud. Save some classes first!')
+    await loadTimetables()
     setIsTeacherModalOpen(true)
     setSelectedTeacherForView('')
     setTeacherViewGrid({})
@@ -178,12 +180,27 @@ export default function Timetable() {
     const g = {}
     ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = [] }) })
     
-    cloudTimetables.forEach(tb => {
+    const allTbs = [...cloudTimetables]
+    const localTbIndex = allTbs.findIndex(t => t.id === currentTimetableId)
+    const localTb = {
+      id: currentTimetableId || 'local_unsaved',
+      className: className || 'Unnamed Class',
+      schoolName,
+      grid,
+      activeDays
+    }
+    if (localTbIndex >= 0) {
+      allTbs[localTbIndex] = localTb
+    } else {
+      allTbs.push(localTb)
+    }
+
+    allTbs.forEach(tb => {
       const activeDs = tb.activeDays || ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
       activeDs.forEach(d => {
         PERIODS.forEach(p => {
           const cell = tb.grid?.[d]?.[p]
-          if (cell && cell.teacher === teacherName) {
+          if (cell && cell.teacher && cell.teacher.trim() === teacherName.trim()) {
             g[d][p].push({
               className: tb.className || 'Unnamed Class',
               subject: cell.subject,
@@ -198,16 +215,37 @@ export default function Timetable() {
 
   useEffect(() => {
     if (selectedTeacherForView) generateTeacherGrid(selectedTeacherForView)
-  }, [selectedTeacherForView, cloudTimetables])
+  }, [selectedTeacherForView, cloudTimetables, grid])
+
+  const handleShareWhatsApp = () => {
+    if (!selectedTeacherForView) return
+    let text = `📅 *Timetable for ${selectedTeacherForView}*\n\n`
+    ALL_DAYS.forEach(d => {
+      let dayHasPeriods = false
+      let dayText = `*${d}*\n`
+      PERIODS.forEach(p => {
+        const assignments = teacherViewGrid[d]?.[p] || []
+        if (assignments.length > 0) {
+          dayHasPeriods = true
+          assignments.forEach(a => {
+            dayText += `- ${p}: ${a.className} (${a.subject})\n`
+          })
+        }
+      })
+      if (dayHasPeriods) text += dayText + '\n'
+    })
+    text += `\n_Shared via LDMS Productivity Hub_`
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+  }
 
   const executeTeacherPrint = () => {
     if (!selectedTeacherForView) return
     const w = window.open('', '_blank')
-    w.document.write(`<html><head><title>Teacher Timetable - ${selectedTeacherForView}</title><style>body{font-family:Inter,sans-serif;padding:30px;max-width:1000px;margin:0 auto}table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:40px}th,td{border:1px solid #cbd5e1;padding:10px;text-align:center}th{background:#1e293b;color:white;font-weight:bold}.clash{background:#fee2e2;color:#991b1b;border:2px solid #ef4444}.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #e2e8f0;padding-bottom:20px}.header h1{margin:0 0 10px 0;font-size:28px;color:#0f172a}.header p{margin:0 0 5px 0;color:#475569;font-size:16px}</style></head><body>`)
+    w.document.write(`<html><head><title>Teacher Timetable - ${selectedTeacherForView}</title><style>body{font-family:Inter,sans-serif;padding:30px;max-width:1000px;margin:0 auto}table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:40px}th,td{border:1px solid #cbd5e1;padding:10px;text-align:center}th{background:#1e293b;color:white;font-weight:bold}.clash{background:#fee2e2;color:#991b1b;border:2px solid #ef4444}.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #e2e8f0;padding-bottom:20px}.header h1{margin:0 0 10px 0;font-size:28px;color:#0f172a}.header p{margin:0 0 5px 0;color:#475569;font-size:16px}.footer{display:flex;justify-content:space-between;margin-top:60px;padding-top:20px}.sign-box{text-align:center;width:200px}.sign-line{border-top:1px solid #475569;margin-bottom:8px;padding-top:6px;font-weight:bold;font-size:14px;color:#0f172a}.sign-name{font-size:14px;color:#475569}</style></head><body>`)
     
     w.document.write(`<div class="header">`)
-    w.document.write(`<h1>${selectedTeacherForView}'s Schedule</h1>`)
-    w.document.write(`<p>Generated by LDMS Teacher View</p>`)
+    w.document.write(`<h1>${schoolName ? schoolName : 'School Timetable'}</h1>`)
+    w.document.write(`<p><strong>Teacher:</strong> ${selectedTeacherForView} ${session ? `&nbsp;|&nbsp; <strong>Session:</strong> ${session}` : ''}</p>`)
     w.document.write(`</div>`)
     
     w.document.write(`<table><thead><tr><th>Period</th>`)
@@ -232,6 +270,12 @@ export default function Timetable() {
       w.document.write(`</tr>`)
     })
     w.document.write(`</tbody></table>`)
+    
+    w.document.write(`<div class="footer">`)
+    w.document.write(`<div class="sign-box"><div class="sign-line">Teacher's Signature</div><div class="sign-name">${selectedTeacherForView}</div></div>`)
+    w.document.write(`<div class="sign-box"><div class="sign-line">Principal</div><div class="sign-name">${principalName || '_________________'}</div></div>`)
+    w.document.write(`</div>`)
+    
     w.document.write(`</body></html>`)
     w.document.close()
     setTimeout(() => w.print(), 500)
@@ -264,8 +308,16 @@ export default function Timetable() {
   }
 
   const setCell = (day, period, subject) => {
-    setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], subject } } }))
-    setEditing(null)
+    const matchingTeachers = teachers.filter(t => (teacherSubjects[t] || []).includes(subject))
+    if (matchingTeachers.length === 1 && subject !== '') {
+      setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], subject, teacher: matchingTeachers[0] } } }))
+      setEditing(null)
+    } else {
+      setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], subject, teacher: '' } } }))
+      if (matchingTeachers.length === 0 || subject === '') {
+        setEditing(null)
+      }
+    }
   }
   const setCellTeacher = (day, period, teacher) => {
     setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], teacher } } }))
@@ -349,9 +401,9 @@ export default function Timetable() {
       activeDays.forEach(d => {
         const c = grid[d]?.[p] || {}
         const isAbsent = c.teacher && absentTeachers.includes(c.teacher)
-        let html = c.subject ? `<strong>${c.subject}</strong>` : '-'
-        if (c.teacher) html += `<br><small class="${isAbsent ? 'absent' : ''}">${c.teacher}</small>`
-        if (c.substitute) html += `<br><small class="sub">Sub: ${c.substitute}</small>`
+        let html = c.subject ? `<div style="font-size:14px; font-weight:bold; margin-bottom:2px;">${c.subject}</div>` : '-'
+        if (c.teacher) html += `<div class="${isAbsent ? 'absent' : ''}" style="font-size:12px; font-weight:600; color:#334155;">${c.teacher}</div>`
+        if (c.substitute) html += `<div class="sub" style="font-size:11px; font-weight:bold; background:#fee2e2; color:#b91c1c; padding:2px; border-radius:4px; display:inline-block; margin-top:4px;">Sub: ${c.substitute}</div>`
         w.document.write(`<td>${html}</td>`)
       })
       w.document.write(`</tr>`)
@@ -543,68 +595,162 @@ export default function Timetable() {
       )}
 
       {/* Timetable Grid */}
-      <div ref={tableRef} className="bg-white rounded-[28px] border border-surface-200 shadow-sm overflow-x-auto">
-        <table className="w-full min-w-[800px]">
-          <thead>
-            <tr>
-              <th className="p-4 text-left text-xs font-black uppercase tracking-widest text-surface-400 bg-surface-50 rounded-tl-[28px] w-[100px]">Period</th>
-              {activeDays.map((d, i) => (
-                <th key={d} className={`p-4 text-center text-xs font-black uppercase tracking-widest text-surface-500 bg-surface-50 ${i === activeDays.length - 1 ? 'rounded-tr-[28px]' : ''}`}>{d}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {PERIODS.map((period, pi) => (
-              <tr key={period} className={`${pi % 2 === 0 ? '' : 'bg-surface-50/30'} border-t border-surface-100`}>
-                <td className="p-3 text-xs font-bold text-surface-500 whitespace-nowrap">{period}</td>
-                {activeDays.map(day => {
-                  const cell = grid[day]?.[period] || {}
-                  const isEd = editing === `${day}-${period}`
-                  const isAbsent = cell.teacher && absentTeachers.includes(cell.teacher)
-                  return (
-                    <td key={`${day}-${period}`} className="p-1.5 text-center relative" onClick={() => !isEd && setEditing(`${day}-${period}`)}>
-                      {isEd && (
-                        <div className="absolute inset-0 z-20 bg-white border-2 border-indigo-400 rounded-xl shadow-xl p-2 flex flex-col gap-1 max-h-[320px] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center justify-between mb-1 px-1">
-                            <span className="text-[10px] font-black text-surface-400 uppercase">{day} - {period}</span>
-                            <button onClick={() => setEditing(null)}><X className="w-3.5 h-3.5 text-surface-400" /></button>
-                          </div>
-                          <span className="text-[9px] font-bold text-surface-400 px-1 mt-1">SUBJECT</span>
-                          {subjects.map(s => (
-                            <button key={s} onClick={() => setCell(day, period, s)} className={`px-3 py-1.5 rounded-lg text-xs font-bold text-left border ${gc(s)} hover:opacity-80`}>{s}</button>
-                          ))}
-                          <span className="text-[9px] font-bold text-surface-400 px-1 mt-2">TEACHER</span>
-                          {teachers.map(t => (
-                            <button key={t} onClick={() => setCellTeacher(day, period, t)} className={`px-3 py-1.5 rounded-lg text-xs font-bold text-left border ${absentTeachers.includes(t) ? 'bg-red-50 text-red-400 border-red-200 line-through' : onBreak.includes(t) ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-white text-surface-700 border-surface-200 hover:bg-indigo-50'}`}>{t}</button>
-                          ))}
-                          <button onClick={() => { setCell(day, period, ''); setCellTeacher(day, period, '') }} className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 border border-red-200 bg-red-50 hover:bg-red-100">Clear</button>
-                        </div>
-                      )}
-                      <div className={`px-2 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border min-h-[52px] flex flex-col items-center justify-center gap-0.5 ${cell.subject ? gc(cell.subject) : 'border-dashed border-surface-200 text-surface-300 hover:border-surface-400'}`}>
-                        {cell.subject ? (
-                          <>
-                            <span>{cell.subject}</span>
-                            {cell.teacher && (
-                              <span className={`text-[10px] font-semibold ${isAbsent ? 'line-through text-red-400' : 'opacity-60'}`}>{cell.teacher}</span>
-                            )}
-                            {cell.substitute && (
-                              <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 rounded">Sub: {cell.substitute}</span>
-                            )}
-                            {isAbsent && !cell.substitute && (
-                              <button onClick={e => { e.stopPropagation(); setSubModal({ day, period }) }} className="text-[9px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full mt-0.5 hover:bg-red-600 animate-pulse">
-                                Assign Sub
-                              </button>
-                            )}
-                          </>
-                        ) : '+'}
-                      </div>
-                    </td>
-                  )
-                })}
+      <div ref={tableRef} className="bg-white rounded-[28px] border border-surface-200 shadow-sm overflow-hidden">
+        
+        {/* Desktop View */}
+        <div className="hidden lg:block overflow-x-auto">
+          <table className="w-full min-w-[800px]">
+            <thead>
+              <tr>
+                <th className="p-4 text-left text-xs font-black uppercase tracking-widest text-surface-400 bg-surface-50 w-[100px]">Period</th>
+                {activeDays.map((d, i) => (
+                  <th key={d} className="p-4 text-center text-xs font-black uppercase tracking-widest text-surface-500 bg-surface-50">{d}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {PERIODS.map((period, pi) => (
+                <tr key={period} className={`${pi % 2 === 0 ? '' : 'bg-surface-50/30'} border-t border-surface-100`}>
+                  <td className="p-3 text-xs font-bold text-surface-500 whitespace-nowrap">{period}</td>
+                  {activeDays.map(day => {
+                    const cell = grid[day]?.[period] || {}
+                    const isEd = editing === `${day}-${period}`
+                    const isAbsent = cell.teacher && absentTeachers.includes(cell.teacher)
+                    return (
+                      <td key={`${day}-${period}`} className="p-1.5 text-center relative" onClick={() => !isEd && setEditing(`${day}-${period}`)}>
+                        {isEd && (
+                          <div className="absolute inset-0 z-20 bg-white border-2 border-indigo-400 rounded-xl shadow-xl p-2 flex flex-col gap-1 max-h-[320px] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-between mb-1 px-1">
+                              <span className="text-[10px] font-black text-surface-400 uppercase">{day} - {period}</span>
+                              <button onClick={() => setEditing(null)}><X className="w-3.5 h-3.5 text-surface-400" /></button>
+                            </div>
+                            <span className="text-[9px] font-bold text-surface-400 px-1 mt-1">SUBJECT</span>
+                            {subjects.map(s => (
+                              <button key={s} onClick={() => setCell(day, period, s)} className={`px-3 py-1.5 rounded-lg text-xs font-bold text-left border ${gc(s)} hover:opacity-80`}>{s}</button>
+                            ))}
+                            <span className="text-[9px] font-bold text-surface-400 px-1 mt-2">TEACHER</span>
+                            {[...teachers].sort((a,b) => {
+                              const aMatch = cell.subject && (teacherSubjects[a] || []).includes(cell.subject) ? -1 : 1
+                              const bMatch = cell.subject && (teacherSubjects[b] || []).includes(cell.subject) ? -1 : 1
+                              return aMatch - bMatch
+                            }).map(t => {
+                              const isMatch = cell.subject && (teacherSubjects[t] || []).includes(cell.subject)
+                              return (
+                                <button key={t} onClick={() => setCellTeacher(day, period, t)} className={`px-3 py-1.5 rounded-lg text-xs font-bold text-left border ${absentTeachers.includes(t) ? 'bg-red-50 text-red-400 border-red-200 line-through' : onBreak.includes(t) ? 'bg-amber-50 text-amber-600 border-amber-200' : isMatch ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm ring-1 ring-emerald-200' : 'bg-white text-surface-700 border-surface-200 hover:bg-indigo-50'}`}>{t} {isMatch && '✨'}</button>
+                              )
+                            })}
+                            <button onClick={() => { setCell(day, period, ''); setCellTeacher(day, period, '') }} className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 border border-red-200 bg-red-50 hover:bg-red-100">Clear</button>
+                          </div>
+                        )}
+                        <div className={`px-2 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border min-h-[52px] flex flex-col items-center justify-center gap-0.5 ${cell.subject ? gc(cell.subject) : 'border-dashed border-surface-200 text-surface-300 hover:border-surface-400'}`}>
+                          {cell.subject ? (
+                            <>
+                              <span>{cell.subject}</span>
+                              {cell.teacher && (
+                                <span className={`text-xs mt-0.5 font-bold ${isAbsent ? 'line-through text-red-400' : 'text-surface-700'}`}>{cell.teacher}</span>
+                              )}
+                              {cell.substitute && (
+                                <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 rounded">Sub: {cell.substitute}</span>
+                              )}
+                              {isAbsent && !cell.substitute && (
+                                <button onClick={e => { e.stopPropagation(); setSubModal({ day, period }) }} className="text-[9px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full mt-0.5 hover:bg-red-600 animate-pulse">
+                                  Assign Sub
+                                </button>
+                              )}
+                            </>
+                          ) : '+'}
+                        </div>
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile View */}
+        <div className="lg:hidden flex flex-col divide-y divide-surface-100">
+          {activeDays.map(day => (
+            <div key={day} className="bg-white">
+              <button 
+                onClick={() => setExpandedDay(expandedDay === day ? null : day)}
+                className="w-full p-4 flex items-center justify-between font-black text-surface-900 bg-surface-50 hover:bg-surface-100 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <CalendarDays className="w-5 h-5 text-emerald-500" />
+                  <span className="text-base uppercase tracking-widest">{day}</span>
+                </div>
+                <ChevronDown className={`w-5 h-5 text-surface-400 transition-transform ${expandedDay === day ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {expandedDay === day && (
+                <div className="divide-y divide-surface-100">
+                  {PERIODS.map(period => {
+                    const cell = grid[day]?.[period] || {}
+                    const isAbsent = cell.teacher && absentTeachers.includes(cell.teacher)
+                    const isEd = editing === `${day}-${period}`
+                    
+                    return (
+                      <div key={period} className="relative p-4 flex flex-col">
+                        <div 
+                          className="flex items-center justify-between cursor-pointer group"
+                          onClick={() => !isEd && setEditing(`${day}-${period}`)}
+                        >
+                          <div className="w-[80px] shrink-0 font-bold text-surface-500 text-xs uppercase tracking-wider">{period}</div>
+                          <div className="flex-1 flex justify-end">
+                            {cell.subject ? (
+                              <div className="inline-flex flex-col items-end text-right">
+                                <span className={`text-sm font-bold px-3 py-1 rounded-lg border ${gc(cell.subject)}`}>{cell.subject}</span>
+                                {cell.teacher && <span className={`text-sm mt-1.5 font-black ${isAbsent ? 'line-through text-red-400' : 'text-surface-700'}`}>{cell.teacher}</span>}
+                                {cell.substitute && <span className="text-[11px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded mt-1">Sub: {cell.substitute}</span>}
+                                {isAbsent && !cell.substitute && (
+                                  <button onClick={e => { e.stopPropagation(); setSubModal({ day, period }) }} className="text-[10px] font-bold text-white bg-red-500 px-2 py-1 rounded-full mt-1.5 animate-pulse">Assign Sub</button>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs font-bold text-surface-400 group-hover:text-surface-600 border border-dashed border-surface-300 px-4 py-2 rounded-xl transition-colors">+ Assign</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Edit Dropdown for Mobile */}
+                        {isEd && (
+                          <div className="mt-4 bg-surface-50 border-2 border-indigo-400 rounded-2xl p-3 shadow-inner flex flex-col gap-2 max-h-[300px] overflow-y-auto">
+                            <div className="flex items-center justify-between mb-1 px-1">
+                              <span className="text-[11px] font-black text-surface-500 uppercase">Edit {period}</span>
+                              <button onClick={() => setEditing(null)} className="p-1 bg-surface-200 rounded-full"><X className="w-4 h-4 text-surface-600" /></button>
+                            </div>
+                            <span className="text-[10px] font-bold text-surface-400 px-1 mt-1">SUBJECT</span>
+                            <div className="grid grid-cols-2 gap-2">
+                              {subjects.map(s => (
+                                <button key={s} onClick={() => setCell(day, period, s)} className={`px-3 py-2 rounded-xl text-xs font-bold text-left border ${gc(s)}`}>{s}</button>
+                              ))}
+                            </div>
+                            <span className="text-[10px] font-bold text-surface-400 px-1 mt-3">TEACHER</span>
+                            <div className="grid grid-cols-2 gap-2">
+                              {[...teachers].sort((a,b) => {
+                                const aMatch = cell.subject && (teacherSubjects[a] || []).includes(cell.subject) ? -1 : 1
+                                const bMatch = cell.subject && (teacherSubjects[b] || []).includes(cell.subject) ? -1 : 1
+                                return aMatch - bMatch
+                              }).map(t => {
+                                const isMatch = cell.subject && (teacherSubjects[t] || []).includes(cell.subject)
+                                return (
+                                  <button key={t} onClick={() => setCellTeacher(day, period, t)} className={`px-3 py-2 rounded-xl text-xs font-bold text-left border ${absentTeachers.includes(t) ? 'bg-red-50 text-red-400 border-red-200 line-through' : onBreak.includes(t) ? 'bg-amber-50 text-amber-600 border-amber-200' : isMatch ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm ring-1 ring-emerald-200' : 'bg-white text-surface-700 border-surface-200 hover:bg-indigo-50'}`}>{t} {isMatch && '✨'}</button>
+                                )
+                              })}
+                            </div>
+                            <button onClick={() => { setCell(day, period, ''); setCellTeacher(day, period, '') }} className="w-full mt-3 px-3 py-2.5 rounded-xl text-sm font-bold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100">Clear Assignment</button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Substitute Assignment Modal */}
@@ -756,30 +902,46 @@ export default function Timetable() {
       {isTeacherModalOpen && (
         <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsTeacherModalOpen(false)}>
           <div className="bg-white rounded-[28px] shadow-2xl p-6 sm:p-8 w-full max-w-6xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <h3 className="text-xl sm:text-2xl font-extrabold text-surface-900 flex items-center gap-2 font-display">
-                <User className="w-6 h-6 text-fuchsia-500" /> Teacher-Wise Timetable
-              </h3>
-              <div className="flex items-center gap-2">
-                {selectedTeacherForView && (
-                  <button onClick={executeTeacherPrint} className="px-4 py-2 bg-white border border-surface-200 hover:bg-surface-50 text-surface-700 rounded-xl text-sm font-bold shadow-sm flex items-center gap-2">
-                    <Printer className="w-4 h-4" /> Print
-                  </button>
-                )}
-                <button onClick={() => setIsTeacherModalOpen(false)} className="p-2 hover:bg-surface-100 rounded-xl transition-colors"><X className="w-5 h-5 text-surface-500" /></button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-surface-50 p-4 rounded-2xl border border-surface-200 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-fuchsia-100 text-fuchsia-600 rounded-full flex items-center justify-center shrink-0 shadow-inner">
+                  <User className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-extrabold text-surface-900 font-display leading-tight">
+                    Teacher Schedule
+                  </h3>
+                  <p className="text-sm text-surface-500 font-medium">Select a teacher to view and share their combined timetable</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <button onClick={() => setIsTeacherModalOpen(false)} className="p-2.5 hover:bg-surface-200 bg-white rounded-xl transition-colors border border-surface-200 shadow-sm"><X className="w-5 h-5 text-surface-500" /></button>
               </div>
             </div>
             
-            <div className="mb-6">
-              <label className="block text-xs font-bold text-surface-500 uppercase tracking-wider mb-2">Select Teacher</label>
-              <select 
-                value={selectedTeacherForView} 
-                onChange={(e) => setSelectedTeacherForView(e.target.value)}
-                className="w-full sm:w-[300px] px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl text-sm font-bold focus:outline-none focus:border-fuchsia-400 focus:bg-white transition-colors"
-              >
-                <option value="">-- Choose a Teacher --</option>
-                {allTeachersList.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3 bg-white p-2 rounded-2xl border border-surface-200 shadow-sm">
+              <div className="flex-1 flex items-center gap-3 px-3">
+                <div className="hidden sm:block text-surface-400"><Users className="w-5 h-5" /></div>
+                <select 
+                  value={selectedTeacherForView} 
+                  onChange={(e) => setSelectedTeacherForView(e.target.value)}
+                  className="flex-1 w-full py-3 bg-transparent border-none text-surface-900 text-base font-bold focus:outline-none focus:ring-0 cursor-pointer"
+                >
+                  <option value="" disabled>-- Select a Teacher --</option>
+                  {allTeachersList.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              
+              {selectedTeacherForView && (
+                <div className="flex items-center gap-2 px-2 pb-2 sm:pb-0 sm:px-0">
+                  <button onClick={handleShareWhatsApp} className="flex-1 sm:flex-none px-5 py-3 bg-[#25D366] text-white hover:bg-[#128C7E] rounded-xl text-sm font-bold shadow-md flex items-center justify-center gap-2 transition-all active:scale-95">
+                    <MessageCircle className="w-4 h-4" /> <span className="sm:hidden lg:inline">WhatsApp</span>
+                  </button>
+                  <button onClick={executeTeacherPrint} className="flex-1 sm:flex-none px-5 py-3 bg-surface-100 hover:bg-surface-200 text-surface-700 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95 border border-surface-200">
+                    <Printer className="w-4 h-4" /> <span className="sm:hidden lg:inline">Print</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar border border-surface-200 rounded-2xl bg-white relative">
@@ -790,66 +952,119 @@ export default function Timetable() {
                   <p className="text-sm">Their combined schedule across all your saved classes will appear here.</p>
                 </div>
               ) : (
-                <div className="min-w-[800px]">
-                  {/* Grid Header */}
-                  <div className="grid grid-cols-[80px_repeat(6,1fr)] bg-slate-900 text-white sticky top-0 z-10 text-xs sm:text-sm shadow-md">
-                    <div className="p-3 sm:p-4 font-bold border-b border-r border-slate-800 text-center uppercase tracking-wider">Period</div>
-                    {ALL_DAYS.map(day => (
-                      <div key={day} className="p-3 sm:p-4 font-bold border-b border-r border-slate-800 text-center uppercase tracking-wider">
-                        {day}
-                      </div>
-                    ))}
+                <div className="w-full">
+                  {/* Desktop View */}
+                  <div className="hidden lg:block min-w-[800px]">
+                    {/* Grid Header */}
+                    <div className="grid grid-cols-[80px_repeat(6,1fr)] bg-slate-900 text-white sticky top-0 z-10 text-xs sm:text-sm shadow-md">
+                      <div className="p-3 sm:p-4 font-bold border-b border-r border-slate-800 text-center uppercase tracking-wider">Period</div>
+                      {ALL_DAYS.map(day => (
+                        <div key={day} className="p-3 sm:p-4 font-bold border-b border-r border-slate-800 text-center uppercase tracking-wider">
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Grid Body */}
+                    <div className="divide-y divide-surface-200">
+                      {PERIODS.map((period) => (
+                        <div key={period} className="grid grid-cols-[80px_repeat(6,1fr)]">
+                          {/* Period Column */}
+                          <div className="p-3 sm:p-4 bg-surface-50 border-r border-surface-200 font-bold text-surface-700 text-xs sm:text-sm text-center flex items-center justify-center">
+                            {period}
+                          </div>
+                          
+                          {/* Days Columns */}
+                          {ALL_DAYS.map(day => {
+                            const assignments = teacherViewGrid[day]?.[period] || []
+                            const isClash = assignments.length > 1
+                            
+                            return (
+                              <div 
+                                key={`${day}-${period}`} 
+                                className={`p-3 border-r border-surface-200 relative min-h-[80px] transition-colors
+                                  ${assignments.length === 0 ? 'bg-white hover:bg-surface-50/50' : isClash ? 'bg-red-50 hover:bg-red-100' : 'bg-fuchsia-50/30 hover:bg-fuchsia-50/60'}`}
+                              >
+                                {assignments.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {assignments.map((a, i) => (
+                                      <div key={i} className={`p-2 rounded-lg text-center ${isClash ? 'bg-red-100/80 border border-red-200 shadow-sm' : 'bg-white border border-fuchsia-100 shadow-sm'}`}>
+                                        <div className={`text-xs sm:text-sm font-black ${isClash ? 'text-red-700' : 'text-fuchsia-700'}`}>
+                                          {a.className}
+                                        </div>
+                                        <div className={`text-[10px] sm:text-xs font-semibold mt-0.5 ${isClash ? 'text-red-600' : 'text-fuchsia-600/80'}`}>
+                                          {a.subject || 'No Subject'}
+                                        </div>
+                                      </div>
+                                    ))}
+                                    {isClash && (
+                                      <div className="absolute top-1 right-1">
+                                        <span className="flex h-3 w-3 relative">
+                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                          <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="h-full w-full flex items-center justify-center text-surface-300 font-medium text-xs">
+                                    -
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Grid Body */}
-                  <div className="divide-y divide-surface-200">
-                    {PERIODS.map((period) => (
-                      <div key={period} className="grid grid-cols-[80px_repeat(6,1fr)]">
-                        {/* Period Column */}
-                        <div className="p-3 sm:p-4 bg-surface-50 border-r border-surface-200 font-bold text-surface-700 text-xs sm:text-sm text-center flex items-center justify-center">
-                          {period}
-                        </div>
+                  {/* Mobile View Accordion */}
+                  <div className="lg:hidden flex flex-col divide-y divide-surface-100">
+                    {ALL_DAYS.map(day => (
+                      <div key={day} className="bg-white">
+                        <button 
+                          onClick={() => setTeacherExpandedDay(teacherExpandedDay === day ? null : day)}
+                          className="w-full p-4 flex items-center justify-between font-black text-surface-900 bg-surface-50 hover:bg-surface-100 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <CalendarDays className="w-5 h-5 text-fuchsia-500" />
+                            <span className="text-base uppercase tracking-widest">{day}</span>
+                          </div>
+                          <ChevronDown className={`w-5 h-5 text-surface-400 transition-transform ${teacherExpandedDay === day ? 'rotate-180' : ''}`} />
+                        </button>
                         
-                        {/* Days Columns */}
-                        {ALL_DAYS.map(day => {
-                          const assignments = teacherViewGrid[day]?.[period] || []
-                          const isClash = assignments.length > 1
-                          
-                          return (
-                            <div 
-                              key={`${day}-${period}`} 
-                              className={`p-3 border-r border-surface-200 relative min-h-[80px] transition-colors
-                                ${assignments.length === 0 ? 'bg-white hover:bg-surface-50/50' : isClash ? 'bg-red-50 hover:bg-red-100' : 'bg-fuchsia-50/30 hover:bg-fuchsia-50/60'}`}
-                            >
-                              {assignments.length > 0 ? (
-                                <div className="space-y-2">
-                                  {assignments.map((a, i) => (
-                                    <div key={i} className={`p-2 rounded-lg text-center ${isClash ? 'bg-red-100/80 border border-red-200 shadow-sm' : 'bg-white border border-fuchsia-100 shadow-sm'}`}>
-                                      <div className={`text-xs sm:text-sm font-black ${isClash ? 'text-red-700' : 'text-fuchsia-700'}`}>
-                                        {a.className}
+                        {teacherExpandedDay === day && (
+                          <div className="divide-y divide-surface-100">
+                            {PERIODS.map(period => {
+                              const assignments = teacherViewGrid[day]?.[period] || []
+                              const isClash = assignments.length > 1
+                              return (
+                                <div key={period} className="flex p-4 gap-4 items-center">
+                                  <div className="w-[80px] shrink-0 font-bold text-surface-500 text-xs uppercase tracking-wider">{period}</div>
+                                  <div className="flex-1">
+                                    {assignments.length > 0 ? (
+                                      <div className="space-y-2">
+                                        {assignments.map((a, i) => (
+                                          <div key={i} className={`p-3 rounded-xl border ${isClash ? 'bg-red-50 border-red-200 shadow-sm' : 'bg-fuchsia-50/50 border-fuchsia-200'}`}>
+                                            <div className={`text-sm font-black ${isClash ? 'text-red-700' : 'text-fuchsia-800'}`}>
+                                              {a.className}
+                                            </div>
+                                            <div className={`text-xs font-semibold mt-1 ${isClash ? 'text-red-600' : 'text-fuchsia-600'}`}>
+                                              {a.subject || 'No Subject'}
+                                            </div>
+                                          </div>
+                                        ))}
                                       </div>
-                                      <div className={`text-[10px] sm:text-xs font-semibold mt-0.5 ${isClash ? 'text-red-600' : 'text-fuchsia-600/80'}`}>
-                                        {a.subject || 'No Subject'}
-                                      </div>
-                                    </div>
-                                  ))}
-                                  {isClash && (
-                                    <div className="absolute top-1 right-1">
-                                      <span className="flex h-3 w-3 relative">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                                      </span>
-                                    </div>
-                                  )}
+                                    ) : (
+                                      <div className="text-sm font-medium text-surface-300">Free</div>
+                                    )}
+                                  </div>
                                 </div>
-                              ) : (
-                                <div className="h-full w-full flex items-center justify-center text-surface-300 font-medium text-xs">
-                                  -
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

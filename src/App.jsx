@@ -9,7 +9,6 @@ import Todo from './pages/Todo'
 import Gradebook from './pages/Gradebook'
 import Locker from './pages/Locker'
 import Login from './pages/Login'
-import Feed from './pages/Feed'
 import TeacherProfile from './pages/TeacherProfile'
 import SchoolProfile from './pages/SchoolProfile'
 import Jobs from './pages/Jobs'
@@ -23,17 +22,13 @@ import SchoolDashboard from './pages/SchoolDashboard'
 import TeacherSearch from './pages/TeacherSearch'
 import Settings from './pages/Settings'
 import Messaging from './pages/Messaging'
-import Events from './pages/Events'
 import AdminDashboard from './pages/AdminDashboard'
-import Leaderboard from './pages/Leaderboard'
 import UserProfile from './pages/UserProfile'
-import Marketplace from './pages/Marketplace'
-import Mentorship from './pages/Mentorship'
-import AudioRooms from './pages/AudioRooms'
 import LessonPlanner from './pages/LessonPlanner'
 import Timetable from './pages/Timetable'
 import ExamPaperGen from './pages/ExamPaperGen'
 import ClassroomQuiz from './pages/ClassroomQuiz'
+
 // Public info pages
 import About from './pages/public/About'
 import HowItWorks from './pages/public/HowItWorks'
@@ -116,15 +111,12 @@ export default function App() {
         <Route path="history" element={<ProtectedRoute><GenerationHistory /></ProtectedRoute>} />
         <Route path="dashboard" element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
         <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="events" element={<Events />} />
-        <Route path="marketplace" element={<Marketplace />} />
         <Route path="lesson-planner" element={<LessonPlanner />} />
         <Route path="timetable" element={<Timetable />} />
         <Route path="exam-generator" element={<ExamPaperGen />} />
         <Route path="classroom-quiz" element={<ClassroomQuiz />} />
+
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-        {/* Redirect /feed → / */}
-        <Route path="feed" element={<Navigate to="/" replace />} />
       </Route>
 
       {/* Public info pages with their own marketing layout */}
