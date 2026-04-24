@@ -328,6 +328,11 @@ export default function Timetable() {
     setSubModal(null)
   }
 
+  const notifySub = (subName, day, period, subject, absentTeacher) => {
+    const text = `Hi ${subName}, you have been assigned as a substitute teacher for *${className}* on *${day}* for *${period}*.\n\n*Subject:* ${subject || 'Not specified'}\n*In place of:* ${absentTeacher}\n\nPlease check your schedule.`
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+  }
+
   const toggleAbsent = (t) => setAbsentTeachers(a => a.includes(t) ? a.filter(x => x !== t) : [...a, t])
   const toggleBreak = (t) => setOnBreak(b => b.includes(t) ? b.filter(x => x !== t) : [...b, t])
   const addTeacher = () => { if (newTeacher.trim() && !teachers.includes(newTeacher.trim())) { setTeachers(t => [...t, newTeacher.trim()]); setNewTeacher('') } }
@@ -381,6 +386,33 @@ export default function Timetable() {
     const c = grid[day]?.[p]
     return s2 + (c?.teacher && absentTeachers.includes(c.teacher) && !c.substitute ? 1 : 0)
   }, 0), 0)
+
+  const assignedSubsCount = activeDays.reduce((sum, day) => sum + PERIODS.reduce((s2, p) => {
+    return s2 + (grid[day]?.[p]?.substitute ? 1 : 0)
+  }, 0), 0)
+
+  const notifyAllSubs = () => {
+    let text = `🚨 *Substitute Duties for ${className}* 🚨\n\n`
+    let hasSubs = false
+    activeDays.forEach(day => {
+      let dayText = `*${day}*\n`
+      let dayHasSubs = false
+      PERIODS.forEach(period => {
+        const cell = grid[day]?.[period]
+        if (cell?.substitute) {
+          dayHasSubs = true
+          hasSubs = true
+          dayText += `- ${period}: ${cell.substitute} (Sub for ${cell.teacher} - ${cell.subject || 'N/A'})\n`
+        }
+      })
+      if (dayHasSubs) text += dayText + '\n'
+    })
+    
+    if (!hasSubs) return alert('No substitute duties assigned.')
+    
+    text += `\n_Please check your schedules._`
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+  }
 
   const executePrint = () => {
     setIsPrintModalOpen(false)
@@ -473,6 +505,12 @@ export default function Timetable() {
           <Users className="w-4 h-4" /> Teachers {absentTeachers.length > 0 && <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">{absentTeachers.length}</span>}
         </button>
         <button onClick={handlePrintClick} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm"><Printer className="w-4 h-4" /> Print</button>
+        
+        {assignedSubsCount > 0 && (
+          <button onClick={notifyAllSubs} className="flex items-center gap-2 px-5 py-2.5 bg-[#25D366] text-white rounded-xl text-sm font-bold hover:bg-[#128C7E] shadow-sm transition-all animate-fade-in">
+            <MessageCircle className="w-4 h-4" /> Share Subs
+          </button>
+        )}
         
         <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-end">
           {currentUser && (
@@ -650,7 +688,12 @@ export default function Timetable() {
                                 <span className={`text-xs mt-0.5 font-bold ${isAbsent ? 'line-through text-red-400' : 'text-surface-700'}`}>{cell.teacher}</span>
                               )}
                               {cell.substitute && (
-                                <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 rounded">Sub: {cell.substitute}</span>
+                                <div className="flex items-center justify-center gap-1 mt-0.5">
+                                  <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">Sub: {cell.substitute}</span>
+                                  <button onClick={(e) => { e.stopPropagation(); notifySub(cell.substitute, day, period, cell.subject, cell.teacher) }} className="p-0.5 bg-green-100 text-green-700 hover:bg-green-200 rounded" title="Notify via WhatsApp">
+                                    <MessageCircle className="w-3 h-3" />
+                                  </button>
+                                </div>
                               )}
                               {isAbsent && !cell.substitute && (
                                 <button onClick={e => { e.stopPropagation(); setSubModal({ day, period }) }} className="text-[9px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full mt-0.5 hover:bg-red-600 animate-pulse">
@@ -703,7 +746,14 @@ export default function Timetable() {
                               <div className="inline-flex flex-col items-end text-right">
                                 <span className={`text-sm font-bold px-3 py-1 rounded-lg border ${gc(cell.subject)}`}>{cell.subject}</span>
                                 {cell.teacher && <span className={`text-sm mt-1.5 font-black ${isAbsent ? 'line-through text-red-400' : 'text-surface-700'}`}>{cell.teacher}</span>}
-                                {cell.substitute && <span className="text-[11px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded mt-1">Sub: {cell.substitute}</span>}
+                                {cell.substitute && (
+                                  <div className="flex items-center justify-end gap-1.5 mt-1">
+                                    <span className="text-[11px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded">Sub: {cell.substitute}</span>
+                                    <button onClick={(e) => { e.stopPropagation(); notifySub(cell.substitute, day, period, cell.subject, cell.teacher) }} className="p-1 bg-green-100 text-green-700 hover:bg-green-200 rounded-md shadow-sm" title="Notify via WhatsApp">
+                                      <MessageCircle className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
                                 {isAbsent && !cell.substitute && (
                                   <button onClick={e => { e.stopPropagation(); setSubModal({ day, period }) }} className="text-[10px] font-bold text-white bg-red-500 px-2 py-1 rounded-full mt-1.5 animate-pulse">Assign Sub</button>
                                 )}
