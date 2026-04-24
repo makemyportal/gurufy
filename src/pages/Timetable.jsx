@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy } from 'lucide-react'
+import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
 import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc } from 'firebase/firestore'
@@ -87,7 +87,14 @@ export default function Timetable() {
     const s = localStorage.getItem('ldms_teacher_subjects')
     return s ? JSON.parse(s) : {}
   }) // { 'Mr. Sharma': ['Mathematics', 'Physics'], ... }
+  const [teacherConstraints, setTeacherConstraints] = useState(() => {
+    const s = localStorage.getItem('ldms_teacher_constraints')
+    return s ? JSON.parse(s) : {}
+  }) // { 'Mr. Sharma': { allowedClasses: '1,2,3', maxWorkload: 30 }, ... }
   const [assigningSubjectsFor, setAssigningSubjectsFor] = useState(null)
+  const [configuringConstraintsFor, setConfiguringConstraintsFor] = useState(null)
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false)
+  const [aiRequirements, setAiRequirements] = useState({})
   const [expandedDay, setExpandedDay] = useState(ALL_DAYS[0])
   const [teacherExpandedDay, setTeacherExpandedDay] = useState(ALL_DAYS[0])
   const tableRef = useRef(null)
@@ -106,6 +113,7 @@ export default function Timetable() {
   useEffect(() => { localStorage.setItem('ldms_subjects', JSON.stringify(subjects)) }, [subjects])
   useEffect(() => { localStorage.setItem('ldms_active_days', JSON.stringify(activeDays)) }, [activeDays])
   useEffect(() => { localStorage.setItem('ldms_teacher_subjects', JSON.stringify(teacherSubjects)) }, [teacherSubjects])
+  useEffect(() => { localStorage.setItem('ldms_teacher_constraints', JSON.stringify(teacherConstraints)) }, [teacherConstraints])
 
   const saveToCloud = async () => {
     if (!currentUser) return alert('Please login to save to the cloud.')
@@ -125,6 +133,7 @@ export default function Timetable() {
         subjects,
         activeDays,
         teacherSubjects,
+        teacherConstraints,
         updatedAt: serverTimestamp()
       }
 
@@ -297,6 +306,7 @@ export default function Timetable() {
     setSubjects(tb.subjects || DEFAULT_SUBJECTS)
     setActiveDays(tb.activeDays || ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'])
     setTeacherSubjects(tb.teacherSubjects || {})
+    setTeacherConstraints(tb.teacherConstraints || {})
     setCurrentTimetableId(tb.id)
     setIsCloudModalOpen(false)
   }
@@ -317,6 +327,7 @@ export default function Timetable() {
     if (tb.onBreak) setOnBreak([...tb.onBreak])
     if (tb.subjects) setSubjects([...tb.subjects])
     if (tb.activeDays) setActiveDays([...tb.activeDays])
+    if (tb.teacherConstraints) setTeacherConstraints(JSON.parse(JSON.stringify(tb.teacherConstraints)))
     setCurrentTimetableId(null) // force create new on save
     setIsCloudModalOpen(false)
     alert(`Timetable duplicated as "${newName}". You are now editing the unsaved duplicate.`)
@@ -517,6 +528,101 @@ export default function Timetable() {
     setGrid(g)
   }
 
+  const generateAITimetable = () => {
+    let totalReq = 0
+    Object.values(aiRequirements).forEach(v => totalReq += (parseInt(v) || 0))
+    const maxPeriods = activeDays.length * (PERIODS.length - 1)
+    if (totalReq > maxPeriods) {
+      return alert(`Too many periods required! You requested ${totalReq}, but there are only ${maxPeriods} empty slots available.`)
+    }
+
+    let pool = []
+    Object.entries(aiRequirements).forEach(([sub, count]) => {
+      for (let i = 0; i < (parseInt(count) || 0); i++) pool.push(sub)
+    })
+    pool = pool.sort(() => Math.random() - 0.5)
+
+    const getWorkloadCounts = () => {
+      const workload = {}
+      allTeachersList.forEach(t => workload[t] = 0)
+      const countGrid = (g) => {
+        if (!g) return
+        ALL_DAYS.forEach(d => {
+          PERIODS.forEach(p => {
+            const c = g[d]?.[p]
+            if (c?.teacher && workload[c.teacher] !== undefined) workload[c.teacher]++
+          })
+        })
+      }
+      cloudTimetables.forEach(tb => { if (tb.id !== currentTimetableId) countGrid(tb.grid) })
+      return workload
+    }
+    const currentWorkloads = getWorkloadCounts()
+
+    const isTeacherEligible = (t, day, period) => {
+      const allowed = teacherConstraints[t]?.allowedClasses
+      if (allowed && className) {
+        const allowedArray = allowed.split(',').map(s => s.trim().toLowerCase()).filter(s => s)
+        const classStr = className.toLowerCase()
+        if (allowedArray.length > 0) {
+          const matches = allowedArray.some(val => {
+            const regex = new RegExp(`\\b${val}\\b`, 'i')
+            return regex.test(classStr)
+          })
+          if (!matches) return false
+        }
+      }
+      const maxW = teacherConstraints[t]?.maxWorkload !== undefined ? teacherConstraints[t].maxWorkload : 36
+      if (currentWorkloads[t] >= maxW) return false
+      if (checkClash(t, day, period)) return false
+      return true
+    }
+
+    const newGrid = JSON.parse(JSON.stringify(grid))
+    
+    ALL_DAYS.forEach(d => {
+      PERIODS.forEach(p => {
+        if (p === 'Lunch') newGrid[d][p] = { subject: 'Lunch', teacher: '', substitute: '' }
+        else newGrid[d][p] = { subject: '', teacher: '', substitute: '' }
+      })
+    })
+
+    activeDays.forEach(day => {
+      PERIODS.forEach(period => {
+        if (period === 'Lunch' || pool.length === 0) return
+
+        let selectedSubjIndex = -1
+        let assignedTeacher = ''
+        
+        for (let i = 0; i < pool.length; i++) {
+          const subj = pool[i]
+          let candidates = teachers.filter(t => (teacherSubjects[t] || []).includes(subj) && isTeacherEligible(t, day, period))
+          
+          if (candidates.length === 0) {
+            candidates = teachers.filter(t => isTeacherEligible(t, day, period))
+          }
+
+          if (candidates.length > 0) {
+            candidates.sort((a,b) => currentWorkloads[a] - currentWorkloads[b])
+            assignedTeacher = candidates[0]
+            selectedSubjIndex = i
+            break
+          }
+        }
+
+        if (assignedTeacher && selectedSubjIndex !== -1) {
+          const subj = pool.splice(selectedSubjIndex, 1)[0]
+          newGrid[day][period] = { subject: subj, teacher: assignedTeacher, substitute: '' }
+          currentWorkloads[assignedTeacher]++
+        }
+      })
+    })
+
+    setGrid(newGrid)
+    setIsAIModalOpen(false)
+    alert('✨ AI Auto-Generation Complete!\nNote: Some periods may be blank if no teachers were available or constraints were too strict.')
+  }
+
   const getWorkload = () => {
     const workload = {}
     allTeachersList.forEach(t => workload[t] = 0)
@@ -643,6 +749,9 @@ export default function Timetable() {
           <BookOpen className="w-4 h-4" /> Workload
         </button>
         <button onClick={handlePrintClick} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm"><Printer className="w-4 h-4" /> Print</button>
+        <button onClick={() => setIsAIModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl text-sm font-bold hover:shadow-lg shadow-sm transition-all animate-pulse-soft">
+          <Sparkles className="w-4 h-4" /> AI Auto-Fill
+        </button>
         
         {assignedSubsCount > 0 && (
           <button onClick={notifyAllSubs} className="flex items-center gap-2 px-5 py-2.5 bg-[#25D366] text-white rounded-xl text-sm font-bold hover:bg-[#128C7E] shadow-sm transition-all animate-fade-in">
@@ -711,6 +820,9 @@ export default function Timetable() {
                     <button onClick={() => setAssigningSubjectsFor(assigningSubjectsFor === t ? null : t)} title="Assign subjects" className={`p-1.5 rounded-lg transition-colors ${assigningSubjectsFor === t ? 'bg-emerald-200 text-emerald-700' : 'hover:bg-emerald-100 text-surface-400'}`}>
                       <Tag className="w-3.5 h-3.5" />
                     </button>
+                    <button onClick={() => setConfiguringConstraintsFor(configuringConstraintsFor === t ? null : t)} title="Configure Constraints" className={`p-1.5 rounded-lg transition-colors ${configuringConstraintsFor === t ? 'bg-blue-200 text-blue-700' : 'hover:bg-blue-100 text-surface-400'}`}>
+                      <Settings className="w-3.5 h-3.5" />
+                    </button>
                     <button onClick={() => toggleAbsent(t)} title={isAbsent ? 'Mark Present' : 'Mark Absent'} className={`p-1.5 rounded-lg transition-colors ${isAbsent ? 'bg-red-200 text-red-700' : 'hover:bg-red-100 text-surface-400'}`}>
                       <UserX className="w-3.5 h-3.5" />
                     </button>
@@ -729,6 +841,30 @@ export default function Timetable() {
                       {subjects.filter(s => s !== 'Lunch' && s !== 'Free Period').map(s => (
                         <button key={s} onClick={() => toggleTeacherSubject(t, s)} className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all ${tSubjs.includes(s) ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-white text-surface-400 border-surface-200 hover:border-surface-300'}`}>{s}</button>
                       ))}
+                    </div>
+                  )}
+                  {configuringConstraintsFor === t && (
+                    <div className="pt-2 border-t border-surface-100 mt-2 space-y-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-1 block">Allowed Classes (e.g. 8, 9, 10)</label>
+                        <input 
+                          type="text" 
+                          placeholder="Leave blank for all classes" 
+                          className="w-full text-xs p-2 border border-surface-200 rounded-lg focus:border-blue-400 focus:outline-none"
+                          value={teacherConstraints[t]?.allowedClasses || ''}
+                          onChange={e => setTeacherConstraints(prev => ({ ...prev, [t]: { ...prev[t], allowedClasses: e.target.value } }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-1 block">Max Periods / Week</label>
+                        <input 
+                          type="number" 
+                          placeholder="e.g. 36" 
+                          className="w-full text-xs p-2 border border-surface-200 rounded-lg focus:border-blue-400 focus:outline-none"
+                          value={teacherConstraints[t]?.maxWorkload !== undefined ? teacherConstraints[t].maxWorkload : 36}
+                          onChange={e => setTeacherConstraints(prev => ({ ...prev, [t]: { ...prev[t], maxWorkload: parseInt(e.target.value) || 0 } }))}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1300,6 +1436,50 @@ export default function Timetable() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Auto-Generate Modal */}
+      {isAIModalOpen && (
+        <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsAIModalOpen(false)}>
+          <div className="bg-white rounded-[28px] shadow-2xl p-6 sm:p-8 w-full max-w-lg max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl sm:text-2xl font-extrabold text-surface-900 flex items-center gap-2 font-display">
+                <Sparkles className="w-6 h-6 text-violet-500" /> AI Auto-Generate
+              </h3>
+              <button onClick={() => setIsAIModalOpen(false)} className="p-2 hover:bg-surface-100 rounded-xl transition-colors"><X className="w-5 h-5 text-surface-500" /></button>
+            </div>
+            
+            <div className="mb-4 p-4 bg-violet-50 rounded-2xl border border-violet-100">
+              <p className="text-sm font-medium text-violet-800">
+                Define how many periods per week each subject should have for <strong>{className || 'this class'}</strong>.
+                Total capacity: <strong>{activeDays.length * (PERIODS.length - 1)}</strong> periods.
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3 mb-6">
+              {subjects.filter(s => s !== 'Lunch' && s !== 'Free Period').map(s => (
+                <div key={s} className="flex items-center justify-between p-3 rounded-xl border border-surface-200 bg-surface-50">
+                  <span className="font-bold text-surface-800 text-sm">{s}</span>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="number" 
+                      min="0"
+                      className="w-16 px-3 py-1.5 border border-surface-300 rounded-lg text-center font-bold focus:outline-none focus:border-violet-500"
+                      value={aiRequirements[s] || ''}
+                      onChange={e => setAiRequirements(prev => ({ ...prev, [s]: e.target.value }))}
+                      placeholder="0"
+                    />
+                    <span className="text-xs text-surface-400 font-semibold uppercase">periods</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button onClick={generateAITimetable} className="w-full py-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+              <Sparkles className="w-5 h-5" /> Run AI Generator
+            </button>
           </div>
         </div>
       )}
