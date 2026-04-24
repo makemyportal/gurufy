@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2 } from 'lucide-react'
+import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
 import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc } from 'firebase/firestore'
@@ -76,6 +76,7 @@ export default function Timetable() {
   const [selectedTeacherForView, setSelectedTeacherForView] = useState('')
   const [teacherViewGrid, setTeacherViewGrid] = useState({})
   const [allTeachersList, setAllTeachersList] = useState([])
+  const [isWorkloadModalOpen, setIsWorkloadModalOpen] = useState(false)
 
   const [editingClass, setEditingClass] = useState(false)
   const [showPanel, setShowPanel] = useState(false)
@@ -166,6 +167,10 @@ export default function Timetable() {
       return []
     }
   }
+
+  useEffect(() => {
+    if (currentUser) loadTimetables()
+  }, [currentUser])
 
   const handleOpenTeacherView = async () => {
     if (!currentUser) return alert('Please login to use Teacher View.')
@@ -296,6 +301,27 @@ export default function Timetable() {
     setIsCloudModalOpen(false)
   }
 
+  const handleDuplicateTimetable = (tb) => {
+    const newName = prompt('Enter a new Class Name for the duplicate timetable:', tb.className ? `${tb.className} (Copy)` : 'Copy of Timetable')
+    if (!newName) return
+    
+    setSchoolName(tb.schoolName || '')
+    setClassName(newName)
+    setDetails(tb.details || '')
+    setSession(tb.session || '')
+    setClassTeacher(tb.classTeacher || '')
+    setPrincipalName(tb.principalName || '')
+    if (tb.grid) setGrid(JSON.parse(JSON.stringify(tb.grid)))
+    if (tb.teachers) setTeachers([...tb.teachers])
+    if (tb.absentTeachers) setAbsentTeachers([...tb.absentTeachers])
+    if (tb.onBreak) setOnBreak([...tb.onBreak])
+    if (tb.subjects) setSubjects([...tb.subjects])
+    if (tb.activeDays) setActiveDays([...tb.activeDays])
+    setCurrentTimetableId(null) // force create new on save
+    setIsCloudModalOpen(false)
+    alert(`Timetable duplicated as "${newName}". You are now editing the unsaved duplicate.`)
+  }
+
   const handleNewTimetable = () => {
     if (!confirm('Start a new timetable? Current local unsaved changes will be cleared.')) return
     setCurrentTimetableId(null)
@@ -307,10 +333,31 @@ export default function Timetable() {
     setGrid(g)
   }
 
+  const checkClash = (teacher, day, period) => {
+    if (!teacher) return false
+    const clashes = []
+    cloudTimetables.forEach(tb => {
+      if (tb.id === currentTimetableId) return // skip current
+      if (tb.grid && tb.grid[day]?.[period]?.teacher === teacher) {
+        clashes.push(tb.className || 'Unnamed Class')
+      }
+    })
+    return clashes.length > 0 ? clashes : false
+  }
+
   const setCell = (day, period, subject) => {
     const matchingTeachers = teachers.filter(t => (teacherSubjects[t] || []).includes(subject))
     if (matchingTeachers.length === 1 && subject !== '') {
-      setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], subject, teacher: matchingTeachers[0] } } }))
+      const teacher = matchingTeachers[0]
+      const clashes = checkClash(teacher, day, period)
+      if (clashes) {
+        if (!confirm(`⚠️ CLASH DETECTED:\n${teacher} (auto-assigned for ${subject}) is already teaching ${clashes.join(', ')} during ${day} - ${period}.\n\nDo you still want to assign them?`)) {
+          setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], subject, teacher: '' } } }))
+          setEditing(null)
+          return
+        }
+      }
+      setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], subject, teacher } } }))
       setEditing(null)
     } else {
       setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], subject, teacher: '' } } }))
@@ -319,7 +366,14 @@ export default function Timetable() {
       }
     }
   }
+
   const setCellTeacher = (day, period, teacher) => {
+    const clashes = checkClash(teacher, day, period)
+    if (clashes) {
+      if (!confirm(`⚠️ CLASH DETECTED:\n${teacher} is already teaching ${clashes.join(', ')} during ${day} - ${period}.\n\nDo you still want to assign them?`)) {
+        return
+      }
+    }
     setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], teacher } } }))
     setEditing(null)
   }
@@ -463,6 +517,87 @@ export default function Timetable() {
     setGrid(g)
   }
 
+  const getWorkload = () => {
+    const workload = {}
+    allTeachersList.forEach(t => workload[t] = 0)
+    
+    const countGrid = (g) => {
+      if (!g) return
+      ALL_DAYS.forEach(d => {
+        PERIODS.forEach(p => {
+          const c = g[d]?.[p]
+          if (c?.teacher && workload[c.teacher] !== undefined) workload[c.teacher]++
+          if (c?.substitute && workload[c.substitute] !== undefined) workload[c.substitute]++
+        })
+      })
+    }
+
+    cloudTimetables.forEach(tb => {
+      if (tb.id !== currentTimetableId) countGrid(tb.grid)
+    })
+    countGrid(grid)
+    
+    return Object.entries(workload).map(([name, count]) => ({ name, count })).sort((a,b) => b.count - a.count)
+  }
+
+  const exportTeacherICS = () => {
+    if (!selectedTeacherForView) return
+    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//LDMS//Teacher Timetable//EN\n"
+    
+    const dayMap = { 'Monday': 'MO', 'Tuesday': 'TU', 'Wednesday': 'WE', 'Thursday': 'TH', 'Friday': 'FR', 'Saturday': 'SA' }
+    const timeMap = {
+      'Period 1': { start: '080000', end: '084000' },
+      'Period 2': { start: '084000', end: '092000' },
+      'Period 3': { start: '092000', end: '100000' },
+      'Period 4': { start: '100000', end: '104000' },
+      'Lunch': { start: '104000', end: '110000' },
+      'Period 5': { start: '110000', end: '114000' },
+      'Period 6': { start: '114000', end: '122000' },
+      'Period 7': { start: '122000', end: '130000' },
+      'Period 8': { start: '130000', end: '134000' }
+    }
+
+    const getNextDate = (dayName) => {
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+      const today = new Date()
+      const targetDay = days.indexOf(dayName)
+      let d = new Date()
+      d.setDate(today.getDate() + (targetDay + 7 - today.getDay()) % 7)
+      return d.toISOString().split('T')[0].replace(/-/g, '')
+    }
+
+    ALL_DAYS.forEach(day => {
+      const dateStr = getNextDate(day)
+      PERIODS.forEach(period => {
+        const assignments = teacherViewGrid[day]?.[period] || []
+        if (assignments.length > 0) {
+          assignments.forEach(a => {
+            const t = timeMap[period]
+            if (!t) return
+            icsContent += "BEGIN:VEVENT\n"
+            icsContent += `DTSTART:${dateStr}T${t.start}\n`
+            icsContent += `DTEND:${dateStr}T${t.end}\n`
+            icsContent += `RRULE:FREQ=WEEKLY;BYDAY=${dayMap[day]}\n`
+            icsContent += `SUMMARY:${a.className} - ${a.subject || 'Class'}\n`
+            icsContent += `DESCRIPTION:Class: ${a.className}, Subject: ${a.subject || 'N/A'}\n`
+            icsContent += "END:VEVENT\n"
+          })
+        }
+      })
+    })
+
+    icsContent += "END:VCALENDAR"
+    
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `${selectedTeacherForView}_Timetable.ics`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <div className="max-w-[1200px] mx-auto animate-fade-in-up pb-24 lg:pb-8">
       {/* Header */}
@@ -503,6 +638,9 @@ export default function Timetable() {
         )}
         <button onClick={() => setShowPanel(!showPanel)} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${showPanel ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border border-surface-200 text-surface-700 hover:bg-surface-50'}`}>
           <Users className="w-4 h-4" /> Teachers {absentTeachers.length > 0 && <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">{absentTeachers.length}</span>}
+        </button>
+        <button onClick={() => setIsWorkloadModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-sm font-bold hover:bg-indigo-100 shadow-sm transition-all">
+          <BookOpen className="w-4 h-4" /> Workload
         </button>
         <button onClick={handlePrintClick} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm"><Printer className="w-4 h-4" /> Print</button>
         
@@ -894,7 +1032,10 @@ export default function Timetable() {
                       </p>
                       {tb.details && <p className="text-xs text-surface-500 mt-2 line-clamp-2 leading-relaxed bg-surface-50 p-2 rounded-lg">{tb.details}</p>}
                     </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                      <button onClick={() => handleDuplicateTimetable(tb)} className="flex-1 sm:flex-none px-4 py-2.5 bg-surface-100 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-200 whitespace-nowrap transition-all flex items-center justify-center gap-2">
+                        <Copy className="w-4 h-4" /> Duplicate
+                      </button>
                       <button onClick={() => handleLoadTimetable(tb)} className="flex-1 sm:flex-none px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 whitespace-nowrap shadow-sm active:scale-[0.98] transition-all">
                         Load Schedule
                       </button>
@@ -984,6 +1125,9 @@ export default function Timetable() {
               
               {selectedTeacherForView && (
                 <div className="flex items-center gap-2 px-2 pb-2 sm:pb-0 sm:px-0">
+                  <button onClick={exportTeacherICS} className="flex-1 sm:flex-none px-5 py-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-sm font-bold shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95 border border-blue-200">
+                    <CalendarDays className="w-4 h-4" /> <span className="sm:hidden lg:inline">Export .ics</span>
+                  </button>
                   <button onClick={handleShareWhatsApp} className="flex-1 sm:flex-none px-5 py-3 bg-[#25D366] text-white hover:bg-[#128C7E] rounded-xl text-sm font-bold shadow-md flex items-center justify-center gap-2 transition-all active:scale-95">
                     <MessageCircle className="w-4 h-4" /> <span className="sm:hidden lg:inline">WhatsApp</span>
                   </button>
@@ -1120,6 +1264,39 @@ export default function Timetable() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Workload Modal */}
+      {isWorkloadModalOpen && (
+        <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsWorkloadModalOpen(false)}>
+          <div className="bg-white rounded-[28px] shadow-2xl p-6 sm:p-8 w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl sm:text-2xl font-extrabold text-surface-900 flex items-center gap-2 font-display">
+                <BookOpen className="w-6 h-6 text-indigo-500" /> Teacher Workload Analytics
+              </h3>
+              <button onClick={() => setIsWorkloadModalOpen(false)} className="p-2 hover:bg-surface-100 rounded-xl transition-colors"><X className="w-5 h-5 text-surface-500" /></button>
+            </div>
+            <p className="text-sm text-surface-500 mb-6">Overview of periods assigned per week across all your saved classes.</p>
+            
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-4">
+              {getWorkload().map(w => (
+                <div key={w.name} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-4 rounded-2xl border border-surface-200 bg-surface-50 hover:bg-white transition-colors">
+                  <div className="w-40 font-bold text-surface-900 truncate shrink-0">{w.name}</div>
+                  <div className="flex-1 w-full bg-surface-200 rounded-full h-3 relative overflow-hidden">
+                    <div 
+                      className={`absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ${w.count > 30 ? 'bg-red-500' : w.count > 15 ? 'bg-emerald-500' : 'bg-indigo-400'}`}
+                      style={{ width: `${Math.min((w.count / 48) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <div className="w-24 text-right shrink-0">
+                    <span className="text-sm font-black text-surface-700">{w.count}</span>
+                    <span className="text-xs font-semibold text-surface-400 ml-1">periods</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
