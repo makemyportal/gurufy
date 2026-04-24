@@ -662,7 +662,9 @@ export default function Timetable() {
               <button onClick={saveToCloud} disabled={isSaving} className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 border border-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 shadow-sm">
                 <Cloud className="w-4 h-4" /> <span className="hidden sm:inline">{isSaving ? 'Saving...' : 'Save Cloud'}</span>
               </button>
-              <button onClick={handleNewTimetable} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm"><Plus className="w-4 h-4" /></button>
+              <button onClick={handleNewTimetable} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm">
+                <Plus className="w-4 h-4 text-emerald-600" /> <span className="hidden sm:inline">New Class</span>
+              </button>
             </>
           )}
           {!currentUser && (
