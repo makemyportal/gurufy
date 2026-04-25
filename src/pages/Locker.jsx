@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Lock, FileText, Plus, Save, Clock, Trash2 } from 'lucide-react'
+import { Lock, FileText, Plus, Save, Clock, Trash2, Share2, MessageCircle, Send, Mail, Link as LinkIcon } from 'lucide-react'
 
 export default function Locker() {
   const [notes, setNotes] = useState(() => {
@@ -13,6 +13,7 @@ export default function Locker() {
   const [activeNoteId, setActiveNoteId] = useState(notes[0]?.id || null)
   const [editorTitle, setEditorTitle] = useState('')
   const [editorContent, setEditorContent] = useState('')
+  const [showShareMenu, setShowShareMenu] = useState(false)
 
   const activeNote = notes.find(n => n.id === activeNoteId)
 
@@ -46,6 +47,37 @@ export default function Locker() {
         ? { ...n, title: editorTitle || 'Untitled', content: editorContent, date: new Date().toISOString() } 
         : n
     ))
+  }
+
+  const handleShareWhatsApp = () => {
+    const text = encodeURIComponent(`*${editorTitle}*\n\n${editorContent}\n\n_Shared from LDMS Private Locker_`)
+    window.open(`https://wa.me/?text=${text}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  const handleShareTelegram = () => {
+    const text = encodeURIComponent(`${editorTitle}\n\n${editorContent}\n\nShared from LDMS Private Locker`)
+    window.open(`https://t.me/share/url?text=${text}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  const handleShareEmail = () => {
+    const subject = encodeURIComponent(editorTitle)
+    const body = encodeURIComponent(`${editorContent}\n\n---\nShared from LDMS Private Locker`)
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: editorTitle,
+          text: editorContent
+        })
+      } catch (err) { /* user cancelled */ }
+    }
+    setShowShareMenu(false)
   }
 
   function deleteNote(id) {
@@ -128,12 +160,30 @@ export default function Locker() {
                     <div className="p-2 bg-violet-100 text-violet-600 rounded-lg"><FileText className="w-5 h-5" /></div>
                     <span className="text-sm font-bold text-surface-500">Editing Document</span>
                   </div>
-                  <button 
-                    onClick={saveNote}
-                    className="px-4 py-2 bg-slate-900 hover:bg-black text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
-                  >
-                    <Save className="w-4 h-4" /> Save Changes
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <button onClick={() => setShowShareMenu(!showShareMenu)} className="px-4 py-2 bg-white border border-surface-200 hover:bg-surface-50 text-surface-700 text-sm font-bold rounded-lg flex items-center gap-2 transition-colors">
+                        <Share2 className="w-4 h-4" /> Share
+                      </button>
+                      {showShareMenu && (
+                        <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-surface-200 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
+                          <button onClick={handleShareWhatsApp} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-[#25D366]/10 hover:text-[#25D366] transition-colors"><MessageCircle className="w-4 h-4" /> WhatsApp</button>
+                          <button onClick={handleShareTelegram} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-[#0088cc]/10 hover:text-[#0088cc] transition-colors border-t border-surface-100"><Send className="w-4 h-4" /> Telegram</button>
+                          <button onClick={handleShareEmail} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-100 transition-colors border-t border-surface-100"><Mail className="w-4 h-4" /> Email</button>
+                          {navigator.share && (
+                            <button onClick={handleNativeShare} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-100 transition-colors border-t border-surface-100"><LinkIcon className="w-4 h-4" /> Share via...</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button 
+                      onClick={saveNote}
+                      className="px-4 py-2 bg-slate-900 hover:bg-black text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                    >
+                      <Save className="w-4 h-4" /> Save
+                    </button>
+                  </div>
                 </div>
                 <div className="p-6 sm:p-10 flex-1 flex flex-col gap-6">
                   <input

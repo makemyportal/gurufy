@@ -16,7 +16,7 @@ export function NotificationProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUser || !db) {
       setNotifications([])
       setUnreadCount(0)
       setLoading(false)

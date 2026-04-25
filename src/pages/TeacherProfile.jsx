@@ -8,7 +8,8 @@ import {
   GraduationCap, Clock, Loader2, Save, FileDown, User, Settings, CheckCircle2,
   Trophy, Sparkles, Star, Zap, Info, Coins
 } from 'lucide-react'
-import { useGamification, getLevelProgress, BADGE_DEFS, getLevel } from '../contexts/GamificationContext'
+import { useGamification } from '../contexts/GamificationContext'
+import { getLevelProgress, BADGE_DEFS, getLevel } from '../utils/gamificationUtils'
 import TokenShopModal from '../components/TokenShopModal'
 
 export default function TeacherProfile() {

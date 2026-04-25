@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Gamepad2, Plus, Trash2, Play, X, ChevronRight, ChevronLeft, Eye, RotateCcw, Save, Trophy, Clock, CheckCircle2, XCircle } from 'lucide-react'
+import { Gamepad2, Plus, Trash2, Play, X, ChevronRight, ChevronLeft, Eye, RotateCcw, Save, Trophy, Clock, CheckCircle2, XCircle, Share2, MessageCircle, Send, Mail, Link as LinkIcon } from 'lucide-react'
 
 const COLORS = ['bg-blue-500', 'bg-red-500', 'bg-emerald-500', 'bg-amber-500']
 const LETTERS = ['A', 'B', 'C', 'D']
@@ -19,6 +19,7 @@ export default function ClassroomQuiz() {
   const [timerActive, setTimerActive] = useState(false)
   const [score, setScore] = useState({ correct: 0, wrong: 0 })
   const [quizDone, setQuizDone] = useState(false)
+  const [showShareMenu, setShowShareMenu] = useState(false)
 
   useEffect(() => { localStorage.setItem('ldms_quiz_questions', JSON.stringify(questions)) }, [questions])
   useEffect(() => { localStorage.setItem('ldms_quiz_title', quizTitle) }, [quizTitle])
@@ -38,6 +39,50 @@ export default function ClassroomQuiz() {
   }
   const addQuestion = () => setQuestions(qs => [...qs, emptyQ()])
   const removeQuestion = (idx) => { if (questions.length > 1) setQuestions(qs => qs.filter((_, i) => i !== idx)) }
+
+  const getShareText = () => {
+    let text = `*${quizTitle}*\n\n`
+    questions.forEach((q, i) => {
+      text += `*Q${i + 1}.* ${q.question}\n`
+      q.options.forEach((o, j) => {
+        text += `  ${LETTERS[j]}) ${o}\n`
+      })
+      text += '\n'
+    })
+    text += `_Generated via LDMS Teacher Hub_`
+    return text
+  }
+
+  const handleShareWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(getShareText())}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  const handleShareTelegram = () => {
+    const text = getShareText().replace(/\\*/g, '')
+    window.open(`https://t.me/share/url?text=${encodeURIComponent(text)}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  const handleShareEmail = () => {
+    const text = getShareText().replace(/\\*/g, '')
+    const subject = encodeURIComponent(`Quiz: ${quizTitle}`)
+    const body = encodeURIComponent(text)
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: quizTitle,
+          text: getShareText().replace(/\\*/g, '')
+        })
+      } catch (err) { /* user cancelled */ }
+    }
+    setShowShareMenu(false)
+  }
 
   const startPresentation = () => {
     if (questions.some(q => !q.question.trim() || q.options.some(o => !o.trim()))) {
@@ -196,7 +241,24 @@ export default function ClassroomQuiz() {
         <button onClick={addQuestion} className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-dashed border-surface-300 text-surface-600 font-bold rounded-xl hover:border-violet-400 hover:text-violet-600 transition-all">
           <Plus className="w-4 h-4" /> Add Question
         </button>
-        <button onClick={startPresentation} className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-extrabold rounded-xl hover:from-violet-500 hover:to-fuchsia-500 transition-all shadow-lg ml-auto">
+        
+        <div className="relative ml-auto">
+          <button onClick={() => setShowShareMenu(!showShareMenu)} className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-surface-200 text-surface-700 font-bold rounded-xl hover:bg-surface-50 transition-all">
+            <Share2 className="w-4 h-4" /> Share Text
+          </button>
+          {showShareMenu && (
+            <div className="absolute bottom-full right-0 mb-2 w-48 bg-white border border-surface-200 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
+              <button onClick={handleShareWhatsApp} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-[#25D366]/10 hover:text-[#25D366] transition-colors"><MessageCircle className="w-4 h-4" /> WhatsApp</button>
+              <button onClick={handleShareTelegram} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-[#0088cc]/10 hover:text-[#0088cc] transition-colors border-t border-surface-100"><Send className="w-4 h-4" /> Telegram</button>
+              <button onClick={handleShareEmail} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-100 transition-colors border-t border-surface-100"><Mail className="w-4 h-4" /> Email</button>
+              {navigator.share && (
+                <button onClick={handleNativeShare} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-100 transition-colors border-t border-surface-100"><LinkIcon className="w-4 h-4" /> Share via...</button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <button onClick={startPresentation} className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-extrabold rounded-xl hover:from-violet-500 hover:to-fuchsia-500 transition-all shadow-lg">
           <Play className="w-5 h-5" /> Start Presentation
         </button>
       </div>

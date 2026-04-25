@@ -896,7 +896,7 @@ YOU MUST STRICTLY USE THIS FORMAT:
 
 export default function AITools() {
   const { currentUser, userProfile } = useAuth()
-  const { stats, spendCoins } = useGamification()
+  const { stats, spendCoins, toolCosts } = useGamification()
   const navigate = useNavigate()
   const location = useLocation()
   
@@ -941,7 +941,7 @@ export default function AITools() {
     setGeneratedContent('')
     setCopied(false)
 
-    const COST = 5
+    const COST = toolCosts?.[activeTool.id] ?? 5
     const isSuperAdmin = userProfile?.role === 'superadmin'
 
     if (!isSuperAdmin) {

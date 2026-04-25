@@ -41,7 +41,7 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
           firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
-          utils: ['html2pdf.js', 'html2canvas', 'jspdf', 'pptxgenjs']
+          utils: ['html2pdf.js', 'pptxgenjs']
         }
       }
     }

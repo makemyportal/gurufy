@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom'
 import { GraduationCap, Menu, X, ChevronRight, Twitter, Linkedin, Instagram, Youtube, Mail, Phone, MapPin } from 'lucide-react'
 import AIChatWidget from './AIChatWidget'
@@ -140,7 +140,14 @@ export default function PublicLayout() {
 
       {/* ── Page Content ── */}
       <main>
-        <Outlet />
+        <Suspense fallback={
+          <div className="min-h-[60vh] flex flex-col items-center justify-center">
+            <div className="w-10 h-10 border-4 border-white/10 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+            <p className="text-sm font-bold text-slate-400">Loading...</p>
+          </div>
+        }>
+          <Outlet />
+        </Suspense>
       </main>
 
       {/* ── Footer ── */}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BookOpen, ChevronRight, ChevronLeft, Sparkles, Loader2, Download, Copy, Check, RotateCcw, GraduationCap } from 'lucide-react'
+import { BookOpen, ChevronRight, ChevronLeft, Sparkles, Loader2, Download, Copy, Check, RotateCcw, GraduationCap, Share2, MessageCircle, Send, Mail, Link as LinkIcon } from 'lucide-react'
 import { generateAIContent } from '../utils/aiService'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -17,6 +17,7 @@ export default function LessonPlanner() {
   const [result, setResult] = useState('')
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
+  const [showShareMenu, setShowShareMenu] = useState(false)
 
   const canProceed = () => {
     if (step === 0) return !!form.board
@@ -48,6 +49,37 @@ export default function LessonPlanner() {
     if (!el) return
     const html2pdf = (await import('html2pdf.js')).default
     html2pdf().set({ margin: [10,10,10,10], filename: `Lesson_${form.topic.replace(/\s+/g,'_')}.pdf`, image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'} }).from(el).save()
+  }
+
+  const handleShareWhatsApp = () => {
+    const text = encodeURIComponent(`*Lesson Plan: ${form.topic}*\n\n${result}\n\n_Generated via LDMS Teacher Hub_`)
+    window.open(`https://wa.me/?text=${text}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  const handleShareTelegram = () => {
+    const text = encodeURIComponent(`Lesson Plan: ${form.topic}\n\n${result}\n\nGenerated via LDMS Teacher Hub`)
+    window.open(`https://t.me/share/url?text=${text}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  const handleShareEmail = () => {
+    const subject = encodeURIComponent(`Lesson Plan - ${form.topic}`)
+    const body = encodeURIComponent(`${result}\n\n---\nGenerated via LDMS Teacher Hub`)
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Lesson Plan: ${form.topic}`,
+          text: result
+        })
+      } catch (err) { /* user cancelled */ }
+    }
+    setShowShareMenu(false)
   }
 
   const handleReset = () => { setStep(0); setForm({ board:'', subject:'', grade:'', topic:'', duration:'45 Minutes', objectives:'', notes:'' }); setResult(''); setError('') }
@@ -117,6 +149,23 @@ export default function LessonPlanner() {
           <div className="flex flex-wrap items-center gap-3 mb-6">
             <button onClick={handleCopy} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${copied?'bg-emerald-100 text-emerald-700':'bg-white border border-surface-200 text-surface-700 hover:bg-surface-50'}`}>{copied?<><Check className="w-4 h-4"/> Copied!</>:<><Copy className="w-4 h-4"/> Copy</>}</button>
             <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50"><Download className="w-4 h-4"/> PDF</button>
+            
+            <div className="relative">
+              <button onClick={() => setShowShareMenu(!showShareMenu)} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 transition-all">
+                <Share2 className="w-4 h-4" /> Share
+              </button>
+              {showShareMenu && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-surface-200 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
+                  <button onClick={handleShareWhatsApp} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-[#25D366]/10 hover:text-[#25D366] transition-colors"><MessageCircle className="w-4 h-4" /> WhatsApp</button>
+                  <button onClick={handleShareTelegram} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-[#0088cc]/10 hover:text-[#0088cc] transition-colors border-t border-surface-100"><Send className="w-4 h-4" /> Telegram</button>
+                  <button onClick={handleShareEmail} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-100 transition-colors border-t border-surface-100"><Mail className="w-4 h-4" /> Email</button>
+                  {navigator.share && (
+                    <button onClick={handleNativeShare} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-100 transition-colors border-t border-surface-100"><LinkIcon className="w-4 h-4" /> Share via...</button>
+                  )}
+                </div>
+              )}
+            </div>
+
             <button onClick={handleReset} className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 shadow-md ml-auto"><RotateCcw className="w-4 h-4"/> New Plan</button>
           </div>
           <div id="lesson-plan-output" className="bg-white rounded-[28px] border border-surface-200 shadow-sm p-8 sm:p-10 prose prose-slate max-w-none prose-headings:font-display prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-table:text-sm">

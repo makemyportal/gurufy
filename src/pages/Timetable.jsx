@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles } from 'lucide-react'
+import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles, Send, Mail, Link as LinkIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
 import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc } from 'firebase/firestore'
@@ -97,6 +97,7 @@ export default function Timetable() {
   const [aiRequirements, setAiRequirements] = useState({})
   const [expandedDay, setExpandedDay] = useState(ALL_DAYS[0])
   const [teacherExpandedDay, setTeacherExpandedDay] = useState(ALL_DAYS[0])
+  const [showShareMenu, setShowShareMenu] = useState(false)
   const tableRef = useRef(null)
 
   useEffect(() => { localStorage.setItem('ldms_timetable_v2', JSON.stringify(grid)) }, [grid])
@@ -479,6 +480,57 @@ export default function Timetable() {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
   }
 
+  const getTimetableShareText = () => {
+    let text = `*Timetable: ${className}*\n`
+    if (schoolName) text += `${schoolName}\n`
+    text += `\n`
+    activeDays.forEach(day => {
+      text += `*${day}*\n`
+      PERIODS.forEach(period => {
+        const cell = grid[day]?.[period]
+        if (cell?.subject) {
+          text += `- ${period}: ${cell.subject} (${cell.teacher || 'Unassigned'})`
+          if (cell.substitute) text += ` [Sub: ${cell.substitute}]`
+          text += `\n`
+        }
+      })
+      text += `\n`
+    })
+    text += `_Generated via LDMS Teacher Hub_`
+    return text
+  }
+
+  const handleTimetableShareWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(getTimetableShareText())}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  const handleTimetableShareTelegram = () => {
+    const text = getTimetableShareText().replace(/\\*/g, '')
+    window.open(`https://t.me/share/url?text=${encodeURIComponent(text)}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  const handleTimetableShareEmail = () => {
+    const text = getTimetableShareText().replace(/\\*/g, '')
+    const subject = encodeURIComponent(`Timetable: ${className}`)
+    const body = encodeURIComponent(text)
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  const handleTimetableNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Timetable: ${className}`,
+          text: getTimetableShareText().replace(/\\*/g, '')
+        })
+      } catch (err) { /* user cancelled */ }
+    }
+    setShowShareMenu(false)
+  }
+
   const executePrint = () => {
     setIsPrintModalOpen(false)
     const w = window.open('', '_blank')
@@ -749,6 +801,23 @@ export default function Timetable() {
           <BookOpen className="w-4 h-4" /> Workload
         </button>
         <button onClick={handlePrintClick} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm"><Printer className="w-4 h-4" /> Print</button>
+        
+        <div className="relative">
+          <button onClick={() => setShowShareMenu(!showShareMenu)} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 transition-all shadow-sm">
+            <Share2 className="w-4 h-4" /> Share
+          </button>
+          {showShareMenu && (
+            <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-surface-200 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
+              <button onClick={handleTimetableShareWhatsApp} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-[#25D366]/10 hover:text-[#25D366] transition-colors"><MessageCircle className="w-4 h-4" /> WhatsApp</button>
+              <button onClick={handleTimetableShareTelegram} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-[#0088cc]/10 hover:text-[#0088cc] transition-colors border-t border-surface-100"><Send className="w-4 h-4" /> Telegram</button>
+              <button onClick={handleTimetableShareEmail} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-100 transition-colors border-t border-surface-100"><Mail className="w-4 h-4" /> Email</button>
+              {navigator.share && (
+                <button onClick={handleTimetableNativeShare} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-100 transition-colors border-t border-surface-100"><LinkIcon className="w-4 h-4" /> Share via...</button>
+              )}
+            </div>
+          )}
+        </div>
+
         <button onClick={() => setIsAIModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl text-sm font-bold hover:shadow-lg shadow-sm transition-all animate-pulse-soft">
           <Sparkles className="w-4 h-4" /> AI Auto-Fill
         </button>

@@ -11,7 +11,8 @@ import {
   Edit3, Building2, Camera, Loader2, Save, X,
   Trophy, Sparkles, Star, Zap, Info
 } from 'lucide-react'
-import { useGamification, getLevelProgress, BADGE_DEFS, getLevel } from '../contexts/GamificationContext'
+import { useGamification } from '../contexts/GamificationContext'
+import { getLevelProgress, BADGE_DEFS, getLevel } from '../utils/gamificationUtils'
 import TokenShopModal from '../components/TokenShopModal'
 
 export default function SchoolProfile() {

@@ -4,15 +4,15 @@ import { useAuth } from '../contexts/AuthContext'
 import { Lock, Zap, ShoppingCart } from 'lucide-react'
 import TokenShopModal from './TokenShopModal'
 
-const TOOL_COST = 5
-
-export default function CoinGate({ children, toolName }) {
-  const { stats, spendCoins } = useGamification()
+export default function CoinGate({ children, toolName, toolId }) {
+  const { stats, spendCoins, toolCosts } = useGamification()
   const { userProfile } = useAuth()
   const [unlocked, setUnlocked] = useState(false)
   const [showShop, setShowShop] = useState(false)
   const [spending, setSpending] = useState(false)
   const [error, setError] = useState('')
+
+  const TOOL_COST = toolCosts?.[toolId || toolName] ?? 5
 
   const isSuperAdmin = userProfile?.role === 'superadmin'
 

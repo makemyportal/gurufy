@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { useGamification, getLevel, getLevelProgress } from '../contexts/GamificationContext'
+import { useGamification } from '../contexts/GamificationContext'
+import { getLevel, getLevelProgress } from '../utils/gamificationUtils'
 import { tools as aiTools } from '../data/toolsList'
 import { db } from '../utils/firebase'
 import { collection, query, onSnapshot, orderBy, doc } from 'firebase/firestore'
 import { 
   Sparkles, Briefcase, FolderOpen, Award, CheckSquare, 
   Calculator, Lock, ArrowRight, CalendarDays, TrendingUp, Zap, BarChart3, ShoppingCart, Coins, Megaphone, X,
-  BookOpen, FileQuestion, Gamepad2
+  BookOpen, FileQuestion, Gamepad2, Share2
 } from 'lucide-react'
 import TokenShopModal from '../components/TokenShopModal'
 
@@ -91,12 +92,28 @@ const utilityApps = [
 
 export default function Home() {
   const { currentUser, userProfile } = useAuth()
-  const { stats } = useGamification()
+  const { stats, toolCosts } = useGamification()
   const level = getLevel(stats?.xp || 0)
   const [time, setTime] = useState(new Date())
   const [showTokenShop, setShowTokenShop] = useState(false)
   const [announcement, setAnnouncement] = useState('')
   const [showAnnouncement, setShowAnnouncement] = useState(true)
+
+  const handleShare = (e, path, title, description) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const url = `${window.location.origin}${path}`
+    if (navigator.share) {
+      navigator.share({
+        title: title,
+        text: description,
+        url: url
+      }).catch(console.error)
+    } else {
+      navigator.clipboard.writeText(url)
+      alert('Tool link copied to clipboard!')
+    }
+  }
 
   // Clock tick
   useEffect(() => {
@@ -106,6 +123,7 @@ export default function Home() {
 
   // Fetch live announcement
   useEffect(() => {
+    if (!db) return
     const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (snap) => {
       if (snap.exists() && snap.data().announcement) {
         setAnnouncement(snap.data().announcement)
@@ -131,7 +149,7 @@ export default function Home() {
   const [favTool, setFavTool] = useState('—')
 
   useEffect(() => {
-    if (!currentUser) return
+    if (!currentUser || !db) return
     const q = query(collection(db, 'users', currentUser.uid, 'generations'), orderBy('createdAt', 'desc'))
     const unsub = onSnapshot(q, snap => {
       const docs = snap.docs.map(d => d.data())
@@ -242,7 +260,7 @@ export default function Home() {
             >
               {/* Cost badge */}
               <div className="absolute top-4 right-4 flex items-center gap-1 px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg">
-                <span className="text-[10px] font-black text-amber-700 uppercase tracking-wider">⚡ Costs 5 🪙</span>
+                <span className="text-[10px] font-black text-amber-700 uppercase tracking-wider">⚡ Costs {toolCosts?.[tool.id] ?? 5} 🪙</span>
               </div>
 
               <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${tool.color} flex items-center justify-center text-white mb-5 transition-transform duration-300 group-hover:scale-110 shadow-md`}>
@@ -257,8 +275,17 @@ export default function Home() {
                 {tool.description}
               </p>
               
-              <div className="flex items-center text-xs font-black text-surface-400 group-hover:text-indigo-600 transition-colors uppercase tracking-widest mt-auto">
-                Launch AI <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+              <div className="flex items-center justify-between mt-auto border-t border-surface-100 pt-3">
+                <div className="flex items-center text-xs font-black text-surface-400 group-hover:text-indigo-600 transition-colors uppercase tracking-widest">
+                  Launch AI <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+                </div>
+                <button 
+                  onClick={(e) => handleShare(e, `/ai-tools?tool=${tool.id}`, tool.title, tool.description)}
+                  className="p-1.5 -mr-1.5 text-surface-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all z-10"
+                  title="Share Tool"
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
               </div>
             </Link>
           ))}
@@ -280,7 +307,7 @@ export default function Home() {
             >
               {/* Cost badge */}
               <div className="absolute top-4 right-4 flex items-center gap-1 px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg">
-                <span className="text-[10px] font-black text-amber-700 uppercase tracking-wider">⚡ Costs 5 🪙</span>
+                <span className="text-[10px] font-black text-amber-700 uppercase tracking-wider">⚡ Costs {toolCosts?.[app.id] ?? 5} 🪙</span>
               </div>
 
               <div className={`w-14 h-14 rounded-2xl ${app.bg} flex items-center justify-center text-white mb-5 transition-all duration-300 ${app.hover}`}>
@@ -295,8 +322,17 @@ export default function Home() {
                 {app.description}
               </p>
               
-              <div className="flex items-center text-xs font-black text-surface-400 group-hover:text-primary-600 transition-colors uppercase tracking-widest mt-auto">
-                Launch App <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+              <div className="flex items-center justify-between mt-auto border-t border-surface-100 pt-3">
+                <div className="flex items-center text-xs font-black text-surface-400 group-hover:text-primary-600 transition-colors uppercase tracking-widest">
+                  Launch App <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+                </div>
+                <button 
+                  onClick={(e) => handleShare(e, app.path, app.title, app.description)}
+                  className="p-1.5 -mr-1.5 text-surface-300 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all z-10"
+                  title="Share App"
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
               </div>
             </Link>
           ))}

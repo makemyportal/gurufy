@@ -2,7 +2,6 @@ import { initializeApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
-import { getAnalytics } from 'firebase/analytics'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -14,8 +13,28 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 }
 
-const app = initializeApp(firebaseConfig)
-export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null
+console.log('Firebase Config API Key:', firebaseConfig.apiKey ? 'Exists' : 'Missing')
+
+let app;
+try {
+  app = initializeApp(firebaseConfig)
+  console.log('Firebase app initialized successfully:', !!app)
+} catch (e) {
+  console.error('Firebase initializeApp failed:', e)
+}
+
+// Analytics can fail in dev/localhost — lazy-init to prevent crashing the module
+export let analytics = null
+if (typeof window !== 'undefined') {
+  import('firebase/analytics').then(({ getAnalytics }) => {
+    try {
+      analytics = getAnalytics(app)
+    } catch (e) {
+      console.warn('Firebase Analytics init failed:', e.message)
+    }
+  }).catch(() => {})
+}
+
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 export const storage = getStorage(app)

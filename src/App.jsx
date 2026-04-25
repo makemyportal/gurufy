@@ -1,42 +1,45 @@
+import { lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import PublicLayout from './components/PublicLayout'
 import CoinGate from './components/CoinGate'
 import Home from './pages/Home'
-import Certificates from './pages/Certificates'
-import Todo from './pages/Todo'
-import Gradebook from './pages/Gradebook'
-import Locker from './pages/Locker'
 import Login from './pages/Login'
-import TeacherProfile from './pages/TeacherProfile'
-import SchoolProfile from './pages/SchoolProfile'
-import Jobs from './pages/Jobs'
-import Resources from './pages/Resources'
-import AITools from './pages/AITools'
-import AIDirectory from './pages/AIDirectory'
-import GenerationHistory from './pages/GenerationHistory'
-import Groups from './pages/Groups'
-import TeacherDashboard from './pages/TeacherDashboard'
-import SchoolDashboard from './pages/SchoolDashboard'
-import TeacherSearch from './pages/TeacherSearch'
-import Settings from './pages/Settings'
-import Messaging from './pages/Messaging'
-import AdminDashboard from './pages/AdminDashboard'
-import UserProfile from './pages/UserProfile'
-import LessonPlanner from './pages/LessonPlanner'
-import Timetable from './pages/Timetable'
-import ExamPaperGen from './pages/ExamPaperGen'
-import ClassroomQuiz from './pages/ClassroomQuiz'
 
-// Public info pages
-import About from './pages/public/About'
-import HowItWorks from './pages/public/HowItWorks'
-import Pricing from './pages/public/Pricing'
-import Contact from './pages/public/Contact'
-import Blog from './pages/public/Blog'
-import Privacy from './pages/public/Privacy'
-import Terms from './pages/public/Terms'
+// Lazy loaded components (Dashboard & App Features)
+const Certificates = lazy(() => import('./pages/Certificates'))
+const Todo = lazy(() => import('./pages/Todo'))
+const Gradebook = lazy(() => import('./pages/Gradebook'))
+const Locker = lazy(() => import('./pages/Locker'))
+const TeacherProfile = lazy(() => import('./pages/TeacherProfile'))
+const SchoolProfile = lazy(() => import('./pages/SchoolProfile'))
+const Jobs = lazy(() => import('./pages/Jobs'))
+const Resources = lazy(() => import('./pages/Resources'))
+const AITools = lazy(() => import('./pages/AITools'))
+const AIDirectory = lazy(() => import('./pages/AIDirectory'))
+const GenerationHistory = lazy(() => import('./pages/GenerationHistory'))
+const Groups = lazy(() => import('./pages/Groups'))
+const TeacherDashboard = lazy(() => import('./pages/TeacherDashboard'))
+const SchoolDashboard = lazy(() => import('./pages/SchoolDashboard'))
+const TeacherSearch = lazy(() => import('./pages/TeacherSearch'))
+const Settings = lazy(() => import('./pages/Settings'))
+const Messaging = lazy(() => import('./pages/Messaging'))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
+const UserProfile = lazy(() => import('./pages/UserProfile'))
+const LessonPlanner = lazy(() => import('./pages/LessonPlanner'))
+const Timetable = lazy(() => import('./pages/Timetable'))
+const ExamPaperGen = lazy(() => import('./pages/ExamPaperGen'))
+const ClassroomQuiz = lazy(() => import('./pages/ClassroomQuiz'))
+
+// Lazy loaded components (Public info pages)
+const About = lazy(() => import('./pages/public/About'))
+const HowItWorks = lazy(() => import('./pages/public/HowItWorks'))
+const Pricing = lazy(() => import('./pages/public/Pricing'))
+const Contact = lazy(() => import('./pages/public/Contact'))
+const Blog = lazy(() => import('./pages/public/Blog'))
+const Privacy = lazy(() => import('./pages/public/Privacy'))
+const Terms = lazy(() => import('./pages/public/Terms'))
 
 function ProtectedRoute({ children }) {
   const { currentUser, loading } = useAuth()
@@ -111,10 +114,10 @@ export default function App() {
         <Route path="history" element={<ProtectedRoute><GenerationHistory /></ProtectedRoute>} />
         <Route path="dashboard" element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
         <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="lesson-planner" element={<LessonPlanner />} />
-        <Route path="timetable" element={<Timetable />} />
-        <Route path="exam-generator" element={<ExamPaperGen />} />
-        <Route path="classroom-quiz" element={<ClassroomQuiz />} />
+        <Route path="lesson-planner" element={<CoinGate toolName="Lesson Planner" toolId="lesson-planner"><LessonPlanner /></CoinGate>} />
+        <Route path="timetable" element={<CoinGate toolName="Timetable Builder" toolId="timetable"><Timetable /></CoinGate>} />
+        <Route path="exam-generator" element={<CoinGate toolName="Exam Paper Generator" toolId="exam-generator"><ExamPaperGen /></CoinGate>} />
+        <Route path="classroom-quiz" element={<CoinGate toolName="Classroom Quiz" toolId="classroom-quiz"><ClassroomQuiz /></CoinGate>} />
 
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       </Route>

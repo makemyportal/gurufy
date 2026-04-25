@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import { useGamification } from '../contexts/GamificationContext'
-import { getLevel } from '../contexts/GamificationContext'
+import { getLevel } from '../utils/gamificationUtils'
 import { useTheme } from '../contexts/ThemeContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import {
@@ -83,7 +83,7 @@ function timeAgo(ts) {
 export default function Layout() {
   const { currentUser, userProfile, logout } = useAuth()
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications()
-  const { stats } = useGamification()
+  const { stats, coinConfig } = useGamification()
   const { theme, toggleTheme } = useTheme()
   const { t } = useLanguage()
   const currentLevel = getLevel(stats.xp || 0)
@@ -91,6 +91,7 @@ export default function Layout() {
   const [platformSettings, setPlatformSettings] = useState({})
 
   useEffect(() => {
+    if (!db) return
     const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (snap) => {
       if (snap.exists()) {
         setPlatformSettings(snap.data())
@@ -413,11 +414,11 @@ export default function Layout() {
                       <p className="text-[10px] text-indigo-300 font-bold uppercase tracking-widest mb-2 border-b border-white/10 pb-1">Earn Free Tokens</p>
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-xs text-white/80 font-medium">Daily Login</span>
-                        <span className="text-xs text-emerald-400 font-bold">+{platformSettings?.coinConfig?.daily_login ?? 50} 🪙</span>
+                        <span className="text-xs text-emerald-400 font-bold">+{coinConfig?.daily_login ?? 50} 🪙</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-xs text-white/80 font-medium">Share Resource</span>
-                        <span className="text-xs text-emerald-400 font-bold">+{platformSettings?.coinConfig?.share_resource ?? 25} 🪙</span>
+                        <span className="text-xs text-emerald-400 font-bold">+{coinConfig?.share_resource ?? 25} 🪙</span>
                       </div>
                     </div>
 
@@ -686,7 +687,14 @@ export default function Layout() {
         {/* Main Content Workspace */}
         <main className="flex-1 min-h-screen xl:ml-[220px] pb-[90px] xl:pb-12 pt-6 px-4 sm:px-6 md:px-8 w-full max-w-[100vw] overflow-x-hidden sm:max-w-none">
           <div className="max-w-6xl mx-auto w-full">
-            <Outlet />
+            <Suspense fallback={
+              <div className="min-h-[60vh] flex flex-col items-center justify-center animate-fade-in">
+                <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+                <p className="text-sm font-bold text-surface-400">Loading module...</p>
+              </div>
+            }>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
       </div>

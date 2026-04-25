@@ -9,6 +9,7 @@ import {
 import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, getDoc, setDoc, query, orderBy, limit, where } from 'firebase/firestore'
 import { db } from '../utils/firebase'
 import { useAuth } from '../contexts/AuthContext'
+import { tools as aiToolsList } from './AITools'
 
 // Confirmation Modal
 function ConfirmModal({ title, message, onConfirm, onCancel, danger }) {
@@ -798,6 +799,89 @@ export default function AdminDashboard() {
                           </button>
                         </div>
                         <p className="text-xs font-semibold text-surface-400">{rule.desc}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Tool Pricing Configuration — EDITABLE */}
+              <div>
+                <h2 className="text-xl font-extrabold text-surface-900 mb-1">🛠️ Tool Pricing Configuration</h2>
+                <p className="text-sm text-surface-500 font-medium mb-6">Set the coin cost for each workspace and AI tool. Changes apply instantly.</p>
+                
+                <h3 className="text-sm font-extrabold text-surface-900 mb-3 uppercase tracking-wider">Workspace Tools</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+                  {[
+                    { id: 'Certificate Generator', name: 'Certificate Generator', defaultCost: 5, icon: '🎓' },
+                    { id: 'Tasks & Reminders', name: 'Tasks & Reminders', defaultCost: 5, icon: '✅' },
+                    { id: 'Smart Gradebook', name: 'Smart Gradebook', defaultCost: 5, icon: '📊' },
+                    { id: 'Private Locker', name: 'Private Locker', defaultCost: 5, icon: '🔒' },
+                    { id: 'exam-generator', name: 'Exam Paper Generator', defaultCost: 10, icon: '📝' },
+                    { id: 'lesson-planner', name: 'Lesson Planner', defaultCost: 10, icon: '📖' },
+                    { id: 'timetable', name: 'Timetable Builder', defaultCost: 10, icon: '📅' },
+                    { id: 'classroom-quiz', name: 'Classroom Quiz', defaultCost: 5, icon: '🎮' },
+                  ].map(tool => {
+                    const currentCost = platformSettings?.toolCosts?.[tool.id] ?? tool.defaultCost
+                    return (
+                      <div key={tool.id} className="bg-surface-50 border border-surface-200 rounded-2xl p-4 hover:border-indigo-300 transition-colors flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-lg">{tool.icon}</span>
+                            <p className="font-bold text-surface-900 text-xs">{tool.name}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-[10px] font-bold text-indigo-600 uppercase">Cost (🪙)</span>
+                          <input type="number" id={`cost-${tool.id.replace(/\\s+/g, '-')}`} defaultValue={currentCost}
+                            className="w-16 px-2 py-1.5 bg-white border border-indigo-200 rounded-lg text-sm font-extrabold text-indigo-700 text-center focus:ring-2 focus:ring-indigo-400 outline-none" />
+                          <button onClick={async () => {
+                            const val = parseInt(document.getElementById(`cost-${tool.id.replace(/\\s+/g, '-')}`).value) || 0
+                            const newCosts = { ...(platformSettings?.toolCosts || {}), [tool.id]: val }
+                            try {
+                              await setDoc(doc(db, 'platformSettings', 'global'), { ...platformSettings, toolCosts: newCosts }, { merge: true })
+                              setPlatformSettings(prev => ({ ...prev, toolCosts: newCosts }))
+                              showToast(`${tool.name} cost set to ${val} 🪙`)
+                            } catch (err) { showToast('Failed to update', 'error') }
+                          }} className="px-2 py-1.5 bg-indigo-500 text-white rounded-lg text-[10px] font-bold hover:bg-indigo-600 transition-colors ml-auto">
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <h3 className="text-sm font-extrabold text-surface-900 mb-3 uppercase tracking-wider">AI Content Hub</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {aiToolsList.map(tool => {
+                    const currentCost = platformSettings?.toolCosts?.[tool.id] ?? 5 // Default AI cost is 5
+                    return (
+                      <div key={tool.id} className="bg-surface-50 border border-surface-200 rounded-2xl p-4 hover:border-pink-300 transition-colors flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className={`p-1.5 rounded-lg bg-gradient-to-br ${tool.color} text-white shrink-0`}>
+                              <tool.icon className="w-3.5 h-3.5" />
+                            </div>
+                            <p className="font-bold text-surface-900 text-xs truncate" title={tool.title}>{tool.title}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-[10px] font-bold text-pink-600 uppercase">Cost (🪙)</span>
+                          <input type="number" id={`cost-${tool.id}`} defaultValue={currentCost}
+                            className="w-16 px-2 py-1.5 bg-white border border-pink-200 rounded-lg text-sm font-extrabold text-pink-700 text-center focus:ring-2 focus:ring-pink-400 outline-none" />
+                          <button onClick={async () => {
+                            const val = parseInt(document.getElementById(`cost-${tool.id}`).value) || 0
+                            const newCosts = { ...(platformSettings?.toolCosts || {}), [tool.id]: val }
+                            try {
+                              await setDoc(doc(db, 'platformSettings', 'global'), { ...platformSettings, toolCosts: newCosts }, { merge: true })
+                              setPlatformSettings(prev => ({ ...prev, toolCosts: newCosts }))
+                              showToast(`${tool.title} cost set to ${val} 🪙`)
+                            } catch (err) { showToast('Failed to update', 'error') }
+                          }} className="px-2 py-1.5 bg-pink-500 text-white rounded-lg text-[10px] font-bold hover:bg-pink-600 transition-colors ml-auto">
+                            Save
+                          </button>
+                        </div>
                       </div>
                     )
                   })}
