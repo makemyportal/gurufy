@@ -9,7 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "file-saver": "^2.0.5",
     "firebase": "^10.8.0",
+    "html-docx-js-typescript": "^0.1.5",
     "html-to-docx": "^1.8.0",
     "html2pdf.js": "^0.14.0",
     "lucide-react": "^0.344.0",

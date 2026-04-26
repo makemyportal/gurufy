@@ -3,6 +3,8 @@ import { FileQuestion, Sparkles, Loader2, Download, Copy, Check, RotateCcw, Imag
 import { generateWithGeminiVision, generateAIContent } from '../utils/aiService'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { saveAs } from 'file-saver'
+import { asBlob } from 'html-docx-js-typescript'
 
 const boardList = ['CBSE', 'ICSE', 'State Board', 'IB', 'Cambridge', 'General']
 const gradeList = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12']
@@ -243,9 +245,9 @@ Ensure all questions are directly derived from the specified material. Use profe
     printWindow.document.close();
   }
 
-  const handleDOCX = () => {
-    const el = document.getElementById('exam-output')
-    if (!el) return
+  const handleDOCX = async () => {
+    const el = document.getElementById('exam-output');
+    if (!el) return;
     
     const docName = activeTab === 'questionPaper' ? 'Question_Paper' : 'Answer_Key';
     const safeSubject = (form.subject || 'Exam').replace(/[^a-zA-Z0-9]/g, '_');
@@ -254,30 +256,25 @@ Ensure all questions are directly derived from the specified material. Use profe
     let fileName = window.prompt("Enter file name for your Word Document:", defaultName);
     if (!fileName) return; // User cancelled
     
-    if (!fileName.toLowerCase().endsWith('.doc') && !fileName.toLowerCase().endsWith('.docx')) {
-      fileName += '.doc';
+    // Ensure .docx extension
+    if (!fileName.toLowerCase().endsWith('.docx')) {
+      fileName = fileName.replace(/\.doc$/, '') + '.docx';
     }
     
-    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML To Doc</title></head><body>";
+    // Create a clean HTML wrapper
+    const header = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Exam Document</title></head><body>";
     const footer = "</body></html>";
-    const sourceHTML = header + el.innerHTML + footer;
+    const htmlString = header + el.innerHTML + footer;
     
-    const blob = new Blob(['\ufeff' + sourceHTML], { type: 'application/msword' });
-    const url = window.URL.createObjectURL(blob);
-    
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    link.style.display = 'none';
-    
-    document.body.appendChild(link);
-    link.click();
-    
-    // Important: Wait long enough before revoking so the browser has time to start the download
-    setTimeout(() => {
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    }, 5000);
+    try {
+      // Convert HTML to true DOCX blob
+      const blob = await asBlob(htmlString, { orientation: 'portrait' });
+      // Trigger download
+      saveAs(blob, fileName);
+    } catch (err) {
+      console.error('DOCX Generation Error:', err);
+      alert('Failed to generate DOCX file. Please try the Print / PDF option instead.');
+    }
   }
 
   const handleShare = async () => {
