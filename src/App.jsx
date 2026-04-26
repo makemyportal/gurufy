@@ -30,6 +30,7 @@ const UserProfile = lazy(() => import('./pages/UserProfile'))
 const LessonPlanner = lazy(() => import('./pages/LessonPlanner'))
 const Timetable = lazy(() => import('./pages/Timetable'))
 const ExamPaperGen = lazy(() => import('./pages/ExamPaperGen'))
+const SmartExamMaker = lazy(() => import('./pages/SmartExamMaker'))
 const ClassroomQuiz = lazy(() => import('./pages/ClassroomQuiz'))
 
 // Lazy loaded components (Public info pages)
@@ -117,6 +118,7 @@ export default function App() {
         <Route path="lesson-planner" element={<CoinGate toolName="Lesson Planner" toolId="lesson-planner"><LessonPlanner /></CoinGate>} />
         <Route path="timetable" element={<CoinGate toolName="Timetable Builder" toolId="timetable"><Timetable /></CoinGate>} />
         <Route path="exam-generator" element={<CoinGate toolName="Exam Paper Generator" toolId="exam-generator"><ExamPaperGen /></CoinGate>} />
+        <Route path="smart-exam" element={<CoinGate toolName="Smart Exam Maker" toolId="smart-exam"><SmartExamMaker /></CoinGate>} />
         <Route path="classroom-quiz" element={<CoinGate toolName="Classroom Quiz" toolId="classroom-quiz"><ClassroomQuiz /></CoinGate>} />
 
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

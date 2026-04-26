@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app'
+import { initializeApp, getApps, getApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
@@ -13,15 +13,8 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 }
 
-console.log('Firebase Config API Key:', firebaseConfig.apiKey ? 'Exists' : 'Missing')
-
-let app;
-try {
-  app = initializeApp(firebaseConfig)
-  console.log('Firebase app initialized successfully:', !!app)
-} catch (e) {
-  console.error('Firebase initializeApp failed:', e)
-}
+// Safe initialization — prevents crash on HMR re-import
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
 
 // Analytics can fail in dev/localhost — lazy-init to prevent crashing the module
 export let analytics = null

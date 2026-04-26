@@ -60,15 +60,7 @@ const utilityApps = [
     bg: 'bg-indigo-600',
     hover: 'group-hover:shadow-[0_0_20px_rgba(79,70,229,0.4)]'
   },
-  {
-    id: 'timetable',
-    title: 'Timetable Builder',
-    description: 'Create weekly class schedules visually.',
-    icon: CalendarDays,
-    path: '/timetable',
-    bg: 'bg-teal-600',
-    hover: 'group-hover:shadow-[0_0_20px_rgba(13,148,136,0.4)]'
-  },
+
   {
     id: 'exam-generator',
     title: 'Exam Paper Generator',
@@ -77,6 +69,15 @@ const utilityApps = [
     path: '/exam-generator',
     bg: 'bg-rose-600',
     hover: 'group-hover:shadow-[0_0_20px_rgba(225,29,72,0.4)]'
+  },
+  {
+    id: 'smart-exam',
+    title: 'Smart Exam Maker',
+    description: 'Generate exams directly from chapter photos and PDFs.',
+    icon: FileQuestion,
+    path: '/smart-exam',
+    bg: 'bg-fuchsia-600',
+    hover: 'group-hover:shadow-[0_0_20px_rgba(192,38,211,0.4)]'
   },
   {
     id: 'classroom-quiz',

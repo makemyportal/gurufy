@@ -33,28 +33,40 @@ FORMATTING RULES:
 async function generateWithGemini(prompt) {
   if (!GEMINI_API_KEY) throw new Error("Gemini API key is missing");
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7 }
-    })
-  });
+  const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
+  let lastError = null;
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(`Gemini API Error: ${response.status} ${errorData.error?.message || ''}`);
+  for (const model of modelsToTry) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.7 }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Gemini API Error (${model}): ${response.status} ${errorData.error?.message || ''}`);
+      }
+
+      const data = await response.json();
+      if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+        return data.candidates[0].content.parts[0].text;
+      }
+      throw new Error(`Invalid response format from Gemini (${model})`);
+    } catch (err) {
+      console.warn(`Gemini model ${model} failed:`, err.message);
+      lastError = err;
+    }
   }
 
-  const data = await response.json();
-  if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-    return data.candidates[0].content.parts[0].text;
-  }
-  throw new Error("Invalid response format from Gemini");
+  throw lastError || new Error("All Gemini models failed");
 }
 
 /**
@@ -207,4 +219,57 @@ export async function generateAIContent(prompt) {
       }
     }
   }
+}
+
+/**
+ * Generates content using Google Gemini 1.5 Flash with Vision/File capabilities
+ * Used by the Smart Exam Maker tool.
+ * @param {string} prompt - The text prompt
+ * @param {string} base64Data - Base64 encoded file data (without data URI prefix)
+ * @param {string} mimeType - e.g. 'image/jpeg', 'application/pdf'
+ * @returns {Promise<string>} - Generated markdown text
+ */
+export async function generateWithGeminiVision(prompt, base64Data, mimeType) {
+  if (!GEMINI_API_KEY) throw new Error("Gemini API key is missing");
+
+  const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
+  let lastError = null;
+
+  const fullPrompt = SYSTEM_PROMPT + "\n\n" + prompt;
+  
+  const parts = [{ text: fullPrompt }];
+  if (base64Data && mimeType) {
+    parts.push({ inlineData: { mimeType, data: base64Data } });
+  }
+
+  for (const model of modelsToTry) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: { temperature: 0.7 }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Gemini API Error (${model}): ${response.status} ${errorData.error?.message || ''}`);
+      }
+
+      const data = await response.json();
+      if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+        return data.candidates[0].content.parts[0].text;
+      }
+      throw new Error(`Invalid response format from Gemini API (${model})`);
+    } catch (err) {
+      console.warn(`Gemini model ${model} failed:`, err.message);
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error("All Gemini models failed");
 }
