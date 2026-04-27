@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { FileQuestion, Sparkles, Loader2, Download, Copy, Check, RotateCcw, Image as ImageIcon, FileText, UploadCloud, X, Share2, FileCode } from 'lucide-react'
 import { generateWithGeminiVision, generateAIContent } from '../utils/aiService'
+import { useGamification } from '../contexts/GamificationContext'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { saveAs } from 'file-saver'
@@ -37,7 +38,11 @@ export default function SmartExamMaker() {
   const [error, setError] = useState('')
   const [suggestedChapters, setSuggestedChapters] = useState([])
   const [fetchingChapters, setFetchingChapters] = useState(false)
+  const [generationCount, setGenerationCount] = useState(0)
   const fileInputRef = useRef(null)
+  const { spendCoins, toolCosts, stats } = useGamification()
+
+  const GENERATION_COST = toolCosts?.['smart-exam'] ?? 5
 
   const canGenerate = form.subject && form.grade && (inputMode === 'upload' ? file : topic.trim().length > 3)
 
@@ -107,6 +112,19 @@ Example: ["Chapter 1: Real Numbers", "Chapter 2: Polynomials"]`;
   }
 
   const handleGenerate = async () => {
+    // First generation is free (paid at CoinGate entry). Subsequent ones cost coins.
+    if (generationCount > 0) {
+      if ((stats?.coins || 0) < GENERATION_COST) {
+        setError(`Not enough coins! You need ${GENERATION_COST} 🪙 to generate again. Current balance: ${stats?.coins || 0} 🪙`)
+        return
+      }
+      const success = await spendCoins(GENERATION_COST, 'Smart Exam Maker')
+      if (!success) {
+        setError('Failed to deduct coins. Please try again.')
+        return
+      }
+    }
+    setGenerationCount(prev => prev + 1)
     setGenerating(true)
     setError('')
     try {
@@ -525,7 +543,7 @@ Ensure all questions are directly derived from the specified material. Use profe
                   disabled={!canGenerate || generating || fetchingChapters}
                   className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white font-extrabold rounded-xl hover:from-fuchsia-500 hover:to-purple-500 transition-all disabled:opacity-40 shadow-lg text-lg"
                 >
-                  {generating ? <><Loader2 className="w-5 h-5 animate-spin"/> Processing Document...</> : <><Sparkles className="w-5 h-5"/> Generate Smart Exam</>}
+                  {generating ? <><Loader2 className="w-5 h-5 animate-spin"/> Processing Document...</> : <><Sparkles className="w-5 h-5"/> Generate Smart Exam {generationCount > 0 && <span className="ml-1 text-sm opacity-80">({GENERATION_COST} 🪙)</span>}</>}
                 </button>
               </div>
             </div>

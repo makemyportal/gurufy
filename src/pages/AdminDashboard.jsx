@@ -11,7 +11,6 @@ import { db } from '../utils/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { tools as aiToolsList } from './AITools'
 
-// Confirmation Modal
 function ConfirmModal({ title, message, onConfirm, onCancel, danger }) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={onCancel}>
@@ -24,6 +23,102 @@ function ConfirmModal({ title, message, onConfirm, onCancel, danger }) {
         <div className="flex gap-3">
           <button onClick={onCancel} className="flex-1 px-5 py-3 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold rounded-xl transition-colors">Cancel</button>
           <button onClick={onConfirm} className={`flex-1 px-5 py-3 font-bold rounded-xl transition-all shadow-lg ${danger ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-primary-600 hover:bg-primary-700 text-white'}`}>Confirm</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ToolUsageAnalytics({ users }) {
+  const [usageData, setUsageData] = useState([])
+  const [loadingUsage, setLoadingUsage] = useState(true)
+
+  useEffect(() => {
+    async function fetchUsage() {
+      try {
+        const snap = await getDocs(collection(db, 'tool_usage'))
+        setUsageData(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      } catch (err) {
+        console.error('Tool usage load error:', err)
+      }
+      setLoadingUsage(false)
+    }
+    fetchUsage()
+  }, [])
+
+  if (loadingUsage) return <div className="text-center py-8 text-surface-400 font-bold">Loading usage data...</div>
+
+  if (usageData.length === 0) return (
+    <div className="bg-surface-50 border border-surface-200 rounded-2xl p-12 text-center">
+      <p className="text-lg font-bold text-surface-600">No usage data yet</p>
+      <p className="text-sm text-surface-400 mt-1">Tool usage will appear here once users start using premium tools.</p>
+    </div>
+  )
+
+  // Aggregate by tool
+  const toolAgg = {}
+  const userAgg = {}
+  usageData.forEach(entry => {
+    const toolName = entry.toolName || entry.toolId || 'Unknown'
+    const userId = entry.userId || 'unknown'
+    const userName = entry.userName || 'Unknown User'
+    
+    if (!toolAgg[toolName]) toolAgg[toolName] = { count: 0, coinsSpent: 0 }
+    toolAgg[toolName].count += (entry.count || 1)
+    toolAgg[toolName].coinsSpent += (entry.coinsSpent || 0)
+
+    if (!userAgg[userId]) userAgg[userId] = { name: userName, count: 0, coinsSpent: 0 }
+    userAgg[userId].count += (entry.count || 1)
+    userAgg[userId].coinsSpent += (entry.coinsSpent || 0)
+  })
+
+  const toolRanking = Object.entries(toolAgg).sort((a, b) => b[1].count - a[1].count)
+  const userRanking = Object.entries(userAgg).sort((a, b) => b[1].count - a[1].count).slice(0, 10)
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Most Used Tools */}
+      <div className="bg-surface-50 border border-surface-200 rounded-2xl p-6">
+        <h3 className="font-bold text-surface-900 mb-4 flex items-center gap-2">🏆 Most Used Tools</h3>
+        <div className="space-y-3">
+          {toolRanking.map(([name, data], i) => (
+            <div key={name} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-surface-100">
+              <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm ${i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-slate-100 text-slate-600' : i === 2 ? 'bg-orange-100 text-orange-600' : 'bg-surface-100 text-surface-500'}`}>
+                {i + 1}
+              </span>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-surface-900">{name}</p>
+                <p className="text-xs text-surface-400">{data.coinsSpent} 🪙 spent</p>
+              </div>
+              <span className="text-lg font-black text-surface-900">{data.count}</span>
+              <span className="text-xs font-bold text-surface-400">uses</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Top Users */}
+      <div className="bg-surface-50 border border-surface-200 rounded-2xl p-6">
+        <h3 className="font-bold text-surface-900 mb-4 flex items-center gap-2">👥 Top Users by Tool Usage</h3>
+        <div className="space-y-3">
+          {userRanking.map(([uid, data], i) => {
+            const user = users.find(u => u.id === uid)
+            return (
+              <div key={uid} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-surface-100">
+                <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm ${i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-slate-100 text-slate-600' : i === 2 ? 'bg-orange-100 text-orange-600' : 'bg-surface-100 text-surface-500'}`}>
+                  {i + 1}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-surface-900 truncate">{user?.name || data.name}</p>
+                  <p className="text-xs text-surface-400 truncate">{user?.email || uid}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-lg font-black text-surface-900">{data.count}</p>
+                  <p className="text-xs text-surface-400">{data.coinsSpent} 🪙</p>
+                </div>
+              </div>
+            )
+          })}
+          {userRanking.length === 0 && <p className="text-sm text-surface-400 text-center py-4">No user data yet</p>}
         </div>
       </div>
     </div>
@@ -818,6 +913,7 @@ export default function AdminDashboard() {
                     { id: 'Smart Gradebook', name: 'Smart Gradebook', defaultCost: 5, icon: '📊' },
                     { id: 'Private Locker', name: 'Private Locker', defaultCost: 5, icon: '🔒' },
                     { id: 'exam-generator', name: 'Exam Paper Generator', defaultCost: 10, icon: '📝' },
+                    { id: 'smart-exam', name: 'Smart Exam Maker', defaultCost: 5, icon: '🧠' },
                     { id: 'lesson-planner', name: 'Lesson Planner', defaultCost: 10, icon: '📖' },
                     { id: 'timetable', name: 'Timetable Builder', defaultCost: 10, icon: '📅' },
                     { id: 'classroom-quiz', name: 'Classroom Quiz', defaultCost: 5, icon: '🎮' },
@@ -971,6 +1067,13 @@ export default function AdminDashboard() {
                     <Plus className="w-4 h-4" /> Add Plan
                   </button>
                 </div>
+              </div>
+
+              {/* Tool Usage Analytics */}
+              <div>
+                <h2 className="text-xl font-extrabold text-surface-900 mb-1">📈 Tool Usage Analytics</h2>
+                <p className="text-sm text-surface-500 font-medium mb-6">See which tools are being used the most and by whom.</p>
+                <ToolUsageAnalytics users={users} />
               </div>
 
               {/* Payment Verification Queue */}

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { doc, getDoc, setDoc, updateDoc, increment, serverTimestamp, onSnapshot } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, increment, serverTimestamp, onSnapshot, addDoc, collection } from 'firebase/firestore'
 import { db } from '../utils/firebase'
 import { useAuth } from './AuthContext'
 import { DEFAULT_XP_VALUES } from '../utils/gamificationUtils'
@@ -186,6 +186,23 @@ export function GamificationProvider({ children }) {
 
       await updateDoc(ref, { coins: increment(-amount) })
       setStats(prev => ({ ...prev, coins: (prev.coins || 0) - amount }))
+
+      // Log tool usage for admin analytics
+      try {
+        const userSnap = await getDoc(doc(db, 'users', currentUser.uid))
+        const userName = userSnap.exists() ? (userSnap.data().name || currentUser.email) : currentUser.email
+        await addDoc(collection(db, 'tool_usage'), {
+          userId: currentUser.uid,
+          userName: userName,
+          toolName: reason.replace('Unlock ', ''),
+          toolId: reason,
+          coinsSpent: amount,
+          count: 1,
+          createdAt: new Date().toISOString()
+        })
+      } catch (logErr) {
+        console.warn('Tool usage log failed:', logErr)
+      }
       
       return true
     } catch (err) {
