@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles, Send, Mail, Link as LinkIcon, Edit2, Upload, Download } from 'lucide-react'
+import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles, Send, Mail, Link as LinkIcon, Edit2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
 import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc } from 'firebase/firestore'
-import { generateWithGeminiVision } from '../utils/aiService'
 
 const ALL_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
 const PERIODS = ['Period 1','Period 2','Period 3','Period 4','Lunch','Period 5','Period 6','Period 7','Period 8']
@@ -52,93 +51,6 @@ export default function Timetable() {
     ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '', room: '' } }) })
     return g
   })
-
-  const [isUploadingPDF, setIsUploadingPDF] = useState(false)
-  const fileInputRef = useRef(null)
-
-  const handleUploadTeacherPDF = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    
-    setIsUploadingPDF(true)
-    try {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = async () => {
-        try {
-          const base64Data = reader.result.split(',')[1]
-          const mimeType = file.type
-          
-          const prompt = `Extract the list of teachers, their associated subjects, and designations from this document. Return ONLY a valid JSON array of objects, where each object has 'name' (string), 'subjects' (array of strings, try to map to standard school subjects like Mathematics, Science, English, etc.), and 'designation' (string). If no subjects or designations are found, leave them empty. DO NOT wrap in markdown block. Just raw JSON array starting with [ and ending with ].`
-          
-          const responseText = await generateWithGeminiVision(prompt, base64Data, mimeType)
-          
-          let parsed = []
-          try {
-            const cleanJson = responseText.replace(/```json\\n?/g, '').replace(/```/g, '').trim()
-            parsed = JSON.parse(cleanJson)
-          } catch(err) {
-            console.error("Failed to parse JSON:", responseText)
-            throw new Error("AI returned invalid data format.")
-          }
-          
-          if (!Array.isArray(parsed) || parsed.length === 0) {
-            throw new Error("No teachers found in the document.")
-          }
-          
-          const newTeachers = []
-          const newSubjects = []
-          const newTeacherSubjects = { ...teacherSubjects }
-          const newTeacherConstraints = { ...teacherConstraints }
-          
-          parsed.forEach(t => {
-            if (t.name && t.name.trim()) {
-              const tName = t.name.trim()
-              if (!teachers.includes(tName) && !newTeachers.includes(tName)) {
-                newTeachers.push(tName)
-              }
-              if (t.designation && t.designation.trim()) {
-                newTeacherConstraints[tName] = {
-                  ...(newTeacherConstraints[tName] || {}),
-                  notes: t.designation.trim()
-                }
-              }
-              if (Array.isArray(t.subjects) && t.subjects.length > 0) {
-                newTeacherSubjects[tName] = Array.from(new Set([...(newTeacherSubjects[tName] || []), ...t.subjects]))
-                t.subjects.forEach(s => {
-                  const sName = s.trim()
-                  if (sName && !subjects.includes(sName) && !newSubjects.includes(sName)) {
-                    newSubjects.push(sName)
-                  }
-                })
-              }
-            }
-          })
-          
-          if (newTeachers.length > 0) {
-            setTeachers(prev => [...prev, ...newTeachers])
-            setTeacherSubjects(newTeacherSubjects)
-            if (newSubjects.length > 0) {
-              setSubjects(prev => [...prev, ...newSubjects])
-            }
-            alert(`Successfully added ${newTeachers.length} teachers from the document!`)
-          } else {
-            alert("Teachers were found but they are already in your list.")
-          }
-        } catch (err) {
-          alert("Error processing document: " + err.message)
-        } finally {
-          setIsUploadingPDF(false)
-          if (fileInputRef.current) fileInputRef.current.value = ''
-        }
-      }
-    } catch (err) {
-      alert("Error reading file: " + err.message)
-      setIsUploadingPDF(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
-  }
-
   const [rooms, setRooms] = useState(() => {
     const s = localStorage.getItem('ldms_rooms')
     return s ? JSON.parse(s) : ['Chemistry Lab', 'Computer Lab', 'Library', 'AV Room']
@@ -491,188 +403,58 @@ export default function Timetable() {
     setGrid(g)
   }
 
-  const getCellAssignments = (cell) => {
-    if (!cell) return []
-    if (cell.isSplit && cell.groups && cell.groups.length > 0) return cell.groups
-    if (cell.subject || cell.teacher || cell.room) return [cell]
-    return []
-  }
-
-  const checkClash = (teacher, day, period, skipGroupId = null) => {
+  const checkClash = (teacher, day, period) => {
     if (!teacher) return false
     const clashes = []
     cloudTimetables.forEach(tb => {
       if (tb.id === currentTimetableId) return // skip current
-      const cell = tb.grid?.[day]?.[period]
-      const assignments = getCellAssignments(cell)
-      assignments.forEach(a => {
-        if (a.teacher === teacher) {
-          clashes.push((tb.className || 'Unnamed Class') + (a.groupName ? ` (${a.groupName})` : ''))
-        }
-      })
-    })
-    // Check current timetable too
-    const currentCell = grid[day]?.[period]
-    const currentAssignments = getCellAssignments(currentCell)
-    currentAssignments.forEach(a => {
-      if (a.id === skipGroupId) return
-      if (a.teacher === teacher) {
-        clashes.push(`Current Class (${a.groupName || 'Primary'})`)
+      if (tb.grid && tb.grid[day]?.[period]?.teacher === teacher) {
+        clashes.push(tb.className || 'Unnamed Class')
       }
     })
     return clashes.length > 0 ? clashes : false
   }
 
-  const setCell = (day, period, subject, groupId = null) => {
+  const setCell = (day, period, subject) => {
     const matchingTeachers = teachers.filter(t => (teacherSubjects[t] || []).includes(subject))
-    let autoTeacher = ''
     if (matchingTeachers.length === 1 && subject !== '') {
-      autoTeacher = matchingTeachers[0]
-      const clashes = checkClash(autoTeacher, day, period, groupId)
+      const teacher = matchingTeachers[0]
+      const clashes = checkClash(teacher, day, period)
       if (clashes) {
-        if (!confirm(`⚠️ CLASH DETECTED:\n${autoTeacher} (auto-assigned for ${subject}) is already teaching ${clashes.join(', ')} during ${day} - ${period}.\n\nDo you still want to assign them?`)) {
-          autoTeacher = ''
+        if (!confirm(`⚠️ CLASH DETECTED:\n${teacher} (auto-assigned for ${subject}) is already teaching ${clashes.join(', ')} during ${day} - ${period}.\n\nDo you still want to assign them?`)) {
+          setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], subject, teacher: '' } } }))
+          setEditing(`${day}-${period}`)
+          return
         }
       }
-    }
-    
-    setGrid(p => {
-      const next = JSON.parse(JSON.stringify(p))
-      const cell = next[day][period]
-      if (groupId && cell.isSplit) {
-        const group = cell.groups.find(g => g.id === groupId)
-        if (group) { group.subject = subject; group.teacher = autoTeacher; }
-      } else {
-        cell.subject = subject; cell.teacher = autoTeacher;
-      }
-      return next
-    })
-
-    if (autoTeacher) {
-      if (!groupId) { setEditing(null); setShowAllTeachers(false); }
+      setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], subject, teacher } } }))
+      setEditing(null)
+      setShowAllTeachers(false)
     } else {
+      setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], subject, teacher: '' } } }))
       if (subject === '') {
-        if (!groupId) { setEditing(null); setShowAllTeachers(false); }
+        setEditing(null)
+        setShowAllTeachers(false)
       } else {
-        if (!groupId) setEditing(`${day}-${period}`)
+        setEditing(`${day}-${period}`) // Auto-open prompt for teacher selection
         setShowAllTeachers(false)
       }
     }
   }
 
-  const setCellTeacher = (day, period, teacher, groupId = null) => {
-    const clashes = checkClash(teacher, day, period, groupId)
+  const setCellTeacher = (day, period, teacher) => {
+    const clashes = checkClash(teacher, day, period)
     if (clashes) {
       if (!confirm(`⚠️ CLASH DETECTED:\n${teacher} is already teaching ${clashes.join(', ')} during ${day} - ${period}.\n\nDo you still want to assign them?`)) {
         return
       }
     }
-    setGrid(p => {
-      const next = JSON.parse(JSON.stringify(p))
-      const cell = next[day][period]
-      if (groupId && cell.isSplit) {
-        const group = cell.groups.find(g => g.id === groupId)
-        if (group) group.teacher = teacher
-      } else {
-        cell.teacher = teacher
-      }
-      return next
-    })
-    if (!groupId) setEditing(null)
+    setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], teacher } } }))
+    setEditing(null)
   }
-  const setSubstitute = (day, period, sub, groupId = null) => {
-    setGrid(p => {
-      const next = JSON.parse(JSON.stringify(p))
-      const cell = next[day][period]
-      if (groupId && cell.isSplit) {
-        const group = cell.groups.find(g => g.id === groupId)
-        if (group) group.substitute = sub
-      } else {
-        cell.substitute = sub
-      }
-      return next
-    })
+  const setSubstitute = (day, period, sub) => {
+    setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], substitute: sub } } }))
     setSubModal(null)
-  }
-
-  const setRoom = (day, period, room, groupId = null) => {
-    setGrid(p => {
-      const next = JSON.parse(JSON.stringify(p))
-      const cell = next[day][period]
-      if (groupId && cell.isSplit) {
-        const group = cell.groups.find(g => g.id === groupId)
-        if (group) group.room = room
-      } else {
-        cell.room = room
-      }
-      return next
-    })
-  }
-
-  const splitCell = (day, period) => {
-    setGrid(p => {
-      const next = JSON.parse(JSON.stringify(p))
-      const cell = next[day][period]
-      cell.isSplit = true
-      cell.groups = [
-        { id: Date.now().toString(), groupName: 'Boys', subject: cell.subject, teacher: cell.teacher, substitute: cell.substitute, room: cell.room },
-        { id: (Date.now()+1).toString(), groupName: 'Girls', subject: '', teacher: '', substitute: '', room: '' }
-      ]
-      cell.subject = ''; cell.teacher = ''; cell.room = ''; cell.substitute = '';
-      return next
-    })
-  }
-
-  const mergeCell = (day, period) => {
-    if (!confirm('Merge this split period? All group data will be lost except for the first group.')) return
-    setGrid(p => {
-      const next = JSON.parse(JSON.stringify(p))
-      const cell = next[day][period]
-      cell.isSplit = false
-      if (cell.groups && cell.groups.length > 0) {
-        cell.subject = cell.groups[0].subject
-        cell.teacher = cell.groups[0].teacher
-        cell.substitute = cell.groups[0].substitute
-        cell.room = cell.groups[0].room
-      }
-      cell.groups = []
-      return next
-    })
-  }
-
-  const addGroup = (day, period) => {
-    setGrid(p => {
-      const next = JSON.parse(JSON.stringify(p))
-      next[day][period].groups.push({ id: Date.now().toString(), groupName: 'New Group', subject: '', teacher: '', substitute: '', room: '' })
-      return next
-    })
-  }
-
-  const removeGroup = (day, period, groupId) => {
-    setGrid(p => {
-      const next = JSON.parse(JSON.stringify(p))
-      next[day][period].groups = next[day][period].groups.filter(g => g.id !== groupId)
-      if (next[day][period].groups.length === 1) {
-        // auto merge if only 1 left
-        const last = next[day][period].groups[0]
-        next[day][period].isSplit = false
-        next[day][period].subject = last.subject
-        next[day][period].teacher = last.teacher
-        next[day][period].substitute = last.substitute
-        next[day][period].room = last.room
-        next[day][period].groups = []
-      }
-      return next
-    })
-  }
-
-  const updateGroupName = (day, period, groupId, name) => {
-    setGrid(p => {
-      const next = JSON.parse(JSON.stringify(p))
-      const g = next[day][period].groups.find(x => x.id === groupId)
-      if (g) g.groupName = name
-      return next
-    })
   }
 
   const notifySub = (subName, day, period, subject, absentTeacher) => {
@@ -911,42 +693,6 @@ export default function Timetable() {
     setIsPrintModalOpen(true)
   }
 
-  const exportClassCSV = () => {
-    let csv = 'Period,' + activeDays.join(',') + '\n';
-    PERIODS.forEach(p => {
-      let row = [p];
-      activeDays.forEach(d => {
-        const c = grid[d]?.[p] || {};
-        if (c.isSplit && c.groups) {
-          const groupTexts = c.groups.map(g => {
-            if (!g.subject) return `${g.groupName}: -`;
-            let txt = `${g.groupName}: ${g.subject} (${g.teacher || 'Unassigned'})`;
-            if (g.substitute) txt += ` [Sub: ${g.substitute}]`;
-            return txt;
-          });
-          row.push(`"${groupTexts.join(' | ')}"`);
-        } else {
-          if (!c.subject) {
-            row.push('-');
-          } else {
-            let txt = `${c.subject} (${c.teacher || 'Unassigned'})`;
-            if (c.substitute) txt += ` [Sub: ${c.substitute}]`;
-            row.push(`"${txt}"`);
-          }
-        }
-      });
-      csv += row.join(',') + '\n';
-    });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${className}_Timetable.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const handleReset = () => {
     if (!confirm('Reset entire timetable?')) return
     const g = {}
@@ -976,14 +722,7 @@ export default function Timetable() {
         ALL_DAYS.forEach(d => {
           PERIODS.forEach(p => {
             const c = g[d]?.[p]
-            if (!c) return;
-            if (c.isSplit && Array.isArray(c.groups)) {
-              c.groups.forEach(group => {
-                if (group.teacher && workload[group.teacher] !== undefined) workload[group.teacher]++
-              })
-            } else {
-              if (c.teacher && workload[c.teacher] !== undefined) workload[c.teacher]++
-            }
+            if (c?.teacher && workload[c.teacher] !== undefined) workload[c.teacher]++
           })
         })
       }
@@ -1013,25 +752,16 @@ export default function Timetable() {
 
     const newGrid = JSON.parse(JSON.stringify(grid))
     
-    // Calculate how many periods are already manually filled so we don't over-fill
-    let filledCount = 0;
-    activeDays.forEach(day => {
-      PERIODS.forEach(period => {
-        if (period === 'Lunch') return;
-        const c = newGrid[day][period] || {};
-        if (c.isSplit || c.subject) filledCount++;
+    ALL_DAYS.forEach(d => {
+      PERIODS.forEach(p => {
+        if (p === 'Lunch') newGrid[d][p] = { subject: 'Lunch', teacher: '', substitute: '', room: '' }
+        else newGrid[d][p] = { subject: '', teacher: '', substitute: '', room: '' }
       })
     })
-
-    if (pool.length > (maxPeriods - filledCount)) {
-      alert(`You requested ${pool.length} periods, but only ${maxPeriods - filledCount} empty slots remain. Filling as much as possible.`)
-    }
 
     activeDays.forEach(day => {
       PERIODS.forEach(period => {
         if (period === 'Lunch' || pool.length === 0) return
-        const c = newGrid[day][period] || {};
-        if (c.isSplit || c.subject) return; // Skip manually filled slots
 
         let selectedSubjIndex = -1
         let assignedTeacher = ''
@@ -1109,32 +839,6 @@ export default function Timetable() {
     
     return Object.entries(workload).map(([name, count]) => ({ name, count })).sort((a,b) => b.count - a.count)
   }
-
-  const exportTeacherCSV = () => {
-    if (!selectedTeacherForView) return;
-    let csv = 'Period,' + ALL_DAYS.join(',') + '\n';
-    PERIODS.forEach(p => {
-      let row = [p];
-      ALL_DAYS.forEach(d => {
-        const assignments = teacherViewGrid[d]?.[p] || [];
-        if (assignments.length === 0) {
-          row.push('Free');
-        } else {
-          const txts = assignments.map(a => `${a.className} - ${a.subject || 'N/A'}`);
-          row.push(`"${txts.join(' | ')}"`);
-        }
-      });
-      csv += row.join(',') + '\n';
-    });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${selectedTeacherForView}_Timetable.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   const exportTeacherICS = () => {
     if (!selectedTeacherForView) return
@@ -1239,7 +943,6 @@ export default function Timetable() {
           <BookOpen className="w-4 h-4" /> Workload
         </button>
         <button onClick={handlePrintClick} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm"><Printer className="w-4 h-4" /> Print</button>
-        <button onClick={exportClassCSV} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm"><Download className="w-4 h-4" /> CSV</button>
         
         <div className="relative">
           <button onClick={() => setShowShareMenu(!showShareMenu)} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 transition-all shadow-sm">
@@ -1313,22 +1016,7 @@ export default function Timetable() {
           {/* Add teacher */}
           <div className="flex gap-2 mb-4">
             <input type="text" value={newTeacher} onChange={e => setNewTeacher(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTeacher()} placeholder="Add teacher name..." className="flex-1 px-4 py-2.5 bg-surface-50 border border-surface-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-indigo-400" />
-            <button onClick={addTeacher} className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors">Add</button>
-            <input 
-              type="file" 
-              accept=".pdf,image/*" 
-              ref={fileInputRef} 
-              onChange={handleUploadTeacherPDF} 
-              className="hidden" 
-            />
-            <button 
-              onClick={() => fileInputRef.current?.click()} 
-              disabled={isUploadingPDF}
-              className="px-4 py-2.5 bg-violet-100 text-violet-700 border border-violet-200 rounded-xl text-sm font-bold hover:bg-violet-200 transition-colors flex items-center gap-2"
-            >
-              <Upload className="w-4 h-4" />
-              {isUploadingPDF ? 'Scanning...' : 'Import from PDF'}
-            </button>
+            <button onClick={addTeacher} className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700">Add</button>
           </div>
           {/* Teacher list */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -1515,117 +1203,66 @@ export default function Timetable() {
                       >
                         {isEd && (
                           <div className="absolute inset-0 z-20 bg-white border-2 border-indigo-400 rounded-xl shadow-xl p-2 flex flex-col gap-1 max-h-[320px] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                            <div className="flex items-center justify-between mb-2 px-1">
+                            <div className="flex items-center justify-between mb-1 px-1">
                               <span className="text-[10px] font-black text-surface-400 uppercase">{day} - {period}</span>
-                              <div className="flex items-center gap-2">
-                                {!cell.isSplit && <button onClick={() => splitCell(day, period)} className="text-[9px] font-bold text-indigo-500 bg-indigo-50 px-2 py-1 rounded">Split</button>}
-                                {cell.isSplit && <button onClick={() => mergeCell(day, period)} className="text-[9px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded">Merge</button>}
-                                <button onClick={() => setEditing(null)}><X className="w-3.5 h-3.5 text-surface-400" /></button>
-                              </div>
+                              <button onClick={() => setEditing(null)}><X className="w-3.5 h-3.5 text-surface-400" /></button>
                             </div>
-                            
-                            {(!cell.isSplit ? [{id: null, subject: cell.subject, teacher: cell.teacher}] : cell.groups).map((group, gIdx) => {
-                              const gId = group.id;
+                            <span className="text-[9px] font-bold text-surface-400 px-1 mt-1">SUBJECT</span>
+                            {subjects.map(s => (
+                              <button key={s} onClick={() => setCell(day, period, s)} className={`px-3 py-1.5 rounded-lg text-xs font-bold text-left border ${gc(s)} hover:opacity-80`}>{s}</button>
+                            ))}
+                            <div className="flex items-center justify-between px-1 mt-2 mb-1">
+                              <span className="text-[9px] font-bold text-surface-400">TEACHER</span>
+                              {cell.subject && (
+                                <button onClick={() => setShowAllTeachers(!showAllTeachers)} className="text-[9px] text-indigo-500 font-bold hover:underline">
+                                  {showAllTeachers ? 'Hide Unrelated' : 'Show All'}
+                                </button>
+                              )}
+                            </div>
+                            {[...teachers].filter(t => !cell.subject || showAllTeachers || (teacherSubjects[t] || []).includes(cell.subject)).sort((a,b) => {
+                              const aMatch = cell.subject && (teacherSubjects[a] || []).includes(cell.subject) ? -1 : 1
+                              const bMatch = cell.subject && (teacherSubjects[b] || []).includes(cell.subject) ? -1 : 1
+                              return aMatch - bMatch
+                            }).map(t => {
+                              const isMatch = cell.subject && (teacherSubjects[t] || []).includes(cell.subject)
                               return (
-                                <div key={gId || 'main'} className="mb-3 border-b border-surface-100 pb-3 last:border-0 last:pb-0">
-                                  {cell.isSplit && (
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <input value={group.groupName} onChange={e => updateGroupName(day, period, gId, e.target.value)} className="text-[10px] font-bold bg-surface-50 border rounded px-1.5 py-0.5 w-full max-w-[100px] outline-none focus:border-indigo-400" />
-                                      <button onClick={() => removeGroup(day, period, gId)} className="text-red-500 p-0.5 bg-red-50 rounded hover:bg-red-100"><X className="w-3 h-3" /></button>
-                                    </div>
-                                  )}
-                                  <span className="text-[9px] font-bold text-surface-400 px-1 mt-1 flex">SUBJECT</span>
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {subjects.map(s => (
-                                      <button key={s} onClick={() => setCell(day, period, s, gId)} className={`px-2 py-1 rounded text-[10px] font-bold text-left border ${group.subject === s ? 'ring-2 ring-indigo-400' : ''} ${gc(s)} hover:opacity-80`}>{s}</button>
-                                    ))}
-                                  </div>
-                                  
-                                  <div className="flex items-center justify-between px-1 mt-2 mb-1">
-                                    <span className="text-[9px] font-bold text-surface-400">TEACHER</span>
-                                    {group.subject && (
-                                      <button onClick={() => setShowAllTeachers(!showAllTeachers)} className="text-[9px] text-indigo-500 font-bold hover:underline">
-                                        {showAllTeachers ? 'Hide Unrelated' : 'Show All'}
-                                      </button>
-                                    )}
-                                  </div>
-                                  <div className="flex flex-wrap gap-1">
-                                    {[...teachers].filter(t => !group.subject || showAllTeachers || (teacherSubjects[t] || []).includes(group.subject)).sort((a,b) => {
-                                      const aMatch = group.subject && (teacherSubjects[a] || []).includes(group.subject) ? -1 : 1
-                                      const bMatch = group.subject && (teacherSubjects[b] || []).includes(group.subject) ? -1 : 1
-                                      return aMatch - bMatch
-                                    }).map(t => {
-                                      const isMatch = group.subject && (teacherSubjects[t] || []).includes(group.subject)
-                                      return (
-                                        <button key={t} onClick={() => setCellTeacher(day, period, t, gId)} className={`px-2 py-1 rounded text-[10px] font-bold text-left border ${group.teacher === t ? 'ring-2 ring-indigo-400' : ''} ${absentTeachers.includes(t) ? 'bg-red-50 text-red-400 border-red-200 line-through' : onBreak.includes(t) ? 'bg-amber-50 text-amber-600 border-amber-200' : isMatch ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm' : 'bg-white text-surface-700 border-surface-200 hover:bg-indigo-50'}`}>{t} {isMatch && '✨'}</button>
-                                      )
-                                    })}
-                                  </div>
-                                  <div className="flex items-center justify-between px-1 mt-2 mb-1">
-                                    <span className="text-[9px] font-bold text-surface-400">ROOM</span>
-                                  </div>
-                                  <div className="flex flex-wrap gap-1">
-                                    {rooms.map(r => (
-                                      <button key={r} onClick={() => setRoom(day, period, group.room === r ? '' : r, gId)} className={`px-2 py-1 rounded text-[10px] font-bold border ${group.room === r ? 'bg-orange-100 text-orange-700 border-orange-300 ring-1 ring-orange-400' : 'bg-white text-surface-600 border-surface-200 hover:bg-orange-50'}`}>{r}</button>
-                                    ))}
-                                  </div>
-                                  <div className="mt-2 flex justify-end">
-                                    <button onClick={() => { setCell(day, period, '', gId); setCellTeacher(day, period, '', gId); setRoom(day, period, '', gId); }} className="px-2 py-1 rounded text-[9px] font-bold text-red-500 border border-red-200 bg-red-50 hover:bg-red-100">Clear</button>
-                                  </div>
-                                </div>
+                                <button key={t} onClick={() => setCellTeacher(day, period, t)} className={`px-3 py-1.5 rounded-lg text-xs font-bold text-left border ${absentTeachers.includes(t) ? 'bg-red-50 text-red-400 border-red-200 line-through' : onBreak.includes(t) ? 'bg-amber-50 text-amber-600 border-amber-200' : isMatch ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm ring-1 ring-emerald-200' : 'bg-white text-surface-700 border-surface-200 hover:bg-indigo-50'}`}>{t} {isMatch && '✨'}</button>
                               )
                             })}
-                            {cell.isSplit && <button onClick={() => addGroup(day, period)} className="text-[9px] font-bold text-surface-600 bg-surface-100 hover:bg-surface-200 w-full py-1.5 rounded-lg mt-1">+ Add Group</button>}
+                            <button onClick={() => { setCell(day, period, ''); setCellTeacher(day, period, '') }} className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 border border-red-200 bg-red-50 hover:bg-red-100">Clear</button>
                           </div>
                         )}
-                        {cell.isSplit && cell.groups && cell.groups.length > 0 ? (
-                          <div className={`px-1 py-1 rounded-xl cursor-pointer transition-all border min-h-[52px] flex flex-col gap-1 border-surface-200 bg-surface-50 hover:border-surface-300`}>
-                            {cell.groups.map(g => (
-                              <div key={g.id} className={`px-1.5 py-1 rounded-lg text-[9px] flex flex-col items-center justify-center border ${g.subject ? gc(g.subject) : 'border-dashed border-surface-300 bg-white text-surface-400'}`}>
-                                <div className="font-black text-surface-500 mb-0.5 opacity-80 uppercase tracking-wider text-[8px]">{g.groupName}</div>
-                                {g.subject ? (
-                                  <>
-                                    <span className="font-bold">{g.subject}</span>
-                                    {g.teacher && <span className={`text-[8px] font-bold mt-0.5 ${g.teacher && absentTeachers.includes(g.teacher) ? 'line-through text-red-400' : 'text-surface-700'}`}>{g.teacher}</span>}
-                                    {g.substitute && <span className="text-[8px] font-bold text-red-600 bg-red-100 px-1 py-0.5 mt-0.5 rounded">Sub: {g.substitute}</span>}
-                                  </>
-                                ) : '+'}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className={`px-2 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border min-h-[52px] flex flex-col items-center justify-center gap-0.5 ${cell.subject ? gc(cell.subject) : 'border-dashed border-surface-200 text-surface-300 hover:border-surface-400'}`}>
-                            {cell.subject ? (
-                              <>
-                                <span>{cell.subject}</span>
-                                {cell.teacher && (
-                                  <span className={`text-xs mt-0.5 font-bold ${isAbsent ? 'line-through text-red-400' : 'text-surface-700'}`}>{cell.teacher}</span>
-                                )}
-                                {cell.substitute && (
-                                  <div className="flex items-center justify-center gap-1 mt-0.5">
-                                    <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">Sub: {cell.substitute}</span>
-                                    <button onClick={(e) => { e.stopPropagation(); notifySub(cell.substitute, day, period, cell.subject, cell.teacher) }} className="p-0.5 bg-green-100 text-green-700 hover:bg-green-200 rounded" title="Notify via WhatsApp">
-                                      <MessageCircle className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                )}
-                                {cell.room && (
-                                  <div className="mt-0.5 flex justify-center">
-                                    <span className="text-[9px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded border border-orange-200 truncate max-w-[80px]" title={cell.room}>
-                                      {cell.room}
-                                    </span>
-                                    {isEd && <button onClick={(e) => { e.stopPropagation(); setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], room: '' } } })) }} className="ml-1 text-orange-400 hover:text-red-500"><X className="w-3 h-3" /></button>}
-                                  </div>
-                                )}
-                                {isAbsent && !cell.substitute && (
-                                  <button onClick={e => { e.stopPropagation(); setSubModal({ day, period }) }} className="text-[9px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full mt-0.5 hover:bg-red-600 animate-pulse">
-                                    Assign Sub
+                        <div className={`px-2 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border min-h-[52px] flex flex-col items-center justify-center gap-0.5 ${cell.subject ? gc(cell.subject) : 'border-dashed border-surface-200 text-surface-300 hover:border-surface-400'}`}>
+                          {cell.subject ? (
+                            <>
+                              <span>{cell.subject}</span>
+                              {cell.teacher && (
+                                <span className={`text-xs mt-0.5 font-bold ${isAbsent ? 'line-through text-red-400' : 'text-surface-700'}`}>{cell.teacher}</span>
+                              )}
+                              {cell.substitute && (
+                                <div className="flex items-center justify-center gap-1 mt-0.5">
+                                  <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">Sub: {cell.substitute}</span>
+                                  <button onClick={(e) => { e.stopPropagation(); notifySub(cell.substitute, day, period, cell.subject, cell.teacher) }} className="p-0.5 bg-green-100 text-green-700 hover:bg-green-200 rounded" title="Notify via WhatsApp">
+                                    <MessageCircle className="w-3 h-3" />
                                   </button>
-                                )}
-                              </>
-                            ) : '+'}
-                          </div>
-                        )}
+                                </div>
+                              )}
+                              {cell.room && (
+                                <div className="mt-0.5 flex justify-center">
+                                  <span className="text-[9px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded border border-orange-200 truncate max-w-[80px]" title={cell.room}>
+                                    {cell.room}
+                                  </span>
+                                  {isEd && <button onClick={(e) => { e.stopPropagation(); setGrid(p => ({ ...p, [day]: { ...p[day], [period]: { ...p[day][period], room: '' } } })) }} className="ml-1 text-orange-400 hover:text-red-500"><X className="w-3 h-3" /></button>}
+                                </div>
+                              )}
+                              {isAbsent && !cell.substitute && (
+                                <button onClick={e => { e.stopPropagation(); setSubModal({ day, period }) }} className="text-[9px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full mt-0.5 hover:bg-red-600 animate-pulse">
+                                  Assign Sub
+                                </button>
+                              )}
+                            </>
+                          ) : '+'}
+                        </div>
                       </td>
                     )
                   })}
@@ -1667,25 +1304,7 @@ export default function Timetable() {
                         >
                           <div className="w-[80px] shrink-0 font-bold text-surface-500 text-xs uppercase tracking-wider">{period}</div>
                           <div className="flex-1 flex justify-end">
-                            {cell.isSplit && cell.groups && cell.groups.length > 0 ? (
-                              <div className="flex flex-col gap-1 w-full max-w-[200px]">
-                                {cell.groups.map(g => (
-                                  <div key={g.id} className="inline-flex flex-col items-end text-right border-b border-surface-100 pb-1 last:border-0 last:pb-0">
-                                    <span className="text-[10px] font-black text-surface-400 uppercase tracking-widest">{g.groupName}</span>
-                                    {g.subject ? (
-                                      <>
-                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-lg border mt-0.5 ${gc(g.subject)}`}>{g.subject}</span>
-                                        {g.teacher && <span className={`text-[10px] mt-0.5 font-black ${g.teacher && absentTeachers.includes(g.teacher) ? 'line-through text-red-400' : 'text-surface-700'}`}>{g.teacher}</span>}
-                                        {g.substitute && <span className="text-[9px] font-bold text-red-600 bg-red-100 px-1 py-0.5 rounded mt-0.5">Sub: {g.substitute}</span>}
-                                        {g.teacher && absentTeachers.includes(g.teacher) && !g.substitute && (
-                                          <button onClick={e => { e.stopPropagation(); setSubModal({ day, period, groupId: g.id }) }} className="text-[9px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full mt-0.5 animate-pulse">Assign Sub</button>
-                                        )}
-                                      </>
-                                    ) : <span className="text-xs font-bold text-surface-400">+ Assign</span>}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : cell.subject ? (
+                            {cell.subject ? (
                               <div className="inline-flex flex-col items-end text-right">
                                 <span className={`text-sm font-bold px-3 py-1 rounded-lg border ${gc(cell.subject)}`}>{cell.subject}</span>
                                 {cell.teacher && <span className={`text-sm mt-1.5 font-black ${isAbsent ? 'line-through text-red-400' : 'text-surface-700'}`}>{cell.teacher}</span>}
@@ -1716,65 +1335,38 @@ export default function Timetable() {
                         
                         {/* Edit Dropdown for Mobile */}
                         {isEd && (
-                          <div className="mt-4 bg-surface-50 border-2 border-indigo-400 rounded-2xl p-3 shadow-inner flex flex-col gap-2 max-h-[400px] overflow-y-auto">
-                            <div className="flex items-center justify-between mb-2 px-1">
+                          <div className="mt-4 bg-surface-50 border-2 border-indigo-400 rounded-2xl p-3 shadow-inner flex flex-col gap-2 max-h-[300px] overflow-y-auto">
+                            <div className="flex items-center justify-between mb-1 px-1">
                               <span className="text-[11px] font-black text-surface-500 uppercase">Edit {period}</span>
-                              <div className="flex items-center gap-2">
-                                {!cell.isSplit && <button onClick={() => splitCell(day, period)} className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-1 rounded">Split</button>}
-                                {cell.isSplit && <button onClick={() => mergeCell(day, period)} className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded">Merge</button>}
-                                <button onClick={() => setEditing(null)} className="p-1 bg-surface-200 rounded-full"><X className="w-4 h-4 text-surface-600" /></button>
-                              </div>
+                              <button onClick={() => setEditing(null)} className="p-1 bg-surface-200 rounded-full"><X className="w-4 h-4 text-surface-600" /></button>
                             </div>
-
-                            {(!cell.isSplit ? [{id: null, subject: cell.subject, teacher: cell.teacher}] : cell.groups).map((group, gIdx) => {
-                              const gId = group.id;
-                              return (
-                                <div key={gId || 'main'} className="mb-4 border-b border-surface-200 pb-4 last:border-0 last:pb-0">
-                                  {cell.isSplit && (
-                                    <div className="flex items-center gap-2 mb-3">
-                                      <input value={group.groupName} onChange={e => updateGroupName(day, period, gId, e.target.value)} className="text-[11px] font-bold bg-white border rounded-lg px-2 py-1.5 w-full outline-none focus:border-indigo-400" />
-                                      <button onClick={() => removeGroup(day, period, gId)} className="text-red-500 p-1.5 bg-red-50 rounded-lg hover:bg-red-100"><X className="w-4 h-4" /></button>
-                                    </div>
-                                  )}
-                                  <span className="text-[10px] font-bold text-surface-400 px-1 mt-1">SUBJECT</span>
-                                  <div className="grid grid-cols-2 gap-2 mt-1">
-                                    {subjects.map(s => (
-                                      <button key={s} onClick={() => setCell(day, period, s, gId)} className={`px-3 py-2 rounded-xl text-xs font-bold text-left border ${group.subject === s ? 'ring-2 ring-indigo-400' : ''} ${gc(s)}`}>{s}</button>
-                                    ))}
-                                  </div>
-                                  <div className="flex items-center justify-between px-1 mt-4 mb-1">
-                                    <span className="text-[10px] font-bold text-surface-400">TEACHER</span>
-                                    {group.subject && (
-                                      <button onClick={() => setShowAllTeachers(!showAllTeachers)} className="text-[10px] text-indigo-500 font-bold hover:underline">
-                                        {showAllTeachers ? 'Hide Unrelated' : 'Show All'}
-                                      </button>
-                                    )}
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    {[...teachers].filter(t => !group.subject || showAllTeachers || (teacherSubjects[t] || []).includes(group.subject)).sort((a,b) => {
-                                      const aMatch = group.subject && (teacherSubjects[a] || []).includes(group.subject) ? -1 : 1
-                                      const bMatch = group.subject && (teacherSubjects[b] || []).includes(group.subject) ? -1 : 1
-                                      return aMatch - bMatch
-                                    }).map(t => {
-                                      const isMatch = group.subject && (teacherSubjects[t] || []).includes(group.subject)
-                                      return (
-                                        <button key={t} onClick={() => setCellTeacher(day, period, t, gId)} className={`px-3 py-2 rounded-xl text-xs font-bold text-left border ${group.teacher === t ? 'ring-2 ring-indigo-400' : ''} ${absentTeachers.includes(t) ? 'bg-red-50 text-red-400 border-red-200 line-through' : onBreak.includes(t) ? 'bg-amber-50 text-amber-600 border-amber-200' : isMatch ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm' : 'bg-white text-surface-700 border-surface-200 hover:bg-indigo-50'}`}>{t} {isMatch && '✨'}</button>
-                                      )
-                                    })}
-                                  </div>
-                                  <div className="flex items-center justify-between px-1 mt-4 mb-1">
-                                    <span className="text-[10px] font-bold text-surface-400">ROOM</span>
-                                  </div>
-                                  <div className="grid grid-cols-3 gap-2 mt-1">
-                                    {rooms.map(r => (
-                                      <button key={r} onClick={() => setRoom(day, period, group.room === r ? '' : r, gId)} className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border ${group.room === r ? 'bg-orange-100 text-orange-700 border-orange-300 ring-1 ring-orange-400' : 'bg-white text-surface-600 border-surface-200 hover:bg-orange-50'}`}>{r}</button>
-                                    ))}
-                                  </div>
-                                  <button onClick={() => { setCell(day, period, '', gId); setCellTeacher(day, period, '', gId); setRoom(day, period, '', gId); }} className="w-full mt-3 px-3 py-2 rounded-xl text-xs font-bold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100">Clear Assignment</button>
-                                </div>
-                              )
-                            })}
-                            {cell.isSplit && <button onClick={() => addGroup(day, period)} className="text-[10px] font-bold text-surface-600 bg-surface-200 hover:bg-surface-300 w-full py-2.5 rounded-xl mt-2">+ Add Group</button>}
+                            <span className="text-[10px] font-bold text-surface-400 px-1 mt-1">SUBJECT</span>
+                            <div className="grid grid-cols-2 gap-2">
+                              {subjects.map(s => (
+                                <button key={s} onClick={() => setCell(day, period, s)} className={`px-3 py-2 rounded-xl text-xs font-bold text-left border ${gc(s)}`}>{s}</button>
+                              ))}
+                            </div>
+                            <div className="flex items-center justify-between px-1 mt-3 mb-1">
+                              <span className="text-[10px] font-bold text-surface-400">TEACHER</span>
+                              {cell.subject && (
+                                <button onClick={() => setShowAllTeachers(!showAllTeachers)} className="text-[10px] text-indigo-500 font-bold hover:underline">
+                                  {showAllTeachers ? 'Hide Unrelated' : 'Show All'}
+                                </button>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {[...teachers].filter(t => !cell.subject || showAllTeachers || (teacherSubjects[t] || []).includes(cell.subject)).sort((a,b) => {
+                                const aMatch = cell.subject && (teacherSubjects[a] || []).includes(cell.subject) ? -1 : 1
+                                const bMatch = cell.subject && (teacherSubjects[b] || []).includes(cell.subject) ? -1 : 1
+                                return aMatch - bMatch
+                              }).map(t => {
+                                const isMatch = cell.subject && (teacherSubjects[t] || []).includes(cell.subject)
+                                return (
+                                  <button key={t} onClick={() => setCellTeacher(day, period, t)} className={`px-3 py-2 rounded-xl text-xs font-bold text-left border ${absentTeachers.includes(t) ? 'bg-red-50 text-red-400 border-red-200 line-through' : onBreak.includes(t) ? 'bg-amber-50 text-amber-600 border-amber-200' : isMatch ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm ring-1 ring-emerald-200' : 'bg-white text-surface-700 border-surface-200 hover:bg-indigo-50'}`}>{t} {isMatch && '✨'}</button>
+                                )
+                              })}
+                            </div>
+                            <button onClick={() => { setCell(day, period, ''); setCellTeacher(day, period, '') }} className="w-full mt-3 px-3 py-2.5 rounded-xl text-sm font-bold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100">Clear Assignment</button>
                           </div>
                         )}
                       </div>
