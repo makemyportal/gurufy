@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useGamification } from '../contexts/GamificationContext'
 import { useAuth } from '../contexts/AuthContext'
-import { Lock, Zap, ShoppingCart } from 'lucide-react'
+import { Lock, Zap, ShoppingCart, Ban } from 'lucide-react'
 import TokenShopModal from './TokenShopModal'
 
 export default function CoinGate({ children, toolName, toolId }) {
@@ -15,6 +15,30 @@ export default function CoinGate({ children, toolName, toolId }) {
   const TOOL_COST = toolCosts?.[toolId || toolName] ?? 5
 
   const isSuperAdmin = userProfile?.role === 'superadmin'
+  const isSuspended = userProfile?.status === 'suspended'
+
+  // Suspended users cannot use any tool
+  if (isSuspended) {
+    return (
+      <div className="max-w-lg mx-auto py-20 px-6 animate-fade-in-up text-center">
+        <div className="bg-white rounded-[32px] p-10 shadow-xl border border-red-200 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-red-100/50 rounded-full blur-3xl -mr-20 -mt-20"></div>
+          <div className="relative z-10">
+            <div className="w-20 h-20 bg-gradient-to-br from-red-100 to-rose-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-red-200">
+              <Ban className="w-9 h-9 text-red-600" />
+            </div>
+            <h2 className="text-2xl font-extrabold text-surface-900 mb-2">Account Suspended</h2>
+            <p className="text-surface-500 font-medium mb-4 max-w-sm mx-auto">
+              Your account has been suspended by the administrator. You cannot access any tools or features at this time.
+            </p>
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700 font-bold">
+              Please contact your administrator to resolve this issue.
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // Super admins bypass the gate
   if (isSuperAdmin || unlocked) {

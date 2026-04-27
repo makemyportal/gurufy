@@ -936,6 +936,12 @@ export default function AITools() {
     if (!currentUser) return navigate('/login')
     if (!isFormValid) return
 
+    // Block suspended users
+    if (userProfile?.status === 'suspended') {
+      setError('Your account has been suspended. You cannot use AI tools. Please contact your administrator.')
+      return
+    }
+
     setIsGenerating(true)
     setError('')
     setGeneratedContent('')

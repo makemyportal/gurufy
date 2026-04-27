@@ -477,7 +477,12 @@ export default function Layout() {
               {dropdownOpen && (
                 <div className="absolute top-full right-0 mt-3 w-72 glass-modal py-2 z-50 animate-slide-down">
                   <div className="px-5 py-3 border-b border-surface-100">
-                    <p className="font-bold text-surface-900 truncate">{userProfile?.name || currentUser?.email?.split('@')[0]}</p>
+                    <p className="font-bold text-surface-900 truncate flex items-center gap-1.5">
+                      {userProfile?.name || currentUser?.email?.split('@')[0]}
+                      {userProfile?.isVerified && (
+                        <span className={`w-4 h-4 text-white rounded-full flex items-center justify-center text-[9px] shadow-sm shrink-0 ${{'blue':'bg-blue-500','gold':'bg-yellow-500','emerald':'bg-emerald-500','purple':'bg-purple-500'}[userProfile.verificationColor] || 'bg-blue-500'}`}>✓</span>
+                      )}
+                    </p>
                     <p className="text-xs font-semibold text-surface-500 capitalize">{userProfile?.role || 'Teacher'}</p>
                   </div>
                   <div className="p-2">
@@ -627,7 +632,12 @@ export default function Layout() {
                     }
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-[12px] font-bold text-surface-800 truncate">{userProfile?.name || (['admin', 'superadmin'].includes(userProfile?.role) ? 'Super Admin' : 'User')}</p>
+                    <p className="text-[12px] font-bold text-surface-800 truncate flex items-center gap-1">
+                      {userProfile?.name || (['admin', 'superadmin'].includes(userProfile?.role) ? 'Super Admin' : 'User')}
+                      {userProfile?.isVerified && (
+                        <span className={`w-3.5 h-3.5 text-white rounded-full flex items-center justify-center text-[7px] shadow-sm shrink-0 ${{'blue':'bg-blue-500','gold':'bg-yellow-500','emerald':'bg-emerald-500','purple':'bg-purple-500'}[userProfile.verificationColor] || 'bg-blue-500'}`}>✓</span>
+                      )}
+                    </p>
                     <p className="text-[10px] font-semibold text-surface-400 capitalize">{userProfile?.role || 'Teacher'}</p>
                   </div>
                 </button>
@@ -684,7 +694,12 @@ export default function Layout() {
                   }
                 </div>
                 <div className="flex-1 min-w-0 text-left">
-                    <p className="text-[12.5px] font-bold text-surface-800 truncate">{userProfile?.name || (['admin', 'superadmin'].includes(userProfile?.role) ? 'Super Admin' : 'User')}</p>
+                    <p className="text-[12.5px] font-bold text-surface-800 truncate flex items-center gap-1">
+                      {userProfile?.name || (['admin', 'superadmin'].includes(userProfile?.role) ? 'Super Admin' : 'User')}
+                      {userProfile?.isVerified && (
+                        <span className={`w-3.5 h-3.5 text-white rounded-full flex items-center justify-center text-[7px] shadow-sm shrink-0 ${{'blue':'bg-blue-500','gold':'bg-yellow-500','emerald':'bg-emerald-500','purple':'bg-purple-500'}[userProfile.verificationColor] || 'bg-blue-500'}`}>✓</span>
+                      )}
+                    </p>
                   <p className="text-[10px] font-semibold text-surface-400 capitalize truncate">{userProfile?.role || 'Teacher'}</p>
                 </div>
                 <Settings className="w-3.5 h-3.5 text-surface-300 group-hover:text-surface-500 shrink-0 transition-colors" />

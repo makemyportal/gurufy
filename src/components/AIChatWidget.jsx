@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { MessageSquare, X, Send, Bot, Loader2, Minimize2, Maximize2, Sparkles, Cpu } from 'lucide-react'
 import { generateAIContent } from '../utils/aiService'
+import { useAuth } from '../contexts/AuthContext'
 
 const AUTO_TEXTS = [
   '✨ May I help you?',
@@ -41,6 +42,7 @@ const AIBotIcon = ({ className = "w-14 h-14", isPulsing = false }) => (
 )
 
 export default function AIChatWidget({ isHidden = false, pageContext = 'Unknown' }) {
+  const { userProfile } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [messages, setMessages] = useState([
@@ -72,6 +74,16 @@ export default function AIChatWidget({ isHidden = false, pageContext = 'Unknown'
     e?.preventDefault()
     const userMsg = directMsg || input.trim()
     if (!userMsg || isTyping) return
+
+    // Block suspended users
+    if (userProfile?.status === 'suspended') {
+      setMessages(prev => [...prev,
+        { id: Date.now().toString(), role: 'user', text: userMsg },
+        { id: (Date.now() + 1).toString(), role: 'assistant', text: '🚫 Your account has been suspended. AI Assistant is not available. Please contact your administrator.' }
+      ])
+      setInput('')
+      return
+    }
 
     setInput('')
     setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: userMsg }])
