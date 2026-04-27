@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles, Send, Mail, Link as LinkIcon } from 'lucide-react'
+import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles, Send, Mail, Link as LinkIcon, Edit2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
 import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc } from 'firebase/firestore'
@@ -83,6 +83,8 @@ export default function Timetable() {
   const [newTeacher, setNewTeacher] = useState('')
   const [newSubject, setNewSubject] = useState('')
   const [subModal, setSubModal] = useState(null)
+  const [editingTeacherName, setEditingTeacherName] = useState(null)
+  const [editingTeacherNewName, setEditingTeacherNewName] = useState('')
   const [teacherSubjects, setTeacherSubjects] = useState(() => {
     const s = localStorage.getItem('ldms_teacher_subjects')
     return s ? JSON.parse(s) : {}
@@ -402,7 +404,62 @@ export default function Timetable() {
   const toggleAbsent = (t) => setAbsentTeachers(a => a.includes(t) ? a.filter(x => x !== t) : [...a, t])
   const toggleBreak = (t) => setOnBreak(b => b.includes(t) ? b.filter(x => x !== t) : [...b, t])
   const addTeacher = () => { if (newTeacher.trim() && !teachers.includes(newTeacher.trim())) { setTeachers(t => [...t, newTeacher.trim()]); setNewTeacher('') } }
-  const removeTeacher = (t) => { setTeachers(ts => ts.filter(x => x !== t)); setAbsentTeachers(a => a.filter(x => x !== t)); setOnBreak(b => b.filter(x => x !== t)); setTeacherSubjects(ts => { const n = {...ts}; delete n[t]; return n }) }
+  const handleRenameTeacher = (oldName, newName) => {
+    if (!newName.trim() || newName.trim() === oldName || teachers.includes(newName.trim())) {
+      setEditingTeacherName(null);
+      return;
+    }
+    const finalName = newName.trim();
+    setTeachers(ts => ts.map(t => t === oldName ? finalName : t));
+    setAbsentTeachers(a => a.map(t => t === oldName ? finalName : t));
+    setOnBreak(b => b.map(t => t === oldName ? finalName : t));
+    setTeacherSubjects(ts => {
+      const n = {...ts};
+      if (n[oldName]) {
+        n[finalName] = n[oldName];
+        delete n[oldName];
+      }
+      return n;
+    });
+    setTeacherConstraints(tc => {
+      const n = {...tc};
+      if (n[oldName]) {
+        n[finalName] = n[oldName];
+        delete n[oldName];
+      }
+      return n;
+    });
+    if (classTeacher === oldName) setClassTeacher(finalName);
+    setGrid(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      Object.keys(next).forEach(day => {
+        Object.keys(next[day]).forEach(period => {
+          if (next[day][period].teacher === oldName) next[day][period].teacher = finalName;
+          if (next[day][period].substitute === oldName) next[day][period].substitute = finalName;
+        });
+      });
+      return next;
+    });
+    setEditingTeacherName(null);
+  }
+
+  const removeTeacher = (t) => {
+    if (!confirm(`Remove ${t} entirely? This clears them from the timetable.`)) return;
+    setTeachers(ts => ts.filter(x => x !== t));
+    setAbsentTeachers(a => a.filter(x => x !== t));
+    setOnBreak(b => b.filter(x => x !== t));
+    setTeacherSubjects(ts => { const n = {...ts}; delete n[t]; return n });
+    setGrid(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      Object.keys(next).forEach(day => {
+        Object.keys(next[day]).forEach(period => {
+          if (next[day][period].teacher === t) next[day][period].teacher = '';
+          if (next[day][period].substitute === t) next[day][period].substitute = '';
+        });
+      });
+      return next;
+    });
+  }
   const addSubject = () => { if (newSubject.trim() && !subjects.includes(newSubject.trim())) { setSubjects(s => [...s, newSubject.trim()]); setNewSubject('') } }
   const removeSubject = (s) => setSubjects(ss => ss.filter(x => x !== s))
   const toggleDay = (d) => { if (activeDays.includes(d)) { if (activeDays.length > 1) setActiveDays(a => a.filter(x => x !== d)) } else { setActiveDays(a => [...ALL_DAYS.filter(x => a.includes(x) || x === d)]) } }
@@ -646,8 +703,13 @@ export default function Timetable() {
         let selectedSubjIndex = -1
         let assignedTeacher = ''
         
+        // Pass 1: Try to find a subject not yet assigned today
         for (let i = 0; i < pool.length; i++) {
           const subj = pool[i]
+          let alreadyHasSubject = false;
+          PERIODS.forEach(p => { if (newGrid[day][p]?.subject === subj) alreadyHasSubject = true; });
+          if (alreadyHasSubject) continue;
+
           let candidates = teachers.filter(t => (teacherSubjects[t] || []).includes(subj) && isTeacherEligible(t, day, period))
           
           if (candidates.length === 0) {
@@ -659,6 +721,23 @@ export default function Timetable() {
             assignedTeacher = candidates[0]
             selectedSubjIndex = i
             break
+          }
+        }
+
+        // Pass 2: Fallback if we really can't find one without duplicating
+        if (selectedSubjIndex === -1) {
+          for (let i = 0; i < pool.length; i++) {
+            const subj = pool[i]
+            let candidates = teachers.filter(t => (teacherSubjects[t] || []).includes(subj) && isTeacherEligible(t, day, period))
+            if (candidates.length === 0) {
+              candidates = teachers.filter(t => isTeacherEligible(t, day, period))
+            }
+            if (candidates.length > 0) {
+              candidates.sort((a,b) => currentWorkloads[a] - currentWorkloads[b])
+              assignedTeacher = candidates[0]
+              selectedSubjIndex = i
+              break
+            }
           }
         }
 
@@ -885,7 +964,27 @@ export default function Timetable() {
               return (
                 <div key={t} className={`flex flex-col gap-1.5 p-3 rounded-xl border transition-all ${isAbsent ? 'bg-red-50 border-red-200' : isBrk ? 'bg-amber-50 border-amber-200' : 'bg-surface-50 border-surface-200'}`}>
                   <div className="flex items-center gap-2">
-                    <span className={`flex-1 text-sm font-bold truncate ${isAbsent ? 'text-red-700 line-through' : isBrk ? 'text-amber-700' : 'text-surface-800'}`}>{t}</span>
+                    {editingTeacherName === t ? (
+                      <input 
+                        type="text" 
+                        value={editingTeacherNewName} 
+                        onChange={e => setEditingTeacherNewName(e.target.value)} 
+                        onKeyDown={e => e.key === 'Enter' && handleRenameTeacher(t, editingTeacherNewName)}
+                        onBlur={() => handleRenameTeacher(t, editingTeacherNewName)}
+                        autoFocus
+                        className="flex-1 text-sm font-bold px-2 py-1 rounded border border-indigo-400 focus:outline-none"
+                      />
+                    ) : (
+                      <span onDoubleClick={() => { setEditingTeacherName(t); setEditingTeacherNewName(t); }} className={`flex-1 text-sm font-bold truncate ${isAbsent ? 'text-red-700 line-through' : isBrk ? 'text-amber-700' : 'text-surface-800'}`}>
+                        {t} {classTeacher === t && <Sparkles className="inline w-3 h-3 text-purple-500 mb-1" />}
+                      </span>
+                    )}
+                    <button onClick={() => classTeacher === t ? setClassTeacher('') : setClassTeacher(t)} title={classTeacher === t ? 'Remove Class Teacher' : 'Set as Class Teacher'} className={`p-1.5 rounded-lg transition-colors ${classTeacher === t ? 'bg-purple-200 text-purple-700' : 'hover:bg-purple-100 text-surface-400'}`}>
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => { setEditingTeacherName(t); setEditingTeacherNewName(t); }} title="Rename Teacher" className={`p-1.5 rounded-lg transition-colors ${editingTeacherName === t ? 'bg-indigo-200 text-indigo-700' : 'hover:bg-indigo-100 text-surface-400'}`}>
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
                     <button onClick={() => setAssigningSubjectsFor(assigningSubjectsFor === t ? null : t)} title="Assign subjects" className={`p-1.5 rounded-lg transition-colors ${assigningSubjectsFor === t ? 'bg-emerald-200 text-emerald-700' : 'hover:bg-emerald-100 text-surface-400'}`}>
                       <Tag className="w-3.5 h-3.5" />
                     </button>
