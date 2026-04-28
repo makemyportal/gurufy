@@ -4,9 +4,9 @@ import {
   XCircle, Search, Power, Trash2, Edit, BarChart3, Briefcase, FolderOpen,
   CalendarDays, Trophy, Megaphone, Eye, Ban, UserCheck, FileText,
   MessageSquare, ChevronRight, RefreshCw, Send, X, AlertCircle, Award, Plus,
-  ShoppingCart, GraduationCap, Radio, Mic, Star, Play
+  ShoppingCart, GraduationCap, Radio, Mic, Star, Play, Store, Clock, Wallet, IndianRupee
 } from 'lucide-react'
-import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, getDoc, setDoc, query, orderBy, limit, where } from 'firebase/firestore'
+import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, getDoc, setDoc, query, orderBy, limit, where, increment } from 'firebase/firestore'
 import { db } from '../utils/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { tools as aiToolsList } from './AITools'
@@ -211,6 +211,8 @@ function EditorModal({ type, initialData, onSave, onCancel }) {
 const TABS = [
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'users', label: 'Users', icon: Users },
+  { id: 'payments', label: 'Coin Purchases', icon: Wallet },
+  { id: 'review', label: 'Marketplace Review', icon: Store },
   { id: 'resources', label: 'Vault', icon: FolderOpen },
   { id: 'gamification', label: 'Economy', icon: Trophy },
   { id: 'settings', label: 'Settings', icon: Settings },
@@ -233,6 +235,8 @@ export default function AdminDashboard() {
   const [paymentRequests, setPaymentRequests] = useState([])
   const [platformSettings, setPlatformSettings] = useState({ maintenanceMode: false, registrationDisabled: false })
   const [announcementText, setAnnouncementText] = useState('')
+  const [rejectingId, setRejectingId] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
 
   function showToast(msg, type = 'success') {
     setToast({ msg, type })
@@ -608,6 +612,12 @@ export default function AdminDashboard() {
                 {tab.id === 'moderation' && reports.length > 0 && (
                   <span className="ml-auto w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px] font-bold">{reports.length}</span>
                 )}
+                {tab.id === 'review' && resources.filter(r => r.status === 'pending').length > 0 && (
+                  <span className="ml-auto w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px] font-bold">{resources.filter(r => r.status === 'pending').length}</span>
+                )}
+                {tab.id === 'payments' && paymentRequests.filter(p => p.status === 'pending').length > 0 && (
+                  <span className="ml-auto w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-bold">{paymentRequests.filter(p => p.status === 'pending').length}</span>
+                )}
               </button>
             ))}
           </nav>
@@ -802,7 +812,210 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* ====== MARKETPLACE REVIEW TAB ====== */}
+          {activeTab === 'review' && (
+            <div className="animate-fade-in">
+              <h2 className="text-xl font-extrabold text-surface-900 mb-1">🛒 Marketplace Review Queue</h2>
+              <p className="text-sm text-surface-500 font-medium mb-6">{resources.filter(r => r.status === 'pending').length} resources pending review</p>
+              
+              {resources.filter(r => r.status === 'pending').length === 0 ? (
+                <div className="p-16 text-center">
+                  <CheckCircle className="w-16 h-16 text-emerald-300 mx-auto mb-4" />
+                  <p className="text-lg font-bold text-surface-700">All Clear!</p>
+                  <p className="text-sm text-surface-500 mt-1">No pending marketplace submissions to review.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {resources.filter(r => r.status === 'pending').map(res => {
+                    const uploader = users.find(u => u.id === res.authorId)
+                    return (
+                      <div key={res.id} className="bg-white border border-amber-200/50 rounded-2xl overflow-hidden hover:shadow-md transition-all">
+                        <div className="flex items-center gap-2 px-5 py-3 bg-amber-50/50 border-b border-amber-100">
+                          <Clock className="w-4 h-4 text-amber-500" />
+                          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-wider">Pending Review</span>
+                          {res.format && <span className="px-2 py-0.5 rounded-md bg-surface-100 text-surface-600 text-[10px] font-black uppercase tracking-wider">{res.format}</span>}
+                          {res.fileSize && <span className="text-xs text-surface-400 font-medium">{res.fileSize}</span>}
+                          <span className="text-xs text-surface-400 font-medium ml-auto">{(() => { try { const dt = res.createdAt?.toDate ? res.createdAt.toDate() : new Date(res.createdAt); return dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) } catch { return '-' } })()}</span>
+                        </div>
+                        <div className="p-5">
+                          <div className="flex items-start gap-4 mb-4">
+                            <div className="flex-1">
+                              <h3 className="font-bold text-surface-900 text-lg mb-1">{res.title || 'Untitled'}</h3>
+                              {res.description && <p className="text-sm text-surface-600 leading-relaxed mb-3">{res.description}</p>}
+                              <div className="flex flex-wrap gap-2 mb-3">
+                                {res.subject && <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-black rounded-md uppercase">{res.subject}</span>}
+                                {res.classLevel && <span className="px-2.5 py-1 bg-surface-100 text-surface-600 text-[10px] font-black rounded-md uppercase">{res.classLevel}</span>}
+                                {res.type && <span className="px-2.5 py-1 bg-surface-100 text-surface-600 text-[10px] font-black rounded-md uppercase">{res.type}</span>}
+                                <span className={`px-2.5 py-1 text-[10px] font-black rounded-md uppercase ${res.coinPrice > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                                  {res.coinPrice > 0 ? `🪙 ${res.coinPrice} Coins` : 'Free'}
+                                </span>
+                              </div>
+                              <p className="text-sm font-bold text-surface-900">Uploaded by: <span className="text-surface-600">{uploader?.name || res.authorName || 'Unknown'}</span></p>
+                            </div>
+                            {res.fileUrl && (
+                              <a href={res.fileUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-surface-100 hover:bg-surface-200 text-surface-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shrink-0">
+                                <Eye className="w-4 h-4" /> Preview
+                              </a>
+                            )}
+                          </div>
 
+                          {rejectingId === res.id ? (
+                            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-surface-100">
+                              <input type="text" placeholder="Rejection reason (e.g. Low quality, Not educational)" value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+                                className="flex-1 px-4 py-2.5 bg-surface-50 border border-surface-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-400 outline-none" />
+                              <button onClick={async () => {
+                                try {
+                                  await updateDoc(doc(db, 'resources', res.id), { status: 'rejected', rejectionReason: rejectReason || 'Does not meet quality standards' })
+                                  setResources(prev => prev.map(r => r.id === res.id ? { ...r, status: 'rejected', rejectionReason: rejectReason || 'Does not meet quality standards' } : r))
+                                  showToast('Resource rejected')
+                                  setRejectingId(null)
+                                  setRejectReason('')
+                                } catch (err) { showToast('Failed', 'error') }
+                              }} className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg flex items-center gap-1.5 shrink-0">
+                                <XCircle className="w-4 h-4" /> Confirm Reject
+                              </button>
+                              <button onClick={() => { setRejectingId(null); setRejectReason('') }} className="px-4 py-2.5 bg-surface-100 hover:bg-surface-200 text-surface-700 text-sm font-bold rounded-xl transition-colors shrink-0">
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex gap-2 pt-4 border-t border-surface-100">
+                              <button onClick={async () => {
+                                try {
+                                  await updateDoc(doc(db, 'resources', res.id), { status: 'approved' })
+                                  setResources(prev => prev.map(r => r.id === res.id ? { ...r, status: 'approved' } : r))
+                                  showToast('Resource approved! Now live on marketplace ✅')
+                                } catch (err) { showToast('Failed to approve', 'error') }
+                              }} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg flex items-center gap-1.5">
+                                <CheckCircle className="w-4 h-4" /> Approve
+                              </button>
+                              <button onClick={() => setRejectingId(res.id)} className="px-5 py-2.5 bg-rose-100 hover:bg-rose-200 text-rose-700 text-sm font-bold rounded-xl transition-colors flex items-center gap-1.5">
+                                <XCircle className="w-4 h-4" /> Reject
+                              </button>
+                              <button onClick={() => handleDeleteResource(res.id)} className="px-4 py-2.5 bg-surface-100 hover:bg-surface-200 text-surface-500 text-sm font-bold rounded-xl transition-colors flex items-center gap-1.5 ml-auto">
+                                <Trash2 className="w-4 h-4" /> Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ====== COIN PURCHASES TAB ====== */}
+          {activeTab === 'payments' && (
+            <div className="animate-fade-in">
+              <h2 className="text-xl font-extrabold text-surface-900 mb-1">💰 Coin Purchase Requests</h2>
+              <p className="text-sm text-surface-500 font-medium mb-6">{paymentRequests.filter(p => p.status === 'pending').length} pending · {paymentRequests.length} total requests</p>
+              
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+                <div className="bg-amber-50 border border-amber-200/50 rounded-2xl p-4 text-center">
+                  <p className="text-2xl font-black text-amber-700">{paymentRequests.filter(p => p.status === 'pending').length}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-500 mt-1">⏳ Pending</p>
+                </div>
+                <div className="bg-emerald-50 border border-emerald-200/50 rounded-2xl p-4 text-center">
+                  <p className="text-2xl font-black text-emerald-700">{paymentRequests.filter(p => p.status === 'approved').length}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mt-1">✅ Approved</p>
+                </div>
+                <div className="bg-rose-50 border border-rose-200/50 rounded-2xl p-4 text-center">
+                  <p className="text-2xl font-black text-rose-700">{paymentRequests.filter(p => p.status === 'rejected').length}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-rose-500 mt-1">❌ Rejected</p>
+                </div>
+                <div className="bg-indigo-50 border border-indigo-200/50 rounded-2xl p-4 text-center">
+                  <p className="text-2xl font-black text-indigo-700">₹{paymentRequests.filter(p => p.status === 'approved').reduce((sum, p) => sum + (p.amount || 0), 0)}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mt-1">💵 Revenue</p>
+                </div>
+              </div>
+
+              {paymentRequests.length === 0 ? (
+                <div className="p-16 text-center">
+                  <Wallet className="w-16 h-16 text-surface-200 mx-auto mb-4" />
+                  <p className="text-lg font-bold text-surface-700">No Requests Yet</p>
+                  <p className="text-sm text-surface-500 mt-1">Coin purchase requests will appear here when users buy from the Token Store.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {paymentRequests.map(req => {
+                    const user = users.find(u => u.id === req.userId)
+                    const isPending = req.status === 'pending'
+                    const isApproved = req.status === 'approved'
+                    const isRejected = req.status === 'rejected'
+                    return (
+                      <div key={req.id} className={`bg-white border rounded-2xl overflow-hidden hover:shadow-md transition-all ${isPending ? 'border-amber-200/60' : isApproved ? 'border-emerald-200/60' : 'border-rose-200/60'}`}>
+                        {/* Header */}
+                        <div className={`flex items-center gap-2 px-5 py-3 border-b ${isPending ? 'bg-amber-50/50 border-amber-100' : isApproved ? 'bg-emerald-50/50 border-emerald-100' : 'bg-rose-50/50 border-rose-100'}`}>
+                          {isPending ? <Clock className="w-4 h-4 text-amber-500" /> : isApproved ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <XCircle className="w-4 h-4 text-rose-500" />}
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${isPending ? 'bg-amber-100 text-amber-700' : isApproved ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                            {req.status}
+                          </span>
+                          <span className="text-xs text-surface-400 font-medium ml-auto">
+                            {(() => { try { const dt = req.createdAt?.toDate ? req.createdAt.toDate() : new Date(req.createdAt); return dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) } catch { return '-' } })()}
+                          </span>
+                        </div>
+                        {/* Body */}
+                        <div className="p-5">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                            <div>
+                              <p className="font-bold text-surface-900 text-lg">{user?.name || req.userName || 'Unknown User'}</p>
+                              <p className="text-sm text-surface-500 font-medium">{req.userEmail || user?.email || '-'}</p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div className="text-center px-4 py-2 bg-amber-50 rounded-xl border border-amber-100">
+                                <p className="text-lg font-black text-amber-700">{req.coins} 🪙</p>
+                                <p className="text-[9px] font-bold uppercase text-amber-500">Coins</p>
+                              </div>
+                              <div className="text-center px-4 py-2 bg-indigo-50 rounded-xl border border-indigo-100">
+                                <p className="text-lg font-black text-indigo-700 flex items-center gap-1"><IndianRupee className="w-4 h-4" />{req.amount}</p>
+                                <p className="text-[9px] font-bold uppercase text-indigo-500">Amount</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 p-3 bg-surface-50 rounded-xl border border-surface-100 mb-4">
+                            <span className="text-xs font-black uppercase text-surface-400 tracking-wider">UTR:</span>
+                            <span className="font-mono font-bold text-surface-900 text-sm tracking-wider">{req.utr || '-'}</span>
+                          </div>
+
+                          {isPending && (
+                            <div className="flex gap-2 pt-3 border-t border-surface-100">
+                              <button onClick={async () => {
+                                try {
+                                  await updateDoc(doc(db, 'paymentRequests', req.id), { status: 'approved', approvedAt: new Date() })
+                                  await updateDoc(doc(db, 'gamification', req.userId), { coins: increment(req.coins) }).catch(async () => {
+                                    // If doc doesn't exist, create it
+                                    await setDoc(doc(db, 'gamification', req.userId), { coins: req.coins, xp: 0, badges: [] })
+                                  })
+                                  setPaymentRequests(prev => prev.map(p => p.id === req.id ? { ...p, status: 'approved' } : p))
+                                  showToast(`✅ Approved! ${req.coins} coins credited to ${req.userName || 'user'}`)
+                                } catch (err) { console.error(err); showToast('Failed to approve', 'error') }
+                              }} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg flex items-center gap-1.5">
+                                <CheckCircle className="w-4 h-4" /> Approve & Credit Coins
+                              </button>
+                              <button onClick={async () => {
+                                if (!window.confirm('Reject this payment request?')) return
+                                try {
+                                  await updateDoc(doc(db, 'paymentRequests', req.id), { status: 'rejected', rejectedAt: new Date() })
+                                  setPaymentRequests(prev => prev.map(p => p.id === req.id ? { ...p, status: 'rejected' } : p))
+                                  showToast('Payment request rejected')
+                                } catch (err) { showToast('Failed', 'error') }
+                              }} className="px-5 py-2.5 bg-rose-100 hover:bg-rose-200 text-rose-700 text-sm font-bold rounded-xl transition-colors flex items-center gap-1.5">
+                                <XCircle className="w-4 h-4" /> Reject
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ====== MODERATION TAB ====== */}
           {activeTab === 'moderation' && (
@@ -1266,6 +1479,26 @@ export default function AdminDashboard() {
                     <button 
                       onClick={() => handleTextSetting('upiId', document.getElementById('upi-id-input').value)}
                       className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6 bg-surface-50 border border-surface-200 rounded-2xl">
+                  <h4 className="font-bold text-surface-900 mb-1">📱 Admin WhatsApp Number</h4>
+                  <p className="text-sm font-medium text-surface-500 mb-4">When a user submits a coin purchase, they'll be prompted to send you a WhatsApp message with payment details. Enter with country code (e.g. 919876543210).</p>
+                  <div className="flex gap-3">
+                    <input 
+                      type="text" 
+                      id="admin-whatsapp-input"
+                      defaultValue={platformSettings.adminWhatsapp || ''} 
+                      placeholder="e.g. 919876543210"
+                      className="flex-1 px-4 py-2 bg-white border border-surface-200 rounded-xl outline-none focus:ring-2 focus:ring-[#25D366] font-bold font-mono"
+                    />
+                    <button 
+                      onClick={() => handleTextSetting('adminWhatsapp', document.getElementById('admin-whatsapp-input').value)}
+                      className="px-6 py-2 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold rounded-xl transition-all"
                     >
                       Save
                     </button>

@@ -21,6 +21,7 @@ export default function TokenShopModal({ onClose }) {
   const [error, setError] = useState('')
   const [upiId, setUpiId] = useState('teacherhub@upi')
   const [upiImageUrl, setUpiImageUrl] = useState(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=teacherhub@upi%26pn=LDMS%20Workspace`)
+  const [adminWhatsapp, setAdminWhatsapp] = useState('')
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (docSnap) => {
@@ -34,6 +35,7 @@ export default function TokenShopModal({ onClose }) {
           setPackages(data.tokenPlans)
           setSelectedPack(data.tokenPlans.find(p => p.popular) || data.tokenPlans[0])
         }
+        if (data.adminWhatsapp) setAdminWhatsapp(data.adminWhatsapp)
       }
     }, (err) => console.error('Token shop listener error:', err))
     return () => unsub()
@@ -60,6 +62,12 @@ export default function TokenShopModal({ onClose }) {
         status: 'pending',
         createdAt: serverTimestamp()
       })
+      // Auto-open WhatsApp notification to admin
+      if (adminWhatsapp) {
+        const userName = userProfile?.name || currentUser.email
+        const msg = `🪙 *New Coin Purchase Request*%0A%0A👤 *User:* ${encodeURIComponent(userName)}%0A📧 *Email:* ${encodeURIComponent(currentUser.email)}%0A💰 *Package:* ${selectedPack.coins} Coins — ₹${selectedPack.price}%0A🔢 *UTR:* ${utrNumber.trim()}%0A%0APlease verify and approve from Admin Dashboard.`
+        window.open(`https://wa.me/${adminWhatsapp}?text=${msg}`, '_blank')
+      }
       setStep(3)
     } catch (err) {
       console.error(err)
@@ -171,6 +179,19 @@ export default function TokenShopModal({ onClose }) {
               <p className="text-surface-600 mb-8 max-w-sm mx-auto">
                 We've received your UTR number <strong className="text-surface-900">{utrNumber}</strong>. Your {selectedPack.coins} 🪙 Coins will be credited to your account once our team manually verifies the payment (usually within 1-2 hours).
               </p>
+              {adminWhatsapp && (
+                <button 
+                  onClick={() => {
+                    const userName = userProfile?.name || currentUser.email
+                    const msg = `🪙 *New Coin Purchase Request*%0A%0A👤 *User:* ${encodeURIComponent(userName)}%0A📧 *Email:* ${encodeURIComponent(currentUser.email)}%0A💰 *Package:* ${selectedPack.coins} Coins — ₹${selectedPack.price}%0A🔢 *UTR:* ${utrNumber.trim()}%0A%0APlease verify and approve from Admin Dashboard.`
+                    window.open(`https://wa.me/${adminWhatsapp}?text=${msg}`, '_blank')
+                  }}
+                  className="px-6 py-3 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold rounded-xl transition-all mb-4 inline-flex items-center gap-2 shadow-lg"
+                >
+                  📱 Notify Admin on WhatsApp
+                </button>
+              )}
+              <br/>
               <button 
                 onClick={onClose}
                 className="px-6 py-3 bg-surface-900 hover:bg-black text-white font-bold rounded-xl transition-all"

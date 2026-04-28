@@ -5,12 +5,13 @@ import { useGamification } from '../contexts/GamificationContext'
 import { db } from '../utils/firebase'
 import {
   collection, addDoc, onSnapshot, query, orderBy,
-  serverTimestamp, updateDoc, doc, increment
+  serverTimestamp, updateDoc, doc, increment, deleteDoc
 } from 'firebase/firestore'
-import { uploadToCloudinary, formatFileSize } from '../utils/cloudinary'
+import { uploadToCloudinary, formatFileSize, downloadFromCloudinary, validateMarketplaceFile } from '../utils/cloudinary'
 import {
   Search, Download, Upload, Star, X, Loader2, FileText, CheckCircle2, Coins,
-  FolderOpen, Store, Globe2, Cloud, FolderClosed, ArrowRight
+  FolderOpen, Store, Globe2, Cloud, FolderClosed, ArrowRight, ShieldCheck,
+  AlertCircle, Clock, XCircle, HardDrive, Trash2
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -38,11 +39,29 @@ const FORMAT_STYLES = {
   PPTX: { bg: 'bg-orange-500' },
 }
 
-const ResourceCard = ({ resource, idx, fmtStyle, handleDownload, currentUser, stats }) => {
+const ResourceCard = ({ resource, idx, fmtStyle, handleDownload, handleDelete, currentUser, stats, downloadingId, userProfile }) => {
   const style = fmtStyle(resource.format)
+  const isOwner = currentUser?.uid === resource.authorId
+  const isAdmin = userProfile?.role === 'superadmin' || userProfile?.role === 'admin'
+  const canDelete = isOwner || isAdmin
+  const isPending = resource.status === 'pending'
+  const isRejected = resource.status === 'rejected'
+  const isDownloading = downloadingId === resource.id
+
   return (
-    <div className="bg-white rounded-[24px] overflow-hidden group hover:-translate-y-1 transition-all duration-300 shadow-sm hover:shadow-xl border border-surface-200 hover:border-indigo-300 flex flex-col h-full" style={{ animationDelay: `${idx * 0.05}s` }}>
+    <div className={`bg-white rounded-[24px] overflow-hidden group hover:-translate-y-1 transition-all duration-300 shadow-sm hover:shadow-xl border flex flex-col h-full ${isRejected ? 'border-red-200 bg-red-50/30' : isPending ? 'border-amber-200' : 'border-surface-200 hover:border-indigo-300'}`} style={{ animationDelay: `${idx * 0.05}s` }}>
       <div className="p-6 flex flex-col h-full">
+        {/* Status Badge for owner */}
+        {isOwner && (isPending || isRejected) && (
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl mb-4 text-xs font-bold ${isPending ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+            {isPending ? <Clock className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+            {isPending ? 'Pending Admin Review' : 'Rejected'}
+            {isRejected && resource.rejectionReason && (
+              <span className="font-normal ml-1">— {resource.rejectionReason}</span>
+            )}
+          </div>
+        )}
+
         <div className="flex items-start gap-4 mb-4">
           <div className={`w-12 h-12 rounded-2xl ${style.bg} flex items-center justify-center text-white font-black text-sm shrink-0 shadow-md group-hover:scale-110 transition-transform`}>
             {resource.format}
@@ -51,6 +70,15 @@ const ResourceCard = ({ resource, idx, fmtStyle, handleDownload, currentUser, st
             <h3 className="font-bold text-[15px] text-surface-900 leading-tight mb-1">{resource.title}</h3>
             <p className="text-xs font-semibold text-surface-400">by {resource.authorName}</p>
           </div>
+          {canDelete && (
+            <button
+              onClick={() => handleDelete(resource)}
+              className="p-2 text-surface-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100 shrink-0"
+              title="Delete Resource"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {resource.description && (
@@ -61,6 +89,7 @@ const ResourceCard = ({ resource, idx, fmtStyle, handleDownload, currentUser, st
           {resource.subject && <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-black rounded-md uppercase tracking-wider">{resource.subject}</span>}
           {resource.classLevel && <span className="px-2.5 py-1 bg-surface-100 text-surface-600 text-[10px] font-black rounded-md uppercase tracking-wider">{resource.classLevel}</span>}
           {resource.type && <span className="px-2.5 py-1 bg-surface-100 text-surface-600 text-[10px] font-black rounded-md uppercase tracking-wider">{resource.type}</span>}
+          {resource.fileSize && <span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-md uppercase tracking-wider">{resource.fileSize}</span>}
         </div>
 
         <div className="flex items-center justify-between pt-4 border-t border-surface-100 mt-auto">
@@ -80,10 +109,11 @@ const ResourceCard = ({ resource, idx, fmtStyle, handleDownload, currentUser, st
             </span>
             <button
               onClick={() => handleDownload(resource)}
-              className={`p-2.5 text-white rounded-xl transition-all active:scale-95 shadow-md flex items-center gap-2 ${resource.price === 'Free' || !resource.coinPrice ? 'bg-slate-900 hover:bg-black' : 'bg-amber-500 hover:bg-amber-600 shadow-[0_4px_12px_rgba(245,158,11,0.3)]'}`}
-              title="Download File"
+              disabled={isDownloading || isPending || isRejected}
+              className={`p-2.5 text-white rounded-xl transition-all active:scale-95 shadow-md flex items-center gap-2 ${isPending || isRejected ? 'bg-surface-300 cursor-not-allowed' : resource.price === 'Free' || !resource.coinPrice ? 'bg-slate-900 hover:bg-black' : 'bg-amber-500 hover:bg-amber-600 shadow-[0_4px_12px_rgba(245,158,11,0.3)]'}`}
+              title={isPending ? 'Pending review' : isRejected ? 'Rejected' : 'Download File'}
             >
-              <Download className="w-4 h-4" />
+              {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             </button>
           </div>
         </div>
@@ -109,6 +139,11 @@ export default function Resources() {
   const [uploadFile, setUploadFile] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [uploadMode, setUploadMode] = useState('marketplace') // 'personal' | 'marketplace'
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [fileError, setFileError] = useState('')
+  const [formErrors, setFormErrors] = useState({})
+  const [downloadingId, setDownloadingId] = useState(null)
   const [uploadForm, setUploadForm] = useState({
     title: '', description: '', subject: '', classLevel: '', type: '', price: 'Free', priceAmount: ''
   })
@@ -144,7 +179,10 @@ export default function Resources() {
     })
   }, [])
 
+  // Marketplace only shows approved resources (not user's own pending/rejected)
   const filtered = resources.filter(r => {
+    if (r.status && r.status !== 'approved') return false
+    if (r.uploadMode === 'personal') return false
     const title = r.title || ''
     const author = r.authorName || ''
     const matchSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -154,30 +192,83 @@ export default function Resources() {
     return matchSearch && matchSubject && matchType
   })
 
+  function validateUploadForm() {
+    const errors = {}
+    const isMarketplace = uploadMode === 'marketplace'
+
+    if (!uploadForm.title || uploadForm.title.trim().length < 5) errors.title = 'Title must be at least 5 characters'
+    if (uploadForm.title.length > 100) errors.title = 'Title must be under 100 characters'
+
+    if (isMarketplace) {
+      if (!uploadForm.description || uploadForm.description.trim().length < 20) errors.description = 'Description must be at least 20 characters for marketplace'
+      if (!uploadForm.subject) errors.subject = 'Subject is required'
+      if (!uploadForm.classLevel) errors.classLevel = 'Class level is required'
+      if (!uploadForm.type) errors.type = 'Resource type is required'
+      if (!termsAccepted) errors.terms = 'You must confirm this is your original work'
+      if (uploadForm.price === 'Paid' && (!uploadForm.priceAmount || Number(uploadForm.priceAmount) < 1)) errors.price = 'Set a valid coin price (min 1)'
+    }
+
+    if (!uploadFile) errors.file = 'Please select a file to upload'
+    
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  function handleFileSelect(file) {
+    setFileError('')
+    if (!file) return
+
+    // For marketplace, validate file type strictly
+    if (uploadMode === 'marketplace') {
+      const validation = validateMarketplaceFile(file)
+      if (!validation.valid) {
+        setFileError(validation.error)
+        setUploadFile(null)
+        return
+      }
+    } else {
+      // Personal drive — only check size
+      const maxBytes = 25 * 1024 * 1024
+      if (file.size > maxBytes) {
+        setFileError(`File too large. Max 25MB. Your file: ${formatFileSize(file.size)}`)
+        setUploadFile(null)
+        return
+      }
+    }
+
+    setUploadFile(file)
+  }
+
   async function handleUpload(e) {
     e.preventDefault()
-    if (!uploadFile || !uploadForm.title || !uploadForm.subject || !currentUser) return
+    if (!currentUser) return
+    if (!validateUploadForm()) return
     setUploading(true)
 
     try {
       const result = await uploadToCloudinary(uploadFile)
       const coinPrice = uploadForm.price === 'Free' ? 0 : Number(uploadForm.priceAmount) || 0
+      const isMarketplace = uploadMode === 'marketplace'
       
       await addDoc(collection(db, 'resources'), {
-        title: uploadForm.title,
-        description: uploadForm.description,
+        title: uploadForm.title.trim(),
+        description: uploadForm.description.trim(),
         subject: uploadForm.subject,
         classLevel: uploadForm.classLevel,
         type: uploadForm.type || 'Other',
         price: coinPrice === 0 ? 'Free' : `${coinPrice} Coins`,
         coinPrice: coinPrice,
         fileUrl: result.url,
+        fileName: uploadFile.name,
         format: result.format?.toUpperCase() || 'FILE',
         fileSize: formatFileSize(result.bytes),
+        fileSizeBytes: result.bytes || uploadFile.size,
         authorId: currentUser.uid,
         authorName: userProfile?.name || currentUser.email,
         downloads: 0,
         rating: 0,
+        status: isMarketplace ? 'pending' : 'approved',
+        uploadMode: isMarketplace ? 'marketplace' : 'personal',
         createdAt: serverTimestamp(),
       })
       setUploadSuccess(true)
@@ -185,8 +276,11 @@ export default function Resources() {
         setShowUpload(false)
         setUploadSuccess(false)
         setUploadFile(null)
+        setFileError('')
+        setFormErrors({})
+        setTermsAccepted(false)
         setUploadForm({ title: '', description: '', subject: '', classLevel: '', type: '', price: 'Free', priceAmount: '' })
-      }, 1500)
+      }, 2000)
     } catch (err) {
       console.error('Upload error:', err)
       alert('Upload failed. Please try again.')
@@ -221,8 +315,28 @@ export default function Resources() {
       }
     }
 
+    setDownloadingId(resource.id)
     await updateDoc(doc(db, 'resources', resource.id), { downloads: increment(1) }).catch(() => {})
-    window.open(resource.fileUrl, '_blank')
+    
+    // Build proper filename
+    const fileName = resource.fileName || `${resource.title}.${(resource.format || 'pdf').toLowerCase()}`
+    await downloadFromCloudinary(resource.fileUrl, fileName)
+    setDownloadingId(null)
+  }
+
+  async function handleDeleteResource(resource) {
+    const isOwner = currentUser?.uid === resource.authorId
+    const isAdmin = userProfile?.role === 'superadmin' || userProfile?.role === 'admin'
+    if (!isOwner && !isAdmin) return
+    
+    if (!window.confirm(`Are you sure you want to delete "${resource.title}"? This cannot be undone.`)) return
+    
+    try {
+      await deleteDoc(doc(db, 'resources', resource.id))
+    } catch (err) {
+      console.error('Delete error:', err)
+      alert('Failed to delete resource. Please try again.')
+    }
   }
 
   const fmtStyle = (fmt) => FORMAT_STYLES[fmt?.toUpperCase()] || { bg: 'bg-surface-500' }
@@ -302,7 +416,7 @@ export default function Resources() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {resources.filter(r => r.authorId === currentUser?.uid).map((resource, idx) => (
-                <ResourceCard key={resource.id} resource={resource} idx={idx} fmtStyle={fmtStyle} handleDownload={handleDownload} currentUser={currentUser} stats={stats} />
+                <ResourceCard key={resource.id} resource={resource} idx={idx} fmtStyle={fmtStyle} handleDownload={handleDownload} handleDelete={handleDeleteResource} currentUser={currentUser} stats={stats} downloadingId={downloadingId} userProfile={userProfile} />
               ))}
             </div>
           )}
@@ -341,7 +455,7 @@ export default function Resources() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {filtered.map((resource, idx) => (
-                <ResourceCard key={resource.id} resource={resource} idx={idx} fmtStyle={fmtStyle} handleDownload={handleDownload} currentUser={currentUser} stats={stats} />
+                <ResourceCard key={resource.id} resource={resource} idx={idx} fmtStyle={fmtStyle} handleDownload={handleDownload} handleDelete={handleDeleteResource} currentUser={currentUser} stats={stats} downloadingId={downloadingId} userProfile={userProfile} />
               ))}
             </div>
           )}
@@ -389,8 +503,8 @@ export default function Resources() {
       {showUpload && createPortal(
         <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden" onClick={() => setShowUpload(false)}>
           <div className="bg-white w-full max-w-lg rounded-t-[32px] sm:rounded-[32px] shadow-2xl p-6 sm:p-8 animate-slide-up flex flex-col max-h-[90vh] sm:max-h-[85vh]" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6 shrink-0">
-              <h2 className="text-2xl font-bold font-display text-surface-900">Sell Resource</h2>
+            <div className="flex items-center justify-between mb-5 shrink-0">
+              <h2 className="text-2xl font-bold font-display text-surface-900">Upload Resource</h2>
               <button onClick={() => setShowUpload(false)} className="p-2 hover:bg-surface-100 rounded-xl transition-colors">
                 <X className="w-5 h-5 text-surface-500" />
               </button>
@@ -401,79 +515,150 @@ export default function Resources() {
             {uploadSuccess ? (
               <div className="text-center py-8">
                 <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-3" />
-                <p className="font-bold text-surface-900">Resource Listed!</p>
-                <p className="text-sm text-surface-500">It is now available in the marketplace.</p>
+                <p className="font-bold text-surface-900">{uploadMode === 'marketplace' ? 'Submitted for Review!' : 'File Uploaded!'}</p>
+                <p className="text-sm text-surface-500 mt-1">
+                  {uploadMode === 'marketplace' 
+                    ? 'Your resource will be reviewed by admin before appearing on the marketplace.' 
+                    : 'Your file has been saved to your personal drive.'}
+                </p>
               </div>
             ) : (
               <form onSubmit={handleUpload} className="space-y-4">
-                <input
-                  type="text" placeholder="Resource Title *" required
-                  value={uploadForm.title} onChange={e => setUploadForm(p => ({ ...p, title: e.target.value }))}
-                  className="input-field"
-                />
-                <textarea
-                  placeholder="Description"
-                  value={uploadForm.description} onChange={e => setUploadForm(p => ({ ...p, description: e.target.value }))}
-                  className="input-field min-h-[70px] resize-none"
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <select required value={uploadForm.subject} onChange={e => setUploadForm(p => ({ ...p, subject: e.target.value }))} className="input-field">
-                    <option value="">Select Subject *</option>
-                    {SUBJECTS.filter(s => s !== 'All').map(s => <option key={s}>{s}</option>)}
-                  </select>
-                  <select value={uploadForm.classLevel} onChange={e => setUploadForm(p => ({ ...p, classLevel: e.target.value }))} className="input-field">
-                    <option value="">Select Class</option>
-                    {CLASSES.filter(c => c !== 'All').map(c => <option key={c}>{c}</option>)}
-                  </select>
+                {/* Upload Mode Toggle */}
+                <div className="grid grid-cols-2 gap-2 p-1 bg-surface-100 rounded-xl">
+                  <button type="button" onClick={() => { setUploadMode('personal'); setFileError(''); setFormErrors({}) }}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${uploadMode === 'personal' ? 'bg-white text-indigo-700 shadow-md' : 'text-surface-500 hover:text-surface-700'}`}>
+                    <HardDrive className="w-4 h-4" /> My Drive
+                  </button>
+                  <button type="button" onClick={() => { setUploadMode('marketplace'); setFileError(''); setFormErrors({}) }}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${uploadMode === 'marketplace' ? 'bg-white text-amber-600 shadow-md' : 'text-surface-500 hover:text-surface-700'}`}>
+                    <Store className="w-4 h-4" /> Marketplace
+                  </button>
                 </div>
-                <select value={uploadForm.type} onChange={e => setUploadForm(p => ({ ...p, type: e.target.value }))} className="input-field">
-                  <option value="">Resource Type</option>
-                  {TYPES.filter(t => t !== 'All').map(t => <option key={t}>{t}</option>)}
-                </select>
+
+                {uploadMode === 'marketplace' && (
+                  <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                    <ShieldCheck className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                    <p className="text-xs font-medium text-amber-800">Marketplace uploads are reviewed by admin before going live. Only educational documents (PDF, PPT, DOC) are allowed.</p>
+                  </div>
+                )}
+
+                {/* Title */}
+                <div>
+                  <input type="text" placeholder="Resource Title *"
+                    value={uploadForm.title} onChange={e => setUploadForm(p => ({ ...p, title: e.target.value }))}
+                    className={`input-field ${formErrors.title ? 'border-red-400 ring-1 ring-red-400' : ''}`} />
+                  {formErrors.title && <p className="text-xs text-red-500 font-bold mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{formErrors.title}</p>}
+                </div>
+
+                {/* Description */}
+                <div>
+                  <textarea placeholder={uploadMode === 'marketplace' ? "Describe your resource in detail (min 20 chars) *" : "Description (optional)"}
+                    value={uploadForm.description} onChange={e => setUploadForm(p => ({ ...p, description: e.target.value }))}
+                    className={`input-field min-h-[70px] resize-none ${formErrors.description ? 'border-red-400 ring-1 ring-red-400' : ''}`} />
+                  {formErrors.description && <p className="text-xs text-red-500 font-bold mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{formErrors.description}</p>}
+                </div>
+
+                {/* Subject + Class */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <select value={uploadForm.subject} onChange={e => setUploadForm(p => ({ ...p, subject: e.target.value }))}
+                      className={`input-field ${formErrors.subject ? 'border-red-400 ring-1 ring-red-400' : ''}`}>
+                      <option value="">Select Subject{uploadMode === 'marketplace' ? ' *' : ''}</option>
+                      {SUBJECTS.filter(s => s !== 'All').map(s => <option key={s}>{s}</option>)}
+                    </select>
+                    {formErrors.subject && <p className="text-xs text-red-500 font-bold mt-1"><AlertCircle className="w-3 h-3 inline" /> Required</p>}
+                  </div>
+                  <div>
+                    <select value={uploadForm.classLevel} onChange={e => setUploadForm(p => ({ ...p, classLevel: e.target.value }))}
+                      className={`input-field ${formErrors.classLevel ? 'border-red-400 ring-1 ring-red-400' : ''}`}>
+                      <option value="">Select Class{uploadMode === 'marketplace' ? ' *' : ''}</option>
+                      {CLASSES.filter(c => c !== 'All').map(c => <option key={c}>{c}</option>)}
+                    </select>
+                    {formErrors.classLevel && <p className="text-xs text-red-500 font-bold mt-1"><AlertCircle className="w-3 h-3 inline" /> Required</p>}
+                  </div>
+                </div>
+
+                {/* Resource Type */}
+                <div>
+                  <select value={uploadForm.type} onChange={e => setUploadForm(p => ({ ...p, type: e.target.value }))}
+                    className={`input-field ${formErrors.type ? 'border-red-400 ring-1 ring-red-400' : ''}`}>
+                    <option value="">Resource Type{uploadMode === 'marketplace' ? ' *' : ''}</option>
+                    {TYPES.filter(t => t !== 'All').map(t => <option key={t}>{t}</option>)}
+                  </select>
+                  {formErrors.type && <p className="text-xs text-red-500 font-bold mt-1"><AlertCircle className="w-3 h-3 inline" /> Required</p>}
+                </div>
 
                 {/* File Drop Zone */}
-                <label className="block border-2 border-dashed border-surface-300 rounded-xl p-6 text-center hover:border-indigo-400 transition-colors cursor-pointer bg-surface-50">
-                  {uploadFile ? (
-                    <div className="flex items-center justify-center gap-3">
-                      <FileText className="w-8 h-8 text-indigo-500" />
-                      <div className="text-left">
-                        <p className="text-sm font-semibold text-surface-800">{uploadFile.name}</p>
-                        <p className="text-xs text-surface-500">{formatFileSize(uploadFile.size)}</p>
+                <div>
+                  <label className={`block border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer ${fileError ? 'border-red-400 bg-red-50' : uploadFile ? 'border-emerald-400 bg-emerald-50' : 'border-surface-300 bg-surface-50 hover:border-indigo-400'}`}>
+                    {uploadFile ? (
+                      <div className="flex items-center justify-center gap-3">
+                        <FileText className="w-8 h-8 text-emerald-600" />
+                        <div className="text-left">
+                          <p className="text-sm font-semibold text-surface-800">{uploadFile.name}</p>
+                          <p className="text-xs text-surface-500">{formatFileSize(uploadFile.size)}</p>
+                        </div>
+                        <button type="button" onClick={(e) => { e.preventDefault(); setUploadFile(null); setFileError('') }} className="ml-2 p-1 hover:bg-red-100 rounded-lg">
+                          <X className="w-4 h-4 text-red-500" />
+                        </button>
                       </div>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="w-8 h-8 text-surface-300 mx-auto mb-2" />
-                      <p className="text-sm text-surface-600">Click or drag file to upload</p>
-                      <p className="text-xs text-surface-400 mt-1">PDF, PPT, DOC, Images (Max 25MB)</p>
-                    </>
-                  )}
-                  <input type="file" className="hidden" accept=".pdf,.ppt,.pptx,.doc,.docx,.jpg,.jpeg,.png" onChange={e => setUploadFile(e.target.files[0])} />
-                </label>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <select value={uploadForm.price} onChange={e => setUploadForm(p => ({ ...p, price: e.target.value }))} className="input-field w-full sm:w-1/3 font-bold text-amber-600 bg-amber-50">
-                    <option value="Free">Free</option>
-                    <option value="Paid">Premium (Coins)</option>
-                  </select>
-                  {uploadForm.price === 'Paid' && (
-                    <div className="relative flex-1">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg">🪙</span>
-                      <input
-                        type="number" min="1" placeholder="Set Price (e.g. 50)" required
-                        value={uploadForm.priceAmount} onChange={e => setUploadForm(p => ({ ...p, priceAmount: e.target.value }))}
-                        className="input-field pl-12 font-bold w-full"
-                      />
-                    </div>
-                  )}
+                    ) : (
+                      <>
+                        <Upload className="w-8 h-8 text-surface-300 mx-auto mb-2" />
+                        <p className="text-sm text-surface-600">Click or drag file to upload</p>
+                        <p className="text-xs text-surface-400 mt-1">
+                          {uploadMode === 'marketplace' ? 'PDF, PPT, PPTX, DOC, DOCX only (Max 25MB)' : 'Any file type (Max 25MB)'}
+                        </p>
+                      </>
+                    )}
+                    <input type="file" className="hidden"
+                      accept={uploadMode === 'marketplace' ? '.pdf,.ppt,.pptx,.doc,.docx' : '*'}
+                      onChange={e => handleFileSelect(e.target.files[0])} />
+                  </label>
+                  {fileError && <p className="text-xs text-red-500 font-bold mt-2 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 shrink-0" />{fileError}</p>}
+                  {formErrors.file && !fileError && <p className="text-xs text-red-500 font-bold mt-1"><AlertCircle className="w-3 h-3 inline" /> {formErrors.file}</p>}
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={uploading || !uploadFile || !uploadForm.title}
-                  className="btn-primary w-full py-3.5 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-md border-0 text-[15px] font-extrabold"
-                >
-                  {uploading ? <><Loader2 className="w-5 h-5 animate-spin" /> Publishing...</> : <><Coins className="w-5 h-5" /> List on Marketplace</>}
+                {/* Price (marketplace only) */}
+                {uploadMode === 'marketplace' && (
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <select value={uploadForm.price} onChange={e => setUploadForm(p => ({ ...p, price: e.target.value }))} className="input-field w-full sm:w-1/3 font-bold text-amber-600 bg-amber-50">
+                      <option value="Free">Free</option>
+                      <option value="Paid">Premium (Coins)</option>
+                    </select>
+                    {uploadForm.price === 'Paid' && (
+                      <div className="relative flex-1">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg">🪙</span>
+                        <input type="number" min="1" placeholder="Set Price (e.g. 50)"
+                          value={uploadForm.priceAmount} onChange={e => setUploadForm(p => ({ ...p, priceAmount: e.target.value }))}
+                          className={`input-field pl-12 font-bold w-full ${formErrors.price ? 'border-red-400 ring-1 ring-red-400' : ''}`} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Terms Checkbox (marketplace only) */}
+                {uploadMode === 'marketplace' && (
+                  <div>
+                    <label className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-colors ${termsAccepted ? 'bg-emerald-50 border border-emerald-200' : formErrors.terms ? 'bg-red-50 border border-red-200' : 'bg-surface-50 border border-surface-200'}`}>
+                      <input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 rounded border-surface-300 text-emerald-600 focus:ring-emerald-500" />
+                      <span className="text-xs font-medium text-surface-700 leading-relaxed">
+                        I confirm this is my <strong>original work</strong> and I have the right to distribute it. I understand it will be reviewed before being listed.
+                      </span>
+                    </label>
+                    {formErrors.terms && <p className="text-xs text-red-500 font-bold mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{formErrors.terms}</p>}
+                  </div>
+                )}
+
+                <button type="submit" disabled={uploading}
+                  className={`w-full py-3.5 flex items-center justify-center gap-2 shadow-md border-0 text-[15px] font-extrabold rounded-xl transition-all ${uploadMode === 'marketplace' ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white' : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white'}`}>
+                  {uploading 
+                    ? <><Loader2 className="w-5 h-5 animate-spin" /> Uploading...</>
+                    : uploadMode === 'marketplace' 
+                      ? <><ShieldCheck className="w-5 h-5" /> Submit for Review</>
+                      : <><HardDrive className="w-5 h-5" /> Save to My Drive</>}
                 </button>
               </form>
             )}
