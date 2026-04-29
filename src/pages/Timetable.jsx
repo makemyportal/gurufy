@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles, Send, Mail, Link as LinkIcon, Edit2, Upload, Download } from 'lucide-react'
+import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles, Send, Mail, Link as LinkIcon, Edit2, Upload, Download, Trash2, Database } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
-import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc } from 'firebase/firestore'
+import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { generateWithGeminiVision } from '../utils/aiService'
 
 const ALL_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
@@ -291,6 +291,30 @@ export default function Timetable() {
         setCurrentTimetableId(docRef.id)
         alert('Timetable saved to cloud successfully!')
       }
+      
+      // Automatic Teacher Syncing across the entire school
+      if (schoolName && schoolName.trim() !== '') {
+        try {
+          const q = query(collection(db, 'timetables'), where('userId', '==', currentUser.uid), where('schoolName', '==', schoolName));
+          const snap = await getDocs(q);
+          const batch = writeBatch(db);
+          snap.docs.forEach(d => {
+            if (d.id !== currentTimetableId) { // Skip the one we just saved
+              batch.update(d.ref, {
+                teachers: timetableData.teachers,
+                teacherSubjects: timetableData.teacherSubjects,
+                teacherConstraints: timetableData.teacherConstraints,
+                absentTeachers: timetableData.absentTeachers,
+                onBreak: timetableData.onBreak,
+                subjects: timetableData.subjects
+              });
+            }
+          });
+          await batch.commit();
+        } catch (syncErr) {
+          console.error("Failed to sync teachers across school:", syncErr);
+        }
+      }
     } catch (error) {
       console.error('Error saving timetable:', error)
       alert('Failed to save to cloud.')
@@ -478,6 +502,162 @@ export default function Timetable() {
     setCurrentTimetableId(null) // force create new on save
     setIsCloudModalOpen(false)
     alert(`Timetable duplicated as "${newName}". You are now editing the unsaved duplicate.`)
+  }
+
+  const handleLoadDemoSchool = async () => {
+    if (!currentUser) return alert('Please login to load demo data.');
+    if (!confirm('This will add pre-filled demo classes from Nursery to Class 12 to your My Timetables. Continue?')) return;
+    
+    setIsSaving(true);
+    try {
+      const demoClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
+      const demoSubjects = ['Mathematics', 'Science', 'English', 'Hindi', 'Social Studies'];
+      const demoTeachers = ['Mr. Sharma', 'Ms. Gupta', 'Mr. Patel', 'Ms. Singh', 'Mr. Kumar'];
+      
+      for (const cls of demoClasses) {
+        const demoGrid = {};
+        ALL_DAYS.forEach(d => {
+          demoGrid[d] = {};
+          PERIODS.forEach((p, idx) => {
+            if (p === 'Lunch') {
+              demoGrid[d][p] = { subject: 'Lunch', teacher: '', substitute: '', room: '' };
+            } else if (idx < 5) {
+              // Basic random assignment for demo
+              const subj = demoSubjects[(idx + demoClasses.indexOf(cls)) % demoSubjects.length];
+              const tchr = demoTeachers[(idx + demoClasses.indexOf(cls)) % demoTeachers.length];
+              demoGrid[d][p] = { subject: subj, teacher: tchr, substitute: '', room: 'Room ' + (100 + demoClasses.indexOf(cls)) };
+            } else {
+              demoGrid[d][p] = { subject: 'Free Period', teacher: '', substitute: '', room: '' };
+            }
+          });
+        });
+        
+        const timetableData = {
+          userId: currentUser.uid,
+          schoolName: 'Demo High School',
+          className: cls,
+          details: 'Demo timetable generated automatically',
+          grid: demoGrid,
+          teachers: DEFAULT_TEACHERS,
+          absentTeachers: [],
+          onBreak: [],
+          subjects: DEFAULT_SUBJECTS,
+          rooms: ['Chemistry Lab', 'Computer Lab', 'Library', 'AV Room', 'Room 100', 'Room 101', 'Room 102'],
+          subjectColors: {},
+          activeDays: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+          teacherSubjects: {},
+          teacherConstraints: {},
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        };
+        await addDoc(collection(db, 'timetables'), timetableData);
+      }
+      alert('Demo school generated successfully! You can now load these classes.');
+      await loadTimetables();
+    } catch (err) {
+      console.error('Error generating demo data:', err);
+      alert('Failed to generate demo data.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  const executeSchoolPrint = (sName) => {
+    const schoolTimetables = cloudTimetables.filter(tb => (tb.schoolName || 'Unassigned School') === sName);
+    if (schoolTimetables.length === 0) return;
+    
+    const w = window.open('', '_blank')
+    w.document.write(`<html><head><title>Full School Timetable - ${sName}</title><style>
+      body{font-family:Inter,sans-serif;padding:30px;max-width:1000px;margin:0 auto}
+      table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:40px}
+      th,td{border:1px solid #cbd5e1;padding:10px;text-align:center}
+      th{background:#1e293b;color:white;font-weight:bold}
+      .sub{color:#dc2626;font-style:italic;display:block;margin-top:4px}
+      .absent{text-decoration:line-through;color:#94a3b8}
+      .header{text-align:center;margin-bottom:30px;border-bottom:2px solid #e2e8f0;padding-bottom:20px}
+      .header h1{margin:0 0 10px 0;font-size:28px;color:#0f172a}
+      .header p{margin:0 0 5px 0;color:#475569;font-size:16px}
+      .page-break { page-break-after: always; margin-bottom: 50px; }
+    </style></head><body>`)
+    
+    schoolTimetables.forEach((tb, index) => {
+      w.document.write(`<div class="${index < schoolTimetables.length - 1 ? 'page-break' : ''}">`);
+      w.document.write(`<div class="header">`)
+      w.document.write(`<h1>${tb.schoolName ? tb.schoolName : 'School Timetable'}</h1>`)
+      w.document.write(`<p><strong>Class:</strong> ${tb.className || 'Unnamed Class'}</p>`)
+      if (tb.details) w.document.write(`<p style="font-style:italic;font-size:14px;margin-top:10px">${tb.details}</p>`)
+      w.document.write(`</div>`)
+      
+      w.document.write(`<table><thead><tr><th>Period</th>`)
+      const tDays = tb.activeDays || ALL_DAYS
+      tDays.forEach(d => w.document.write(`<th>${d}</th>`))
+      w.document.write(`</tr></thead><tbody>`)
+      
+      PERIODS.forEach(p => {
+        w.document.write(`<tr><td><strong>${p}</strong></td>`)
+        tDays.forEach(d => {
+          const c = tb.grid?.[d]?.[p] || {}
+          const tAbsent = tb.absentTeachers || []
+          const isAbsent = c.teacher && tAbsent.includes(c.teacher)
+          let html = c.subject ? `<div style="font-size:14px; font-weight:bold; margin-bottom:2px;">${c.subject}</div>` : '-'
+          if (c.teacher) html += `<div class="${isAbsent ? 'absent' : ''}" style="font-size:12px; font-weight:600; color:#334155;">${c.teacher}</div>`
+          if (c.substitute) html += `<div class="sub">Sub: ${c.substitute}</div>`
+          if (c.room) html += `<div style="font-size:11px; color:#64748b; margin-top:3px;">${c.room}</div>`
+          w.document.write(`<td>${html}</td>`)
+        })
+        w.document.write(`</tr>`)
+      })
+      w.document.write(`</tbody></table></div>`)
+    })
+    
+    w.document.write('</body></html>')
+    w.document.close()
+    setTimeout(() => { w.print() }, 500)
+  }
+
+  const handleDeleteSchool = async (sName) => {
+    if (!window.confirm(`Are you sure you want to permanently delete the ENTIRE school "${sName}" and all its classes? This cannot be undone.`)) return;
+    try {
+      const schoolTimetables = cloudTimetables.filter(tb => (tb.schoolName || 'Unassigned School') === sName);
+      const batch = writeBatch(db);
+      schoolTimetables.forEach(tb => {
+        batch.delete(doc(db, 'timetables', tb.id));
+      });
+      await batch.commit();
+      
+      setCloudTimetables(prev => prev.filter(t => (t.schoolName || 'Unassigned School') !== sName));
+      
+      // If current timetable was part of this school, reset it
+      if (schoolTimetables.some(tb => tb.id === currentTimetableId)) {
+        setCurrentTimetableId(null)
+        const g = {}
+        ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '', room: '' } }) })
+        setGrid(g)
+        setClassName('New Class')
+      }
+      alert('Entire school deleted successfully.');
+    } catch (err) {
+      console.error('Delete school error:', err);
+      alert('Failed to delete school.');
+    }
+  }
+
+  const handleDeleteTimetable = async (tb) => {
+    if (!window.confirm(`Delete timetable "${tb.className || 'Unnamed'}" permanently? This cannot be undone.`)) return
+    try {
+      await deleteDoc(doc(db, 'timetables', tb.id))
+      setCloudTimetables(prev => prev.filter(t => t.id !== tb.id))
+      if (currentTimetableId === tb.id) {
+        setCurrentTimetableId(null)
+        const g = {}
+        ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '', room: '' } }) })
+        setGrid(g)
+        setClassName('New Class')
+      }
+    } catch (err) {
+      console.error('Delete timetable error:', err)
+      alert('Failed to delete timetable.')
+    }
   }
 
   const handleNewTimetable = () => {
@@ -767,7 +947,19 @@ export default function Timetable() {
         const cell = newGrid[day]?.[period]
         if (cell?.teacher && absentTeachers.includes(cell.teacher) && !cell.substitute) {
           const busyThisPeriod = activeDays.map(d => newGrid[d]?.[period]?.teacher).concat(activeDays.map(d => newGrid[d]?.[period]?.substitute)).filter(Boolean)
-          const free = available.filter(t => !busyThisPeriod.includes(t) && t !== cell.teacher)
+          const free = available.filter(t => {
+            if (busyThisPeriod.includes(t) || t === cell.teacher) return false;
+            const allowed = teacherConstraints[t]?.allowedClasses;
+            if (allowed && className) {
+              const allowedArray = allowed.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+              const classStr = className.toLowerCase();
+              if (allowedArray.length > 0) {
+                const matches = allowedArray.some(val => new RegExp(`\\b${val}\\b`, 'i').test(classStr));
+                if (!matches) return false;
+              }
+            }
+            return true;
+          })
           if (free.length > 0) {
             // Sort: same-subject first, then least loaded
             free.sort((a, b) => {
@@ -1267,26 +1459,35 @@ export default function Timetable() {
           </button>
         )}
         
-        <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-end">
+        <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-end flex-wrap">
+          <button onClick={handleOpenTeacherView} className="flex items-center gap-2 px-4 py-2.5 bg-fuchsia-50 border border-fuchsia-200 text-fuchsia-700 rounded-xl text-sm font-bold hover:bg-fuchsia-100 shadow-sm">
+            <User className="w-4 h-4" /> <span>Teacher View</span>
+          </button>
+
           {currentUser && (
             <>
-              <button onClick={handleOpenTeacherView} className="flex items-center gap-2 px-4 py-2.5 bg-fuchsia-50 border border-fuchsia-200 text-fuchsia-700 rounded-xl text-sm font-bold hover:bg-fuchsia-100 shadow-sm">
-                <User className="w-4 h-4" /> <span className="hidden sm:inline">Teacher View</span>
-              </button>
               <button onClick={() => { setIsCloudModalOpen(true); loadTimetables() }} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-sm font-bold hover:bg-indigo-100 shadow-sm">
-                <FolderOpen className="w-4 h-4" /> <span className="hidden sm:inline">My Timetables</span>
+                <FolderOpen className="w-4 h-4" /> <span>My Timetables</span>
               </button>
               <button onClick={saveToCloud} disabled={isSaving} className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 border border-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 shadow-sm">
-                <Cloud className="w-4 h-4" /> <span className="hidden sm:inline">{isSaving ? 'Saving...' : 'Save Cloud'}</span>
-              </button>
-              <button onClick={handleNewTimetable} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm">
-                <Plus className="w-4 h-4 text-emerald-600" /> <span className="hidden sm:inline">New Class</span>
+                <Cloud className="w-4 h-4" /> <span>{isSaving ? 'Saving...' : 'Save Cloud'}</span>
               </button>
             </>
           )}
-          {!currentUser && (
-            <button onClick={handleReset} className="flex items-center gap-2 px-5 py-2.5 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-bold hover:bg-red-100 shadow-sm"><RotateCcw className="w-4 h-4" /> Reset</button>
+
+          <button onClick={handleNewTimetable} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm">
+            <Plus className="w-4 h-4 text-emerald-600" /> <span>New Class</span>
+          </button>
+
+          {currentUser && currentTimetableId && (
+            <button onClick={() => handleDeleteTimetable({ id: currentTimetableId, className })} className="flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-bold hover:bg-red-100 shadow-sm">
+              <Trash2 className="w-4 h-4" /> <span>Delete Saved</span>
+            </button>
           )}
+
+          <button onClick={handleReset} className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 border border-orange-200 text-orange-600 rounded-xl text-sm font-bold hover:bg-orange-100 shadow-sm">
+            <RotateCcw className="w-4 h-4" /> <span>Clear Grid</span>
+          </button>
         </div>
       </div>
 
@@ -1813,7 +2014,7 @@ export default function Timetable() {
                 return avail.length > 0 ? avail.map(t => {
                   const teachesSubj = (teacherSubjects[t] || []).includes(subj)
                   return (
-                    <button key={t} onClick={() => setSubstitute(subModal.day, subModal.period, t)}
+                    <button key={t} onClick={() => setSubstitute(subModal.day, subModal.period, t, subModal.groupId)}
                       className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${teachesSubj ? 'border-emerald-300 bg-emerald-50 hover:bg-emerald-100' : 'border-surface-200 hover:border-surface-300 hover:bg-surface-50'}`}>
                       <UserCheck className={`w-4 h-4 shrink-0 ${teachesSubj ? 'text-emerald-600' : 'text-surface-400'}`} />
                       <div className="flex-1">
@@ -1829,7 +2030,7 @@ export default function Timetable() {
               })()}
             </div>
             {grid[subModal.day]?.[subModal.period]?.substitute && (
-              <button onClick={() => setSubstitute(subModal.day, subModal.period, '')} className="w-full mt-3 py-2.5 bg-red-50 text-red-600 font-bold rounded-xl text-sm border border-red-200 hover:bg-red-100">
+              <button onClick={() => setSubstitute(subModal.day, subModal.period, '', subModal.groupId)} className="w-full mt-3 py-2.5 bg-red-50 text-red-600 font-bold rounded-xl text-sm border border-red-200 hover:bg-red-100">
                 Remove Current Substitute
               </button>
             )}
@@ -1853,7 +2054,12 @@ export default function Timetable() {
           <div className="bg-white rounded-[28px] shadow-2xl p-6 w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-xl font-extrabold text-surface-900 flex items-center gap-2"><Cloud className="w-6 h-6 text-indigo-500" /> My Saved Timetables</h3>
-              <button onClick={() => setIsCloudModalOpen(false)} className="p-2 hover:bg-surface-100 rounded-xl transition-colors"><X className="w-5 h-5 text-surface-500" /></button>
+              <div className="flex items-center gap-2">
+                <button onClick={handleLoadDemoSchool} disabled={isSaving} className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors border border-indigo-200">
+                  <Database className="w-4 h-4" /> Load Demo School
+                </button>
+                <button onClick={() => setIsCloudModalOpen(false)} className="p-2 hover:bg-surface-100 rounded-xl transition-colors"><X className="w-5 h-5 text-surface-500" /></button>
+              </div>
             </div>
             
             <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
@@ -1866,28 +2072,56 @@ export default function Timetable() {
                   <p className="text-surface-500 text-sm">Save your first timetable to the cloud to access it from anywhere.</p>
                 </div>
               ) : (
-                cloudTimetables.map(tb => (
-                  <div key={tb.id} className="p-5 rounded-[20px] border border-surface-200 hover:border-indigo-300 hover:shadow-soft hover:-translate-y-0.5 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-extrabold text-surface-900 text-lg truncate">{tb.className || 'Unnamed Class'}</h4>
-                        {tb.updatedAt && <span className="text-[10px] font-bold text-surface-400 bg-surface-100 px-2 py-0.5 rounded-full whitespace-nowrap">{new Date(tb.updatedAt.toDate()).toLocaleDateString()}</span>}
+                (() => {
+                  const grouped = cloudTimetables.reduce((acc, tb) => {
+                    const sn = tb.schoolName || 'Unassigned School';
+                    if (!acc[sn]) acc[sn] = [];
+                    acc[sn].push(tb);
+                    return acc;
+                  }, {});
+                  
+                  return Object.entries(grouped).map(([sName, tbs]) => (
+                    <div key={sName} className="mb-6 bg-surface-50 p-4 rounded-[24px] border border-surface-200">
+                      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 px-2">
+                        <h4 className="text-lg font-black text-surface-900 flex items-center gap-2">
+                          <BookOpen className="w-5 h-5 text-indigo-500" /> {sName} <span className="text-xs font-bold bg-white px-2 py-0.5 rounded-full text-indigo-600 border border-indigo-100">{tbs.length} Classes</span>
+                        </h4>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button onClick={() => executeSchoolPrint(sName)} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 border border-emerald-200">
+                            <Printer className="w-3.5 h-3.5" /> Download Full School
+                          </button>
+                          <button onClick={() => handleDeleteSchool(sName)} className="px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 border border-red-200">
+                            <Trash2 className="w-3.5 h-3.5" /> Delete Full School
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-sm font-semibold text-surface-600 truncate flex items-center gap-1.5">
-                        <BookOpen className="w-3.5 h-3.5" /> {tb.schoolName || 'No school specified'}
-                      </p>
-                      {tb.details && <p className="text-xs text-surface-500 mt-2 line-clamp-2 leading-relaxed bg-surface-50 p-2 rounded-lg">{tb.details}</p>}
+                      <div className="space-y-3">
+                        {tbs.map(tb => (
+                          <div key={tb.id} className="p-4 rounded-[20px] border border-surface-200 hover:border-indigo-300 hover:shadow-soft hover:-translate-y-0.5 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-extrabold text-surface-900 text-lg truncate">{tb.className || 'Unnamed Class'}</h4>
+                                {tb.updatedAt && <span className="text-[10px] font-bold text-surface-400 bg-surface-100 px-2 py-0.5 rounded-full whitespace-nowrap">{new Date(tb.updatedAt.toDate()).toLocaleDateString()}</span>}
+                              </div>
+                              {tb.details && <p className="text-xs text-surface-500 line-clamp-1">{tb.details}</p>}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                              <button onClick={() => handleDeleteTimetable(tb)} className="flex-1 sm:flex-none px-3 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100 whitespace-nowrap transition-all flex items-center justify-center gap-1.5">
+                                <Trash2 className="w-3.5 h-3.5" /> Delete
+                              </button>
+                              <button onClick={() => handleDuplicateTimetable(tb)} className="flex-1 sm:flex-none px-3 py-2 bg-surface-100 text-surface-700 rounded-xl text-xs font-bold hover:bg-surface-200 whitespace-nowrap transition-all flex items-center justify-center gap-1.5">
+                                <Copy className="w-3.5 h-3.5" /> Duplicate
+                              </button>
+                              <button onClick={() => handleLoadTimetable(tb)} className="flex-1 sm:flex-none px-5 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 whitespace-nowrap shadow-sm active:scale-[0.98] transition-all">
+                                Load Schedule
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                      <button onClick={() => handleDuplicateTimetable(tb)} className="flex-1 sm:flex-none px-4 py-2.5 bg-surface-100 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-200 whitespace-nowrap transition-all flex items-center justify-center gap-2">
-                        <Copy className="w-4 h-4" /> Duplicate
-                      </button>
-                      <button onClick={() => handleLoadTimetable(tb)} className="flex-1 sm:flex-none px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 whitespace-nowrap shadow-sm active:scale-[0.98] transition-all">
-                        Load Schedule
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  ))
+                })()
               )}
             </div>
           </div>
@@ -1948,7 +2182,11 @@ export default function Timetable() {
                   <h3 className="text-xl font-extrabold text-surface-900 font-display leading-tight">
                     Teacher Schedule
                   </h3>
-                  <p className="text-sm text-surface-500 font-medium">Select a teacher to view and share their combined timetable</p>
+                  <p className="text-sm text-surface-500 font-medium mb-1.5">Select a teacher to view and share their combined timetable</p>
+                  <div className="flex items-start gap-2 text-amber-700 bg-amber-50 p-2 rounded-xl border border-amber-200 mt-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <p className="text-xs font-semibold">Ensure you have created timetables for <strong>ALL classes</strong> so the teacher's schedule is fully complete!</p>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2 self-end sm:self-auto">
