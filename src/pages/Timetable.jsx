@@ -10,6 +10,21 @@ const PERIODS = ['Period 1','Period 2','Period 3','Period 4','Lunch','Period 5',
 const DEFAULT_SUBJECTS = ['Mathematics','Science','English','Hindi','Social Studies','Physics','Chemistry','Biology','Computer Science','Physical Education','Art','Music','Library','Lunch','Free Period']
 const DEFAULT_TEACHERS = ['Mr. Sharma','Ms. Gupta','Mr. Patel','Ms. Singh','Mr. Kumar','Ms. Joshi','Mr. Verma','Ms. Rao','Mr. Khan','Ms. Mehta','Mr. Reddy','Ms. Nair']
 
+const getGroupForClass = (cName) => {
+  const name = (cName || '').toLowerCase();
+  if (name.includes('nursery') || name.includes('lkg') || name.includes('ukg') || name.includes('kg')) return 1;
+  const classMatch = name.match(/(?:class|grade)\s*(\d+)/);
+  if (classMatch) {
+    const num = parseInt(classMatch[1]);
+    if (num >= 1 && num <= 3) return 2;
+    if (num >= 4 && num <= 5) return 3;
+    if (num >= 6 && num <= 8) return 4;
+    if (num >= 9 && num <= 12) return 5;
+  }
+  return 0;
+}
+
+
 const SC = {
   'Mathematics':'bg-blue-100 text-blue-800 border-blue-200',
   'Science':'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -153,8 +168,22 @@ export default function Timetable() {
   })
   const [absentTeachers, setAbsentTeachers] = useState(() => {
     const s = localStorage.getItem('ldms_absent')
-    return s ? JSON.parse(s) : []
+    if (s) {
+      const parsed = JSON.parse(s)
+      if (Array.isArray(parsed)) {
+        const obj = {}
+        parsed.forEach(t => { obj[t] = [...ALL_DAYS] })
+        return obj
+      }
+      return parsed
+    }
+    return {}
   })
+
+  // Day-specific absent helpers
+  const isAbsentOnDay = (teacher, day) => Array.isArray(absentTeachers[teacher]) && absentTeachers[teacher].includes(day)
+  const isAbsentAnyDay = (teacher) => (absentTeachers[teacher] || []).length > 0
+  const getAbsentTeacherNames = () => Object.keys(absentTeachers).filter(t => (absentTeachers[t] || []).length > 0)
   const [onBreak, setOnBreak] = useState(() => {
     const s = localStorage.getItem('ldms_break')
     return s ? JSON.parse(s) : []
@@ -174,7 +203,12 @@ export default function Timetable() {
   const [currentTimetableId, setCurrentTimetableId] = useState(() => localStorage.getItem('ldms_timetable_id') || null)
   const [cloudTimetables, setCloudTimetables] = useState([])
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false)
+  const [isSubReportModalOpen, setIsSubReportModalOpen] = useState(false)
+  const [subReportDay, setSubReportDay] = useState(ALL_DAYS[0])
+  const [subAssignDay, setSubAssignDay] = useState('Today')
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false)
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false)
+  const [reportSelectedDays, setReportSelectedDays] = useState([])
   const [isSaving, setIsSaving] = useState(false)
   const [session, setSession] = useState(() => localStorage.getItem('ldms_timetable_session') || '')
   const [classTeacher, setClassTeacher] = useState(() => localStorage.getItem('ldms_timetable_teacher') || '')
@@ -192,6 +226,7 @@ export default function Timetable() {
   const [newSubject, setNewSubject] = useState('')
   const [newRoom, setNewRoom] = useState('')
   const [subModal, setSubModal] = useState(null)
+  const [isSubPanelOpen, setIsSubPanelOpen] = useState(false)
   const [showAllTeachers, setShowAllTeachers] = useState(false)
   const [editingTeacherName, setEditingTeacherName] = useState(null)
   const [editingTeacherNewName, setEditingTeacherNewName] = useState('')
@@ -350,6 +385,335 @@ export default function Timetable() {
     if (currentUser) loadTimetables()
   }, [currentUser])
 
+  const getMasterSubReport = (day) => {
+    const absentees = getAbsentTeacherNames().filter(t => isAbsentOnDay(t, day));
+    const sName = schoolName || 'Unassigned School';
+    const schoolTimetables = cloudTimetables.filter(tb => (tb.schoolName || 'Unassigned School') === sName).map(tb => {
+      if (tb.id === currentTimetableId) return { ...tb, grid, className };
+      return tb;
+    });
+    if (!schoolTimetables.find(tb => tb.id === currentTimetableId)) {
+      schoolTimetables.push({ id: currentTimetableId || 'current', className, grid, schoolName: sName });
+    }
+    const report = [];
+    schoolTimetables.forEach(tb => {
+      const g = tb.grid || {};
+      PERIODS.forEach(p => {
+        if (p === 'Lunch') return;
+        const cell = g[day]?.[p];
+        if (!cell) return;
+        if (cell.isSplit && cell.groups) {
+          cell.groups.forEach(group => {
+            if (group.teacher && absentees.includes(group.teacher)) {
+              report.push({ className: tb.className, period: p, originalTeacher: group.teacher, subject: group.subject, substitute: group.substitute || '' });
+            }
+          });
+        } else {
+          if (cell.teacher && absentees.includes(cell.teacher)) {
+            report.push({ className: tb.className, period: p, originalTeacher: cell.teacher, subject: cell.subject, substitute: cell.substitute || '' });
+          }
+        }
+      });
+    });
+    return report.reduce((acc, curr) => {
+      if (!acc[curr.originalTeacher]) acc[curr.originalTeacher] = [];
+      acc[curr.originalTeacher].push(curr);
+      return acc;
+    }, {});
+  }
+
+  const printMasterSubReport = () => {
+    const reportData = getMasterSubReport(subReportDay);
+    if (Object.keys(reportData).length === 0) return alert('No absent teachers found for ' + subReportDay);
+    
+    let totalAffected = 0, totalAssigned = 0, totalPending = 0;
+    Object.values(reportData).forEach(assignments => {
+      assignments.forEach(a => {
+        totalAffected++;
+        if (a.substitute) totalAssigned++;
+        else totalPending++;
+      });
+    });
+
+    const dateStr = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const w = window.open('', '_blank');
+    w.document.write(`<html><head><title>Substitute Duty Report - ${subReportDay}</title><style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+      body{font-family:'Inter',sans-serif;padding:30px 40px;max-width:900px;margin:0 auto;color:#0f172a;line-height:1.5}
+      .header{text-align:center;border-bottom:3px double #1e293b;padding-bottom:18px;margin-bottom:10px}
+      .header h1{margin:0 0 4px;font-size:22px;text-transform:uppercase;letter-spacing:2px;font-weight:800}
+      .header h2{margin:0 0 6px;font-size:16px;font-weight:600;color:#334155}
+      .header .meta{font-size:12px;color:#64748b;margin-top:6px}
+      .summary{display:flex;justify-content:center;gap:30px;margin:16px 0;padding:12px 0;border-bottom:1px solid #e2e8f0}
+      .summary-item{text-align:center}
+      .summary-item .num{font-size:24px;font-weight:800;color:#0f172a}
+      .summary-item .label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+      .summary-item.pending .num{color:#dc2626}
+      .summary-item.done .num{color:#16a34a}
+      .t-box{margin-bottom:20px;border:1.5px solid #cbd5e1;border-radius:8px;overflow:hidden;page-break-inside:avoid}
+      .t-head{background:#1e293b;padding:10px 16px;font-size:15px;font-weight:700;color:white;display:flex;justify-content:space-between;align-items:center}
+      .t-head .badge{background:rgba(255,255,255,0.2);padding:2px 10px;border-radius:99px;font-size:11px;font-weight:600}
+      table{width:100%;border-collapse:collapse}
+      th,td{padding:9px 14px;text-align:left;border-bottom:1px solid #e2e8f0;font-size:13px}
+      th{background:#f1f5f9;color:#475569;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px}
+      tr:last-child td{border-bottom:none}
+      .sub-name{color:#1d4ed8;font-weight:700}
+      .pending-cell{color:#dc2626;font-weight:700;font-style:italic}
+      .footer{display:flex;justify-content:space-between;margin-top:50px;padding-top:20px}
+      .sign-box{text-align:center;width:200px}
+      .sign-line{border-top:1.5px solid #1e293b;margin-bottom:6px;padding-top:8px;font-weight:700;font-size:13px}
+      .sign-name{font-size:12px;color:#64748b}
+      .watermark{text-align:center;font-size:10px;color:#94a3b8;margin-top:20px}
+      @media print{body{padding:15px 20px}}
+    </style></head><body>`);
+    
+    w.document.write(`<div class="header">`);
+    w.document.write(`<h1>${schoolName || 'School'}</h1>`);
+    w.document.write(`<h2>Daily Substitute Duty Report</h2>`);
+    w.document.write(`<div class="meta"><strong>Day:</strong> ${subReportDay} &nbsp;|&nbsp; <strong>Date:</strong> ${dateStr}${session ? ` &nbsp;|&nbsp; <strong>Session:</strong> ${session}` : ''}</div>`);
+    w.document.write(`</div>`);
+
+    w.document.write(`<div class="summary">`);
+    w.document.write(`<div class="summary-item"><div class="num">${Object.keys(reportData).length}</div><div class="label">Absent Teachers</div></div>`);
+    w.document.write(`<div class="summary-item"><div class="num">${totalAffected}</div><div class="label">Affected Periods</div></div>`);
+    w.document.write(`<div class="summary-item done"><div class="num">${totalAssigned}</div><div class="label">Substitutes Assigned</div></div>`);
+    w.document.write(`<div class="summary-item pending"><div class="num">${totalPending}</div><div class="label">Pending</div></div>`);
+    w.document.write(`</div>`);
+
+    Object.entries(reportData).forEach(([teacher, assignments]) => {
+      const assignedCount = assignments.filter(a => a.substitute).length;
+      w.document.write(`<div class="t-box">`);
+      w.document.write(`<div class="t-head"><span>⚠ ${teacher}</span><span class="badge">${assignedCount}/${assignments.length} covered</span></div>`);
+      w.document.write(`<table><thead><tr><th>Class</th><th>Period</th><th>Subject</th><th>Substitute Teacher</th><th>Status</th></tr></thead><tbody>`);
+      assignments.forEach(a => {
+        const status = a.substitute ? '✅ Covered' : '⚠ Pending';
+        const statusClass = a.substitute ? '' : 'pending-cell';
+        w.document.write(`<tr><td>${a.className}</td><td>${a.period}</td><td>${a.subject || '-'}</td><td class="${a.substitute ? 'sub-name' : 'pending-cell'}">${a.substitute || 'Not Assigned'}</td><td class="${statusClass}">${status}</td></tr>`);
+      });
+      w.document.write(`</tbody></table></div>`);
+    });
+
+    w.document.write(`<div class="footer">`);
+    w.document.write(`<div class="sign-box"><div class="sign-line">Prepared By</div><div class="sign-name">${classTeacher || 'Coordinator'}</div></div>`);
+    w.document.write(`<div class="sign-box"><div class="sign-line">Verified By</div><div class="sign-name">Vice Principal</div></div>`);
+    w.document.write(`<div class="sign-box"><div class="sign-line">Approved By</div><div class="sign-name">${principalName || 'Principal'}</div></div>`);
+    w.document.write(`</div>`);
+    w.document.write(`<div class="watermark">Generated via LDMS Teacher Productivity Hub</div>`);
+    w.document.write('</body></html>');
+    w.document.close();
+    setTimeout(() => { w.print() }, 500);
+  }
+
+  const printMultiDayReport = (days) => {
+    if (!days || days.length === 0) return alert('Please select at least one day.');
+    const sName = schoolName || 'Unassigned School';
+    const schoolTbs = cloudTimetables.filter(tb => (tb.schoolName || 'Unassigned School') === sName).map(tb => {
+      if (tb.id === currentTimetableId) return { ...tb, grid, className };
+      return tb;
+    });
+    if (!schoolTbs.find(tb => tb.id === currentTimetableId)) {
+      schoolTbs.push({ id: currentTimetableId || 'current', className, grid, schoolName: sName });
+    }
+
+    const allData = {};
+    days.forEach(day => {
+      const absentees = getAbsentTeacherNames().filter(t => isAbsentOnDay(t, day));
+      schoolTbs.forEach(tb => {
+        const g = tb.grid || {};
+        PERIODS.forEach(p => {
+          if (p === 'Lunch') return;
+          const cell = g[day]?.[p];
+          if (!cell) return;
+          const checkItem = (teacher, subject, substitute) => {
+            if (teacher && absentees.includes(teacher)) {
+              if (!allData[day]) allData[day] = {};
+              if (!allData[day][teacher]) allData[day][teacher] = [];
+              allData[day][teacher].push({ className: tb.className, period: p, subject, substitute: substitute || '' });
+            }
+          };
+          if (cell.isSplit && cell.groups) {
+            cell.groups.forEach(gr => checkItem(gr.teacher, gr.subject, gr.substitute));
+          } else {
+            checkItem(cell.teacher, cell.subject, cell.substitute);
+          }
+        });
+      });
+    });
+
+    if (Object.keys(allData).length === 0) return alert('No absent teacher data found for selected days.');
+
+    const dateStr = new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+    const w = window.open('', '_blank');
+    w.document.write(`<html><head><title>Multi-Day Substitute Report</title><style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+      body{font-family:'Inter',sans-serif;padding:30px 40px;max-width:950px;margin:0 auto;color:#0f172a;line-height:1.5}
+      .header{text-align:center;border-bottom:3px double #1e293b;padding-bottom:18px;margin-bottom:15px}
+      .header h1{margin:0 0 4px;font-size:22px;text-transform:uppercase;letter-spacing:2px;font-weight:800}
+      .header h2{margin:0;font-size:15px;font-weight:600;color:#334155}
+      .header .meta{font-size:12px;color:#64748b;margin-top:6px}
+      .day-section{margin-bottom:25px;page-break-inside:avoid}
+      .day-title{font-size:16px;font-weight:800;color:#1e293b;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin-bottom:10px}
+      .t-box{margin-bottom:12px;border:1.5px solid #cbd5e1;border-radius:8px;overflow:hidden}
+      .t-head{background:#334155;padding:8px 14px;font-size:14px;font-weight:700;color:white;display:flex;justify-content:space-between}
+      .t-head .badge{background:rgba(255,255,255,0.2);padding:1px 8px;border-radius:99px;font-size:10px}
+      table{width:100%;border-collapse:collapse}
+      th,td{padding:7px 12px;text-align:left;border-bottom:1px solid #e2e8f0;font-size:12px}
+      th{background:#f1f5f9;color:#475569;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:1px}
+      tr:last-child td{border-bottom:none}
+      .sub-name{color:#1d4ed8;font-weight:700}
+      .pending{color:#dc2626;font-weight:700;font-style:italic}
+      .footer{display:flex;justify-content:space-between;margin-top:40px;padding-top:15px}
+      .sign-box{text-align:center;width:180px}.sign-line{border-top:1.5px solid #1e293b;margin-bottom:5px;padding-top:6px;font-weight:700;font-size:12px}.sign-name{font-size:11px;color:#64748b}
+      .watermark{text-align:center;font-size:9px;color:#94a3b8;margin-top:15px}
+      @media print{body{padding:15px 20px}.day-section{page-break-inside:avoid}}
+    </style></head><body>`);
+
+    w.document.write(`<div class="header"><h1>${sName}</h1><h2>Substitute Duty Report — ${days.length > 1 ? days.map(d => d.slice(0,3)).join(', ') : days[0]}</h2><div class="meta">Generated: ${dateStr}${session ? ` | Session: ${session}` : ''}</div></div>`);
+
+    days.forEach(day => {
+      if (!allData[day]) return;
+      w.document.write(`<div class="day-section"><div class="day-title">${day}</div>`);
+      Object.entries(allData[day]).forEach(([teacher, items]) => {
+        const cov = items.filter(i => i.substitute).length;
+        w.document.write(`<div class="t-box"><div class="t-head"><span>⚠ ${teacher}</span><span class="badge">${cov}/${items.length} covered</span></div>`);
+        w.document.write(`<table><thead><tr><th>Class</th><th>Period</th><th>Subject</th><th>Substitute</th><th>Status</th></tr></thead><tbody>`);
+        items.forEach(a => {
+          w.document.write(`<tr><td>${a.className}</td><td>${a.period}</td><td>${a.subject || '-'}</td><td class="${a.substitute ? 'sub-name' : 'pending'}">${a.substitute || 'Not Assigned'}</td><td class="${a.substitute ? '' : 'pending'}">${a.substitute ? '✅' : '⚠ Pending'}</td></tr>`);
+        });
+        w.document.write(`</tbody></table></div>`);
+      });
+      w.document.write(`</div>`);
+    });
+
+    w.document.write(`<div class="footer"><div class="sign-box"><div class="sign-line">Prepared By</div><div class="sign-name">${classTeacher || 'Coordinator'}</div></div><div class="sign-box"><div class="sign-line">Verified By</div><div class="sign-name">Vice Principal</div></div><div class="sign-box"><div class="sign-line">Approved By</div><div class="sign-name">${principalName || 'Principal'}</div></div></div>`);
+    w.document.write(`<div class="watermark">Generated via LDMS Teacher Productivity Hub</div></body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 500);
+  }
+
+  const printMonthlySummary = () => {
+    const sName = schoolName || 'Unassigned School';
+    const schoolTbs = cloudTimetables.filter(tb => (tb.schoolName || 'Unassigned School') === sName).map(tb => {
+      if (tb.id === currentTimetableId) return { ...tb, grid, className };
+      return tb;
+    });
+    if (!schoolTbs.find(tb => tb.id === currentTimetableId)) {
+      schoolTbs.push({ id: currentTimetableId || 'current', className, grid, schoolName: sName });
+    }
+
+    // Gather stats per teacher
+    const stats = {};
+    teachers.forEach(t => { stats[t] = { leaveDays: 0, leaveDaysList: [], subDuties: 0, subDutiesList: [], totalPeriods: 0, classes: new Set() }; });
+
+    // Count leave days
+    getAbsentTeacherNames().forEach(t => {
+      if (stats[t]) {
+        stats[t].leaveDays = (absentTeachers[t] || []).length;
+        stats[t].leaveDaysList = absentTeachers[t] || [];
+      }
+    });
+
+    // Count sub duties + total periods across all classes
+    schoolTbs.forEach(tb => {
+      const g = tb.grid || {};
+      activeDays.forEach(d => {
+        PERIODS.forEach(p => {
+          if (p === 'Lunch') return;
+          const cell = g[d]?.[p];
+          if (!cell) return;
+          const processItem = (teacher, substitute) => {
+            if (teacher && stats[teacher]) { stats[teacher].totalPeriods++; stats[teacher].classes.add(tb.className); }
+            if (substitute && stats[substitute]) { stats[substitute].subDuties++; stats[substitute].subDutiesList.push(`${d.slice(0,3)}-${p} (${tb.className})`); }
+          };
+          if (cell.isSplit && cell.groups) {
+            cell.groups.forEach(gr => processItem(gr.teacher, gr.substitute));
+          } else {
+            processItem(cell.teacher, cell.substitute);
+          }
+        });
+      });
+    });
+
+    const dateStr = new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+    const sortedTeachers = Object.entries(stats).sort((a, b) => b[1].leaveDays - a[1].leaveDays || b[1].subDuties - a[1].subDuties);
+
+    const w = window.open('', '_blank');
+    w.document.write(`<html><head><title>Monthly Summary Report</title><style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+      body{font-family:'Inter',sans-serif;padding:30px 40px;max-width:950px;margin:0 auto;color:#0f172a}
+      .header{text-align:center;border-bottom:3px double #1e293b;padding-bottom:18px;margin-bottom:15px}
+      .header h1{margin:0 0 4px;font-size:22px;text-transform:uppercase;letter-spacing:2px;font-weight:800}
+      .header h2{margin:0;font-size:15px;font-weight:600;color:#334155}
+      .header .meta{font-size:12px;color:#64748b;margin-top:6px}
+      .summary-cards{display:flex;justify-content:center;gap:25px;margin:20px 0;padding:15px 0;border-bottom:1px solid #e2e8f0}
+      .card{text-align:center;padding:10px 20px;border:1.5px solid #e2e8f0;border-radius:12px}
+      .card .num{font-size:28px;font-weight:800}.card .lbl{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+      .card.red .num{color:#dc2626}.card.green .num{color:#16a34a}.card.blue .num{color:#2563eb}
+      h3{font-size:16px;font-weight:800;margin:25px 0 10px;border-bottom:2px solid #e2e8f0;padding-bottom:6px}
+      table{width:100%;border-collapse:collapse;margin-bottom:20px}
+      th,td{padding:9px 14px;text-align:left;border-bottom:1px solid #e2e8f0;font-size:12px}
+      th{background:#1e293b;color:white;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:1px}
+      tr:nth-child(even){background:#f8fafc}
+      .leave{color:#dc2626;font-weight:700}.sub{color:#2563eb;font-weight:700}
+      .tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;margin:1px}
+      .tag-red{background:#fee2e2;color:#991b1b}.tag-blue{background:#dbeafe;color:#1e40af}.tag-green{background:#dcfce7;color:#166534}
+      .footer{display:flex;justify-content:space-between;margin-top:40px;padding-top:15px}
+      .sign-box{text-align:center;width:180px}.sign-line{border-top:1.5px solid #1e293b;margin-bottom:5px;padding-top:6px;font-weight:700;font-size:12px}.sign-name{font-size:11px;color:#64748b}
+      .watermark{text-align:center;font-size:9px;color:#94a3b8;margin-top:15px}
+      @media print{body{padding:15px 20px}}
+    </style></head><body>`);
+
+    const totalLeaves = sortedTeachers.reduce((s, [,v]) => s + v.leaveDays, 0);
+    const totalSubDuties = sortedTeachers.reduce((s, [,v]) => s + v.subDuties, 0);
+    const teachersOnLeave = sortedTeachers.filter(([,v]) => v.leaveDays > 0).length;
+
+    w.document.write(`<div class="header"><h1>${sName}</h1><h2>Monthly Staff Summary Report</h2><div class="meta">Generated: ${dateStr}${session ? ` | Session: ${session}` : ''} | Active Days: ${activeDays.map(d => d.slice(0,3)).join(', ')}</div></div>`);
+
+    w.document.write(`<div class="summary-cards">`);
+    w.document.write(`<div class="card"><div class="num">${teachers.length}</div><div class="lbl">Total Staff</div></div>`);
+    w.document.write(`<div class="card red"><div class="num">${teachersOnLeave}</div><div class="lbl">On Leave</div></div>`);
+    w.document.write(`<div class="card"><div class="num">${totalLeaves}</div><div class="lbl">Total Leave Days</div></div>`);
+    w.document.write(`<div class="card blue"><div class="num">${totalSubDuties}</div><div class="lbl">Sub Duties Assigned</div></div>`);
+    w.document.write(`</div>`);
+
+    // Leave Summary Table
+    w.document.write(`<h3>📋 Leave Summary</h3>`);
+    w.document.write(`<table><thead><tr><th>#</th><th>Teacher Name</th><th>Leave Days</th><th>Days</th><th>Affected Periods</th></tr></thead><tbody>`);
+    sortedTeachers.filter(([,v]) => v.leaveDays > 0).forEach(([name, v], idx) => {
+      w.document.write(`<tr><td>${idx + 1}</td><td style="font-weight:700">${name}</td><td class="leave">${v.leaveDays}</td><td>${v.leaveDaysList.map(d => `<span class="tag tag-red">${d.slice(0,3)}</span>`).join(' ')}</td><td>${v.totalPeriods}</td></tr>`);
+    });
+    if (sortedTeachers.filter(([,v]) => v.leaveDays > 0).length === 0) {
+      w.document.write(`<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px">No teachers on leave</td></tr>`);
+    }
+    w.document.write(`</tbody></table>`);
+
+    // Substitute Duty Table
+    w.document.write(`<h3>🔄 Substitute Duty Summary</h3>`);
+    w.document.write(`<table><thead><tr><th>#</th><th>Teacher Name</th><th>Sub Duties</th><th>Regular Periods</th><th>Total Load</th><th>Details</th></tr></thead><tbody>`);
+    sortedTeachers.filter(([,v]) => v.subDuties > 0).sort((a, b) => b[1].subDuties - a[1].subDuties).forEach(([name, v], idx) => {
+      const total = v.totalPeriods + v.subDuties;
+      w.document.write(`<tr><td>${idx + 1}</td><td style="font-weight:700">${name}</td><td class="sub">${v.subDuties}</td><td>${v.totalPeriods}</td><td style="font-weight:800">${total}</td><td>${v.subDutiesList.slice(0, 5).map(d => `<span class="tag tag-blue">${d}</span>`).join(' ')}${v.subDutiesList.length > 5 ? `<span class="tag tag-blue">+${v.subDutiesList.length - 5} more</span>` : ''}</td></tr>`);
+    });
+    if (sortedTeachers.filter(([,v]) => v.subDuties > 0).length === 0) {
+      w.document.write(`<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:20px">No substitutes assigned yet</td></tr>`);
+    }
+    w.document.write(`</tbody></table>`);
+
+    // Full Staff Workload Overview
+    w.document.write(`<h3>📊 Full Staff Overview</h3>`);
+    w.document.write(`<table><thead><tr><th>#</th><th>Teacher Name</th><th>Classes</th><th>Regular Periods</th><th>Sub Duties</th><th>Leave Days</th><th>Status</th></tr></thead><tbody>`);
+    sortedTeachers.forEach(([name, v], idx) => {
+      const status = v.leaveDays > 0 ? '<span class="tag tag-red">On Leave</span>' : onBreak.includes(name) ? '<span class="tag" style="background:#fef3c7;color:#92400e">On Break</span>' : '<span class="tag tag-green">Active</span>';
+      w.document.write(`<tr><td>${idx + 1}</td><td style="font-weight:700">${name}</td><td>${[...v.classes].join(', ') || '-'}</td><td>${v.totalPeriods}</td><td class="sub">${v.subDuties}</td><td class="leave">${v.leaveDays}</td><td>${status}</td></tr>`);
+    });
+    w.document.write(`</tbody></table>`);
+
+    w.document.write(`<div class="footer"><div class="sign-box"><div class="sign-line">Prepared By</div><div class="sign-name">${classTeacher || 'Coordinator'}</div></div><div class="sign-box"><div class="sign-line">Verified By</div><div class="sign-name">Vice Principal</div></div><div class="sign-box"><div class="sign-line">Approved By</div><div class="sign-name">${principalName || 'Principal'}</div></div></div>`);
+    w.document.write(`<div class="watermark">Generated via LDMS Teacher Productivity Hub</div></body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 500);
+  }
+
   const handleOpenTeacherView = async () => {
     if (!currentUser) return alert('Please login to use Teacher View.')
     await loadTimetables()
@@ -470,7 +834,7 @@ export default function Timetable() {
     setDetails(tb.details || '')
     setGrid(tb.grid || {})
     setTeachers(tb.teachers || DEFAULT_TEACHERS)
-    setAbsentTeachers(tb.absentTeachers || [])
+    setAbsentTeachers(Array.isArray(tb.absentTeachers) ? {} : (tb.absentTeachers || {}))
     setOnBreak(tb.onBreak || [])
     setSubjects(tb.subjects || DEFAULT_SUBJECTS)
     setRooms(tb.rooms || ['Chemistry Lab', 'Computer Lab', 'Library', 'AV Room'])
@@ -494,7 +858,7 @@ export default function Timetable() {
     setPrincipalName(tb.principalName || '')
     if (tb.grid) setGrid(JSON.parse(JSON.stringify(tb.grid)))
     if (tb.teachers) setTeachers([...tb.teachers])
-    if (tb.absentTeachers) setAbsentTeachers([...tb.absentTeachers])
+    if (tb.absentTeachers) setAbsentTeachers(Array.isArray(tb.absentTeachers) ? {} : JSON.parse(JSON.stringify(tb.absentTeachers)))
     if (tb.onBreak) setOnBreak([...tb.onBreak])
     if (tb.subjects) setSubjects([...tb.subjects])
     if (tb.activeDays) setActiveDays([...tb.activeDays])
@@ -539,7 +903,7 @@ export default function Timetable() {
           details: 'Demo timetable generated automatically',
           grid: demoGrid,
           teachers: DEFAULT_TEACHERS,
-          absentTeachers: [],
+          absentTeachers: {},
           onBreak: [],
           subjects: DEFAULT_SUBJECTS,
           rooms: ['Chemistry Lab', 'Computer Lab', 'Library', 'AV Room', 'Room 100', 'Room 101', 'Room 102'],
@@ -597,12 +961,28 @@ export default function Timetable() {
         w.document.write(`<tr><td><strong>${p}</strong></td>`)
         tDays.forEach(d => {
           const c = tb.grid?.[d]?.[p] || {}
-          const tAbsent = tb.absentTeachers || []
-          const isAbsent = c.teacher && tAbsent.includes(c.teacher)
-          let html = c.subject ? `<div style="font-size:14px; font-weight:bold; margin-bottom:2px;">${c.subject}</div>` : '-'
-          if (c.teacher) html += `<div class="${isAbsent ? 'absent' : ''}" style="font-size:12px; font-weight:600; color:#334155;">${c.teacher}</div>`
-          if (c.substitute) html += `<div class="sub">Sub: ${c.substitute}</div>`
-          if (c.room) html += `<div style="font-size:11px; color:#64748b; margin-top:3px;">${c.room}</div>`
+          let html = '';
+          if (c.isSplit && c.groups) {
+            html += `<div style="display:flex; flex-direction:column; gap:4px;">`
+            c.groups.forEach((g, idx) => {
+              if (idx > 0) html += `<hr style="margin:2px 0; border:0; border-top:1px dashed #cbd5e1">`
+              const isAbsent = g.teacher && isAbsentOnDay(g.teacher, d)
+              html += `<div>`
+              html += `<div style="font-size:10px; color:#64748b; font-weight:bold; text-transform:uppercase;">${g.groupName || ''}</div>`
+              html += g.subject ? `<div style="font-size:12px; font-weight:bold; margin-bottom:2px;">${g.subject}</div>` : '-'
+              if (g.teacher) html += `<div class="${isAbsent ? 'absent' : ''}" style="font-size:11px; font-weight:600; color:#334155;">${g.teacher}</div>`
+              if (g.substitute) html += `<div class="sub">Sub: ${g.substitute}</div>`
+              if (g.room) html += `<div style="font-size:10px; color:#64748b; margin-top:2px;">${g.room}</div>`
+              html += `</div>`
+            })
+            html += `</div>`
+          } else {
+            const isAbsent = c.teacher && isAbsentOnDay(c.teacher, d)
+            html = c.subject ? `<div style="font-size:14px; font-weight:bold; margin-bottom:2px;">${c.subject}</div>` : '-'
+            if (c.teacher) html += `<div class="${isAbsent ? 'absent' : ''}" style="font-size:12px; font-weight:600; color:#334155;">${c.teacher}</div>`
+            if (c.substitute) html += `<div class="sub">Sub: ${c.substitute}</div>`
+            if (c.room) html += `<div style="font-size:11px; color:#64748b; margin-top:3px;">${c.room}</div>`
+          }
           w.document.write(`<td>${html}</td>`)
         })
         w.document.write(`</tr>`)
@@ -860,7 +1240,61 @@ export default function Timetable() {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
   }
 
-  const toggleAbsent = (t) => setAbsentTeachers(a => a.includes(t) ? a.filter(x => x !== t) : [...a, t])
+  const toggleAbsentDay = (teacher, day) => {
+    setAbsentTeachers(prev => {
+      const next = { ...prev }
+      const days = next[teacher] || []
+      if (days.includes(day)) {
+        const newDays = days.filter(d => d !== day)
+        if (newDays.length === 0) delete next[teacher]
+        else next[teacher] = newDays
+        // Clear subs for this teacher on this day only
+        setGrid(prevGrid => {
+          const nextGrid = JSON.parse(JSON.stringify(prevGrid))
+          PERIODS.forEach(p => {
+            const cell = nextGrid[day]?.[p]
+            if (!cell) return
+            if (cell.isSplit && cell.groups) {
+              cell.groups.forEach(g => { if (g.teacher === teacher && g.substitute) g.substitute = '' })
+            } else {
+              if (cell.teacher === teacher && cell.substitute) cell.substitute = ''
+            }
+          })
+          return nextGrid
+        })
+      } else {
+        next[teacher] = [...days, day]
+      }
+      return next
+    })
+  }
+
+  const toggleAbsent = (t) => {
+    if (isAbsentAnyDay(t)) {
+      // Remove from all days, clear all subs
+      setGrid(prev => {
+        const next = JSON.parse(JSON.stringify(prev));
+        ALL_DAYS.forEach(d => {
+          PERIODS.forEach(p => {
+            const cell = next[d]?.[p];
+            if (!cell) return;
+            if (cell.isSplit && cell.groups) {
+              cell.groups.forEach(g => { if (g.teacher === t && g.substitute) g.substitute = ''; });
+            } else {
+              if (cell.teacher === t && cell.substitute) cell.substitute = '';
+            }
+          });
+        });
+        return next;
+      });
+      setAbsentTeachers(prev => { const next = { ...prev }; delete next[t]; return next });
+    } else {
+      // Mark absent for today only
+      const todayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()];
+      const absentDay = activeDays.includes(todayName) ? todayName : activeDays[0];
+      setAbsentTeachers(prev => ({ ...prev, [t]: [absentDay] }))
+    }
+  }
   const toggleBreak = (t) => setOnBreak(b => b.includes(t) ? b.filter(x => x !== t) : [...b, t])
   const addTeacher = () => { if (newTeacher.trim() && !teachers.includes(newTeacher.trim())) { setTeachers(t => [...t, newTeacher.trim()]); setNewTeacher('') } }
   const handleRenameTeacher = (oldName, newName) => {
@@ -870,7 +1304,7 @@ export default function Timetable() {
     }
     const finalName = newName.trim();
     setTeachers(ts => ts.map(t => t === oldName ? finalName : t));
-    setAbsentTeachers(a => a.map(t => t === oldName ? finalName : t));
+    setAbsentTeachers(prev => { const next = { ...prev }; if (next[oldName]) { next[finalName] = next[oldName]; delete next[oldName]; } return next });
     setOnBreak(b => b.map(t => t === oldName ? finalName : t));
     setTeacherSubjects(ts => {
       const n = {...ts};
@@ -905,7 +1339,7 @@ export default function Timetable() {
   const removeTeacher = (t) => {
     if (!confirm(`Remove ${t} entirely? This clears them from the timetable.`)) return;
     setTeachers(ts => ts.filter(x => x !== t));
-    setAbsentTeachers(a => a.filter(x => x !== t));
+    setAbsentTeachers(prev => { const next = { ...prev }; delete next[t]; return next });
     setOnBreak(b => b.filter(x => x !== t));
     setTeacherSubjects(ts => { const n = {...ts}; delete n[t]; return n });
     setGrid(prev => {
@@ -931,25 +1365,94 @@ export default function Timetable() {
     })
   }
 
-  // Find available teachers (not absent, not on break)
-  const getAvailable = () => teachers.filter(t => !absentTeachers.includes(t) && !onBreak.includes(t))
+  // Find available teachers (not absent on given day, not on break)
+  const getAvailable = (day) => teachers.filter(t => {
+    if (day) return !isAbsentOnDay(t, day) && !onBreak.includes(t)
+    return !isAbsentAnyDay(t) && !onBreak.includes(t)
+  })
 
-  // Smart auto-assign: prioritize same-subject teachers, balance load
+  // Smart auto-assign: day-specific, strict grouping, split-group aware
   const autoAssignSubs = () => {
-    const available = getAvailable()
-    const newGrid = JSON.parse(JSON.stringify(grid))
-    const subCount = {} // track how many subs each teacher gets
-    available.forEach(t => { subCount[t] = 0 })
-    // Count existing subs
-    activeDays.forEach(day => { PERIODS.forEach(period => { const c = newGrid[day]?.[period]; if (c?.substitute && subCount[c.substitute] !== undefined) subCount[c.substitute]++ }) })
-    activeDays.forEach(day => {
-      PERIODS.forEach(period => {
-        const cell = newGrid[day]?.[period]
-        if (cell?.teacher && absentTeachers.includes(cell.teacher) && !cell.substitute) {
-          const busyThisPeriod = activeDays.map(d => newGrid[d]?.[period]?.teacher).concat(activeDays.map(d => newGrid[d]?.[period]?.substitute)).filter(Boolean)
+    try {
+      const todayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()];
+      const daysToProcess = subAssignDay === 'Today' ? (activeDays.includes(todayName) ? [todayName] : [activeDays[0]]) : subAssignDay === 'All' ? activeDays : [subAssignDay];
+
+      const teacherGroups = {};
+      (allTeachersList || []).forEach(t => teacherGroups[t] = new Set());
+      const processGrid = (g, cName) => {
+        const grp = getGroupForClass(cName);
+        if (grp === 0 || !g) return;
+        ALL_DAYS.forEach(d => {
+          PERIODS.forEach(p => {
+            const cell = g[d]?.[p];
+            if (!cell) return;
+            if (cell.isSplit && cell.groups) {
+              cell.groups.forEach(splitG => { if (splitG.teacher && teacherGroups[splitG.teacher]) teacherGroups[splitG.teacher].add(grp); })
+            } else {
+              if (cell.teacher && teacherGroups[cell.teacher]) teacherGroups[cell.teacher].add(grp);
+            }
+          });
+        });
+      };
+      (cloudTimetables || []).forEach(tb => { if (tb.id !== currentTimetableId) processGrid(tb.grid, tb.className); });
+      processGrid(grid, className);
+      const currentClassGroup = getGroupForClass(className);
+
+      const teachersInCurrentClass = new Set();
+      ALL_DAYS.forEach(d => {
+        PERIODS.forEach(p => {
+          const cell = grid[d]?.[p];
+          if (!cell) return;
+          if (cell.isSplit && cell.groups) {
+            cell.groups.forEach(splitG => { if (splitG.teacher) teachersInCurrentClass.add(splitG.teacher); });
+          } else {
+            if (cell.teacher) teachersInCurrentClass.add(cell.teacher);
+          }
+        });
+      });
+
+      const available = getAvailable() || [];
+      const newGrid = JSON.parse(JSON.stringify(grid));
+      const subCount = {};
+      available.forEach(t => { subCount[t] = 0; });
+
+      const getBusySchoolWide = (day, period) => {
+        const busy = new Set();
+        const checkG = (g) => {
+          if (!g) return;
+          const cell = g[day]?.[period];
+          if (!cell) return;
+          if (cell.isSplit && cell.groups) {
+            cell.groups.forEach(gr => { if (gr.teacher) busy.add(gr.teacher); if (gr.substitute) busy.add(gr.substitute); });
+          } else {
+            if (cell.teacher) busy.add(cell.teacher);
+            if (cell.substitute) busy.add(cell.substitute);
+          }
+        };
+        (cloudTimetables || []).forEach(tb => { if (tb.id !== currentTimetableId) checkG(tb.grid); });
+        checkG(newGrid);
+        return Array.from(busy);
+      };
+
+      daysToProcess.forEach(day => {
+        PERIODS.forEach(period => {
+          const c = newGrid[day]?.[period];
+          if (!c) return;
+          if (c.isSplit && c.groups) {
+            c.groups.forEach(gr => { if (gr.substitute && subCount[gr.substitute] !== undefined) subCount[gr.substitute]++; });
+          } else {
+            if (c.substitute && subCount[c.substitute] !== undefined) subCount[c.substitute]++;
+          }
+        });
+      });
+
+      let assignedCount = 0;
+      const assignToItem = (item, day, period) => {
+        if (item.teacher && isAbsentOnDay(item.teacher, day) && !item.substitute) {
+          const busyThisPeriod = getBusySchoolWide(day, period);
           const free = available.filter(t => {
-            if (busyThisPeriod.includes(t) || t === cell.teacher) return false;
-            const allowed = teacherConstraints[t]?.allowedClasses;
+            if (busyThisPeriod.includes(t) || t === item.teacher) return false;
+            const allowed = teacherConstraints?.[t]?.allowedClasses;
             if (allowed && className) {
               const allowedArray = allowed.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
               const classStr = className.toLowerCase();
@@ -958,33 +1461,68 @@ export default function Timetable() {
                 if (!matches) return false;
               }
             }
+            if (currentClassGroup !== 0) {
+              const tGroups = teacherGroups[t];
+              if (tGroups && tGroups.size > 0 && !tGroups.has(currentClassGroup)) return false;
+            }
             return true;
-          })
+          });
           if (free.length > 0) {
-            // Sort: same-subject first, then least loaded
             free.sort((a, b) => {
-              const aTeaches = (teacherSubjects[a] || []).includes(cell.subject) ? 0 : 1
-              const bTeaches = (teacherSubjects[b] || []).includes(cell.subject) ? 0 : 1
-              if (aTeaches !== bTeaches) return aTeaches - bTeaches
-              return (subCount[a] || 0) - (subCount[b] || 0)
-            })
-            cell.substitute = free[0]
-            subCount[free[0]] = (subCount[free[0]] || 0) + 1
+              const aTeaches = (teacherSubjects?.[a] || []).includes(item.subject) ? 0 : 1;
+              const bTeaches = (teacherSubjects?.[b] || []).includes(item.subject) ? 0 : 1;
+              if (aTeaches !== bTeaches) return aTeaches - bTeaches;
+              const aInClass = teachersInCurrentClass.has(a) ? 0 : 1;
+              const bInClass = teachersInCurrentClass.has(b) ? 0 : 1;
+              if (aInClass !== bInClass) return aInClass - bInClass;
+              return (subCount[a] || 0) - (subCount[b] || 0);
+            });
+            item.substitute = free[0];
+            subCount[free[0]] = (subCount[free[0]] || 0) + 1;
+            assignedCount++;
           }
         }
-      })
-    })
-    setGrid(newGrid)
+      };
+
+      daysToProcess.forEach(day => {
+        PERIODS.forEach(period => {
+          const cell = newGrid[day]?.[period];
+          if (!cell) return;
+          if (cell.isSplit && cell.groups) {
+            cell.groups.forEach(gr => assignToItem(gr, day, period));
+          } else {
+            assignToItem(cell, day, period);
+          }
+        });
+      });
+      setGrid(newGrid);
+
+      if (assignedCount === 0 && getAbsentTeacherNames().length > 0) {
+        alert(`No free teachers found for ${daysToProcess.join(', ')}. All matching teachers are busy.`);
+      }
+    } catch (err) {
+      console.error('Auto Assign Subs Error:', err);
+      alert('Error assigning subs: ' + err.message);
+    }
   }
 
   // Count affected periods
   const affectedCount = activeDays.reduce((sum, day) => sum + PERIODS.reduce((s2, p) => {
     const c = grid[day]?.[p]
-    return s2 + (c?.teacher && absentTeachers.includes(c.teacher) && !c.substitute ? 1 : 0)
+    if (!c) return s2
+    if (c.isSplit && c.groups) {
+      return s2 + c.groups.reduce((gSum, g) => gSum + (g.teacher && isAbsentOnDay(g.teacher, day) && !g.substitute ? 1 : 0), 0)
+    }
+    return s2 + (c.teacher && isAbsentOnDay(c.teacher, day) && !c.substitute ? 1 : 0)
   }, 0), 0)
 
   const assignedSubsCount = activeDays.reduce((sum, day) => sum + PERIODS.reduce((s2, p) => {
-    return s2 + (grid[day]?.[p]?.substitute ? 1 : 0)
+    const c = grid[day]?.[p]
+    if (!c) return s2
+    if (c.isSplit && c.groups) {
+      return s2 + c.groups.reduce((gSum, g) => gSum + (g.substitute ? 1 : 0), 0)
+    }
+    return s2 + (c.substitute ? 1 : 0)
   }, 0), 0)
 
   const notifyAllSubs = () => {
@@ -995,7 +1533,16 @@ export default function Timetable() {
       let dayHasSubs = false
       PERIODS.forEach(period => {
         const cell = grid[day]?.[period]
-        if (cell?.substitute) {
+        if (!cell) return
+        if (cell.isSplit && cell.groups) {
+          cell.groups.forEach(g => {
+            if (g.substitute) {
+              dayHasSubs = true
+              hasSubs = true
+              dayText += `- ${period} (${g.groupName}): ${g.substitute} (Sub for ${g.teacher} - ${g.subject || 'N/A'})\n`
+            }
+          })
+        } else if (cell.substitute) {
           dayHasSubs = true
           hasSubs = true
           dayText += `- ${period}: ${cell.substitute} (Sub for ${cell.teacher} - ${cell.subject || 'N/A'})\n`
@@ -1018,7 +1565,20 @@ export default function Timetable() {
       text += `*${day}*\n`
       PERIODS.forEach(period => {
         const cell = grid[day]?.[period]
-        if (cell?.subject) {
+        if (!cell) return
+        if (cell.isSplit && cell.groups) {
+          let hasSubjects = false
+          let pText = `- ${period}: `
+          cell.groups.forEach(g => {
+            if (g.subject) {
+              hasSubjects = true
+              pText += `[${g.groupName}] ${g.subject} (${g.teacher || 'Unassigned'})`
+              if (g.substitute) pText += ` {Sub: ${g.substitute}}`
+              pText += ` | `
+            }
+          })
+          if (hasSubjects) text += pText.slice(0, -3) + `\n`
+        } else if (cell.subject) {
           text += `- ${period}: ${cell.subject} (${cell.teacher || 'Unassigned'})`
           if (cell.substitute) text += ` [Sub: ${cell.substitute}]`
           text += `\n`
@@ -1079,10 +1639,26 @@ export default function Timetable() {
       w.document.write(`<tr><td><strong>${p}</strong></td>`)
       activeDays.forEach(d => {
         const c = grid[d]?.[p] || {}
-        const isAbsent = c.teacher && absentTeachers.includes(c.teacher)
-        let html = c.subject ? `<div style="font-size:14px; font-weight:bold; margin-bottom:2px;">${c.subject}</div>` : '-'
-        if (c.teacher) html += `<div class="${isAbsent ? 'absent' : ''}" style="font-size:12px; font-weight:600; color:#334155;">${c.teacher}</div>`
-        if (c.substitute) html += `<div class="sub" style="font-size:11px; font-weight:bold; background:#fee2e2; color:#b91c1c; padding:2px; border-radius:4px; display:inline-block; margin-top:4px;">Sub: ${c.substitute}</div>`
+        let html = '';
+        if (c.isSplit && c.groups) {
+          html += `<div style="display:flex; flex-direction:column; gap:4px;">`
+          c.groups.forEach((g, idx) => {
+            if (idx > 0) html += `<hr style="margin:2px 0; border:0; border-top:1px dashed #cbd5e1">`
+            const isAbsent = g.teacher && isAbsentOnDay(g.teacher, d)
+            html += `<div>`
+            html += `<div style="font-size:10px; color:#64748b; font-weight:bold; text-transform:uppercase;">${g.groupName || ''}</div>`
+            html += g.subject ? `<div style="font-size:13px; font-weight:bold; margin-bottom:2px;">${g.subject}</div>` : '-'
+            if (g.teacher) html += `<div class="${isAbsent ? 'absent' : ''}" style="font-size:11px; font-weight:600; color:#334155;">${g.teacher}</div>`
+            if (g.substitute) html += `<div class="sub" style="font-size:10px; font-weight:bold; background:#fee2e2; color:#b91c1c; padding:2px; border-radius:4px; display:inline-block; margin-top:2px;">Sub: ${g.substitute}</div>`
+            html += `</div>`
+          })
+          html += `</div>`
+        } else {
+          const isAbsent = c.teacher && isAbsentOnDay(c.teacher, d)
+          html = c.subject ? `<div style="font-size:14px; font-weight:bold; margin-bottom:2px;">${c.subject}</div>` : '-'
+          if (c.teacher) html += `<div class="${isAbsent ? 'absent' : ''}" style="font-size:12px; font-weight:600; color:#334155;">${c.teacher}</div>`
+          if (c.substitute) html += `<div class="sub" style="font-size:11px; font-weight:bold; background:#fee2e2; color:#b91c1c; padding:2px; border-radius:4px; display:inline-block; margin-top:4px;">Sub: ${c.substitute}</div>`
+        }
         w.document.write(`<td>${html}</td>`)
       })
       w.document.write(`</tr>`)
@@ -1149,127 +1725,143 @@ export default function Timetable() {
   const generateAITimetable = () => {
     let totalReq = 0
     Object.values(aiRequirements).forEach(v => totalReq += (parseInt(v) || 0))
-    const maxPeriods = activeDays.length * (PERIODS.length - 1)
+    const teachingPeriods = PERIODS.filter(p => p !== 'Lunch')
+    const maxPeriods = activeDays.length * teachingPeriods.length
     if (totalReq > maxPeriods) {
-      return alert(`Too many periods required! You requested ${totalReq}, but there are only ${maxPeriods} empty slots available.`)
+      return alert(`Too many periods required! You requested ${totalReq}, but there are only ${maxPeriods} slots available.`)
     }
 
-    let pool = []
-    Object.entries(aiRequirements).forEach(([sub, count]) => {
-      for (let i = 0; i < (parseInt(count) || 0); i++) pool.push(sub)
+    const newGrid = JSON.parse(JSON.stringify(grid))
+
+    // Calculate already filled slots
+    let filledCount = 0
+    activeDays.forEach(day => {
+      teachingPeriods.forEach(period => {
+        const c = newGrid[day]?.[period] || {}
+        if (c.isSplit || c.subject) filledCount++
+      })
     })
-    pool = pool.sort(() => Math.random() - 0.5)
-
-    const getWorkloadCounts = () => {
-      const workload = {}
-      allTeachersList.forEach(t => workload[t] = 0)
-      const countGrid = (g) => {
-        if (!g) return
-        ALL_DAYS.forEach(d => {
-          PERIODS.forEach(p => {
-            const c = g[d]?.[p]
-            if (!c) return;
-            if (c.isSplit && Array.isArray(c.groups)) {
-              c.groups.forEach(group => {
-                if (group.teacher && workload[group.teacher] !== undefined) workload[group.teacher]++
-              })
-            } else {
-              if (c.teacher && workload[c.teacher] !== undefined) workload[c.teacher]++
-            }
-          })
-        })
-      }
-      cloudTimetables.forEach(tb => { if (tb.id !== currentTimetableId) countGrid(tb.grid) })
-      return workload
+    if (totalReq > (maxPeriods - filledCount)) {
+      alert(`You requested ${totalReq} periods, but only ${maxPeriods - filledCount} empty slots remain. Filling as much as possible.`)
     }
-    const currentWorkloads = getWorkloadCounts()
 
-    const isTeacherEligible = (t, day, period) => {
+    // Get workload counts across all other classes
+    const workload = {}
+    allTeachersList.forEach(t => workload[t] = 0)
+    const countGrid = (g) => {
+      if (!g) return
+      ALL_DAYS.forEach(d => {
+        PERIODS.forEach(p => {
+          const c = g[d]?.[p]
+          if (!c) return
+          if (c.isSplit && Array.isArray(c.groups)) {
+            c.groups.forEach(group => {
+              if (group.teacher && workload[group.teacher] !== undefined) workload[group.teacher]++
+            })
+          } else {
+            if (c.teacher && workload[c.teacher] !== undefined) workload[c.teacher]++
+          }
+        })
+      })
+    }
+    cloudTimetables.forEach(tb => { if (tb.id !== currentTimetableId) countGrid(tb.grid) })
+
+    // Build a live busy-map that tracks which teachers are busy in each slot
+    // (across school + the newGrid being built)
+    const busyMap = {}
+    const getBusyKey = (d, p) => `${d}|||${p}`
+    activeDays.forEach(d => {
+      PERIODS.forEach(p => {
+        const key = getBusyKey(d, p)
+        const busy = new Set()
+        // From other cloud timetables
+        cloudTimetables.forEach(tb => {
+          if (tb.id === currentTimetableId) return
+          const cell = tb.grid?.[d]?.[p]
+          if (!cell) return
+          if (cell.isSplit && cell.groups) {
+            cell.groups.forEach(g => { if (g.teacher) busy.add(g.teacher) })
+          } else {
+            if (cell.teacher) busy.add(cell.teacher)
+          }
+        })
+        // From already-filled cells in newGrid
+        const cell = newGrid[d]?.[p]
+        if (cell) {
+          if (cell.isSplit && cell.groups) {
+            cell.groups.forEach(g => { if (g.teacher) busy.add(g.teacher) })
+          } else {
+            if (cell.teacher) busy.add(cell.teacher)
+          }
+        }
+        busyMap[key] = busy
+      })
+    })
+
+    const isEligible = (t, day, period) => {
       const allowed = teacherConstraints[t]?.allowedClasses
       if (allowed && className) {
         const allowedArray = allowed.split(',').map(s => s.trim().toLowerCase()).filter(s => s)
         const classStr = className.toLowerCase()
         if (allowedArray.length > 0) {
-          const matches = allowedArray.some(val => {
-            const regex = new RegExp(`\\b${val}\\b`, 'i')
-            return regex.test(classStr)
-          })
+          const matches = allowedArray.some(val => new RegExp(`\\b${val}\\b`, 'i').test(classStr))
           if (!matches) return false
         }
       }
       const maxW = teacherConstraints[t]?.maxWorkload !== undefined ? teacherConstraints[t].maxWorkload : 36
-      if (currentWorkloads[t] >= maxW) return false
-      if (checkClash(t, day, period)) return false
+      if ((workload[t] || 0) >= maxW) return false
+      // Use live busyMap instead of stale checkClash
+      const key = getBusyKey(day, period)
+      if (busyMap[key]?.has(t)) return false
       return true
     }
 
-    const newGrid = JSON.parse(JSON.stringify(grid))
-    
-    // Calculate how many periods are already manually filled so we don't over-fill
-    let filledCount = 0;
-    activeDays.forEach(day => {
-      PERIODS.forEach(period => {
-        if (period === 'Lunch') return;
-        const c = newGrid[day][period] || {};
-        if (c.isSplit || c.subject) filledCount++;
+    // Build subject requirements sorted by count descending
+    const subjectReqs = []
+    Object.entries(aiRequirements).forEach(([sub, count]) => {
+      const c = parseInt(count) || 0
+      if (c > 0) subjectReqs.push({ subject: sub, remaining: c })
+    })
+
+    // STRATEGY: Period-first (row-wise) filling
+    // For each period row, fill ALL active days with the same subject
+    // This ensures Period 1 = Math across Mon-Sat, Period 2 = Science across Mon-Sat, etc.
+    // If a subject needs fewer periods than active days, the remaining days in that row
+    // get filled by the next subject in queue.
+
+    const emptyPeriods = teachingPeriods.filter(period => {
+      return activeDays.some(day => {
+        const c = newGrid[day]?.[period] || {}
+        return !c.isSplit && !c.subject
       })
     })
 
-    if (pool.length > (maxPeriods - filledCount)) {
-      alert(`You requested ${pool.length} periods, but only ${maxPeriods - filledCount} empty slots remain. Filling as much as possible.`)
-    }
+    emptyPeriods.forEach(period => {
+      // Fill each day within this period row
+      activeDays.forEach(day => {
+        const c = newGrid[day]?.[period] || {}
+        if (c.isSplit || c.subject) return // skip already filled
 
-    activeDays.forEach(day => {
-      PERIODS.forEach(period => {
-        if (period === 'Lunch' || pool.length === 0) return
-        const c = newGrid[day][period] || {};
-        if (c.isSplit || c.subject) return; // Skip manually filled slots
+        // Re-sort by remaining count so highest-need subject fills this period row
+        subjectReqs.sort((a, b) => b.remaining - a.remaining)
+        const bestSubject = subjectReqs.find(s => s.remaining > 0)
+        if (!bestSubject) return
 
-        let selectedSubjIndex = -1
-        let assignedTeacher = ''
-        
-        // Pass 1: Try to find a subject not yet assigned today
-        for (let i = 0; i < pool.length; i++) {
-          const subj = pool[i]
-          let alreadyHasSubject = false;
-          PERIODS.forEach(p => { if (newGrid[day][p]?.subject === subj) alreadyHasSubject = true; });
-          if (alreadyHasSubject) continue;
-
-          let candidates = teachers.filter(t => (teacherSubjects[t] || []).includes(subj) && isTeacherEligible(t, day, period))
-          
-          if (candidates.length === 0) {
-            candidates = teachers.filter(t => isTeacherEligible(t, day, period))
-          }
-
-          if (candidates.length > 0) {
-            candidates.sort((a,b) => currentWorkloads[a] - currentWorkloads[b])
-            assignedTeacher = candidates[0]
-            selectedSubjIndex = i
-            break
-          }
+        // Find a teacher: prefer subject experts first, then any eligible
+        let candidates = teachers.filter(t =>
+          (teacherSubjects[t] || []).includes(bestSubject.subject) && isEligible(t, day, period)
+        )
+        if (candidates.length === 0) {
+          candidates = teachers.filter(t => isEligible(t, day, period))
         }
 
-        // Pass 2: Fallback if we really can't find one without duplicating
-        if (selectedSubjIndex === -1) {
-          for (let i = 0; i < pool.length; i++) {
-            const subj = pool[i]
-            let candidates = teachers.filter(t => (teacherSubjects[t] || []).includes(subj) && isTeacherEligible(t, day, period))
-            if (candidates.length === 0) {
-              candidates = teachers.filter(t => isTeacherEligible(t, day, period))
-            }
-            if (candidates.length > 0) {
-              candidates.sort((a,b) => currentWorkloads[a] - currentWorkloads[b])
-              assignedTeacher = candidates[0]
-              selectedSubjIndex = i
-              break
-            }
-          }
-        }
-
-        if (assignedTeacher && selectedSubjIndex !== -1) {
-          const subj = pool.splice(selectedSubjIndex, 1)[0]
-          newGrid[day][period] = { subject: subj, teacher: assignedTeacher, substitute: '', room: '' }
-          currentWorkloads[assignedTeacher]++
+        if (candidates.length > 0) {
+          candidates.sort((a, b) => (workload[a] || 0) - (workload[b] || 0))
+          const assignedTeacher = candidates[0]
+          newGrid[day][period] = { subject: bestSubject.subject, teacher: assignedTeacher, substitute: '', room: '' }
+          workload[assignedTeacher] = (workload[assignedTeacher] || 0) + 1
+          busyMap[getBusyKey(day, period)].add(assignedTeacher)
+          bestSubject.remaining--
         }
       })
     })
@@ -1288,8 +1880,16 @@ export default function Timetable() {
       ALL_DAYS.forEach(d => {
         PERIODS.forEach(p => {
           const c = g[d]?.[p]
-          if (c?.teacher && workload[c.teacher] !== undefined) workload[c.teacher]++
-          if (c?.substitute && workload[c.substitute] !== undefined) workload[c.substitute]++
+          if (!c) return
+          if (c.isSplit && c.groups) {
+            c.groups.forEach(group => {
+              if (group.teacher && workload[group.teacher] !== undefined) workload[group.teacher]++
+              if (group.substitute && workload[group.substitute] !== undefined) workload[group.substitute]++
+            })
+          } else {
+            if (c.teacher && workload[c.teacher] !== undefined) workload[c.teacher]++
+            if (c.substitute && workload[c.substitute] !== undefined) workload[c.substitute]++
+          }
         })
       })
     }
@@ -1425,7 +2025,7 @@ export default function Timetable() {
           </button>
         )}
         <button onClick={() => setShowPanel(!showPanel)} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${showPanel ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border border-surface-200 text-surface-700 hover:bg-surface-50'}`}>
-          <Users className="w-4 h-4" /> Teachers {absentTeachers.length > 0 && <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">{absentTeachers.length}</span>}
+          <Users className="w-4 h-4" /> Teachers {getAbsentTeacherNames().length > 0 && <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">{getAbsentTeacherNames().length}</span>}
         </button>
         <button onClick={() => setIsWorkloadModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-sm font-bold hover:bg-indigo-100 shadow-sm transition-all">
           <BookOpen className="w-4 h-4" /> Workload
@@ -1492,18 +2092,35 @@ export default function Timetable() {
       </div>
 
       {/* Absent Alert */}
-      {affectedCount > 0 && (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 animate-fade-in">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
-            <div>
-              <p className="text-sm font-bold text-red-800">{affectedCount} period{affectedCount > 1 ? 's' : ''} need substitute teachers</p>
-              <p className="text-xs text-red-600">Absent: {absentTeachers.join(', ')}</p>
+      {getAbsentTeacherNames().length > 0 && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 animate-fade-in">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-red-800">{affectedCount} period{affectedCount > 1 ? 's' : ''} need substitute teachers</p>
+                <p className="text-xs text-red-600">Absent: {getAbsentTeacherNames().map(t => `${t} (${(absentTeachers[t] || []).map(d => d.slice(0,3)).join(', ')})`).join(' • ')}</p>
+              </div>
             </div>
           </div>
-          <button onClick={autoAssignSubs} className="px-5 py-2.5 bg-red-600 text-white font-bold rounded-xl text-sm hover:bg-red-700 transition-colors shadow-md">
-            ⚡ Auto-Assign Substitutes
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-red-700">Auto-assign for:</label>
+              <select value={subAssignDay} onChange={e => setSubAssignDay(e.target.value)} className="px-3 py-2 bg-white border border-red-200 rounded-lg text-sm text-red-700 font-bold focus:ring-2 focus:ring-red-400 outline-none">
+                <option value="Today">Today Only</option>
+                <option value="All">All Absent Days</option>
+                {activeDays.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <button onClick={autoAssignSubs} className="px-5 py-2.5 bg-red-600 text-white font-bold rounded-xl text-sm hover:bg-red-700 transition-colors shadow-md">
+              ⚡ Auto-Assign (This Class)
+            </button>
+            {currentUser && cloudTimetables.length > 0 && (
+              <button onClick={() => { loadTimetables(); setIsSubPanelOpen(true) }} className="px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-xl text-sm hover:bg-indigo-700 transition-colors shadow-md">
+                🏫 School-Wide Subs
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -1534,7 +2151,8 @@ export default function Timetable() {
           {/* Teacher list */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {teachers.map(t => {
-              const isAbsent = absentTeachers.includes(t)
+              const isAbsent = isAbsentAnyDay(t)
+              const absentDays = absentTeachers[t] || []
               const isBrk = onBreak.includes(t)
               const tSubjs = teacherSubjects[t] || []
               return (
@@ -1580,6 +2198,17 @@ export default function Timetable() {
                     </button>
                     <button onClick={() => removeTeacher(t)} className="p-1.5 rounded-lg hover:bg-red-100 text-surface-300 hover:text-red-500 transition-colors"><X className="w-3.5 h-3.5" /></button>
                   </div>
+                  {/* Day-specific absent chips */}
+                  {isAbsent && (
+                    <div className="flex flex-wrap gap-1 pt-1 border-t border-red-100">
+                      <span className="text-[9px] font-bold text-red-500 uppercase tracking-wider mr-1 self-center">Leave:</span>
+                      {activeDays.map(d => (
+                        <button key={d} onClick={() => toggleAbsentDay(t, d)} className={`text-[9px] font-bold px-1.5 py-0.5 rounded transition-all ${absentDays.includes(d) ? 'bg-red-500 text-white' : 'bg-white text-surface-400 border border-surface-200 hover:border-red-300'}`}>
+                          {d.slice(0, 3)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {tSubjs.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {tSubjs.map(s => <span key={s} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600">{s}</span>)}
@@ -1705,7 +2334,7 @@ export default function Timetable() {
                   {activeDays.map(day => {
                     const cell = grid[day]?.[period] || {}
                     const isEd = editing === `${day}-${period}`
-                    const isAbsent = cell.teacher && absentTeachers.includes(cell.teacher)
+                    const isAbsent = cell.teacher && isAbsentOnDay(cell.teacher, day)
                     return (
                       <td 
                         key={`${day}-${period}`} 
@@ -1758,7 +2387,7 @@ export default function Timetable() {
                                     }).map(t => {
                                       const isMatch = group.subject && (teacherSubjects[t] || []).includes(group.subject)
                                       return (
-                                        <button key={t} onClick={() => setCellTeacher(day, period, t, gId)} className={`px-2 py-1 rounded text-[10px] font-bold text-left border ${group.teacher === t ? 'ring-2 ring-indigo-400' : ''} ${absentTeachers.includes(t) ? 'bg-red-50 text-red-400 border-red-200 line-through' : onBreak.includes(t) ? 'bg-amber-50 text-amber-600 border-amber-200' : isMatch ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm' : 'bg-white text-surface-700 border-surface-200 hover:bg-indigo-50'}`}>{t} {isMatch && '✨'}</button>
+                                        <button key={t} onClick={() => setCellTeacher(day, period, t, gId)} className={`px-2 py-1 rounded text-[10px] font-bold text-left border ${group.teacher === t ? 'ring-2 ring-indigo-400' : ''} ${isAbsentOnDay(t, day) ? 'bg-red-50 text-red-400 border-red-200 line-through' : onBreak.includes(t) ? 'bg-amber-50 text-amber-600 border-amber-200' : isMatch ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm' : 'bg-white text-surface-700 border-surface-200 hover:bg-indigo-50'}`}>{t} {isMatch && '✨'}</button>
                                       )
                                     })}
                                   </div>
@@ -1787,8 +2416,15 @@ export default function Timetable() {
                                 {g.subject ? (
                                   <>
                                     <span className="font-bold">{g.subject}</span>
-                                    {g.teacher && <span className={`text-[8px] font-bold mt-0.5 ${g.teacher && absentTeachers.includes(g.teacher) ? 'line-through text-red-400' : 'text-surface-700'}`}>{g.teacher}</span>}
-                                    {g.substitute && <span className="text-[8px] font-bold text-red-600 bg-red-100 px-1 py-0.5 mt-0.5 rounded">Sub: {g.substitute}</span>}
+                                    {g.teacher && <span className={`text-[8px] font-bold mt-0.5 ${g.teacher && isAbsentOnDay(g.teacher, day) ? 'line-through text-red-400' : 'text-surface-700'}`}>{g.teacher}</span>}
+                                    {g.substitute && (
+                                      <button onClick={e => { e.stopPropagation(); setSubModal({ day, period, groupId: g.id }) }} className="text-[8px] font-bold text-red-600 bg-red-100 px-1 py-0.5 mt-0.5 rounded hover:bg-red-200 cursor-pointer transition-colors" title="Click to change substitute">
+                                        Sub: {g.substitute} ✎
+                                      </button>
+                                    )}
+                                    {g.teacher && isAbsentOnDay(g.teacher, day) && !g.substitute && (
+                                      <button onClick={e => { e.stopPropagation(); setSubModal({ day, period, groupId: g.id }) }} className="text-[8px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full mt-0.5 animate-pulse">Assign Sub</button>
+                                    )}
                                   </>
                                 ) : '+'}
                               </div>
@@ -1804,7 +2440,9 @@ export default function Timetable() {
                                 )}
                                 {cell.substitute && (
                                   <div className="flex items-center justify-center gap-1 mt-0.5">
-                                    <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">Sub: {cell.substitute}</span>
+                                    <button onClick={e => { e.stopPropagation(); setSubModal({ day, period }) }} className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded hover:bg-red-200 cursor-pointer transition-colors" title="Click to change substitute">
+                                      Sub: {cell.substitute} ✎
+                                    </button>
                                     <button onClick={(e) => { e.stopPropagation(); notifySub(cell.substitute, day, period, cell.subject, cell.teacher) }} className="p-0.5 bg-green-100 text-green-700 hover:bg-green-200 rounded" title="Notify via WhatsApp">
                                       <MessageCircle className="w-3 h-3" />
                                     </button>
@@ -1855,7 +2493,7 @@ export default function Timetable() {
                 <div className="divide-y divide-surface-100">
                   {PERIODS.map(period => {
                     const cell = grid[day]?.[period] || {}
-                    const isAbsent = cell.teacher && absentTeachers.includes(cell.teacher)
+                    const isAbsent = cell.teacher && isAbsentOnDay(cell.teacher, day)
                     const isEd = editing === `${day}-${period}`
                     
                     return (
@@ -1876,9 +2514,13 @@ export default function Timetable() {
                                     {g.subject ? (
                                       <>
                                         <span className={`text-xs font-bold px-2 py-0.5 rounded-lg border mt-0.5 ${gc(g.subject)}`}>{g.subject}</span>
-                                        {g.teacher && <span className={`text-[10px] mt-0.5 font-black ${g.teacher && absentTeachers.includes(g.teacher) ? 'line-through text-red-400' : 'text-surface-700'}`}>{g.teacher}</span>}
-                                        {g.substitute && <span className="text-[9px] font-bold text-red-600 bg-red-100 px-1 py-0.5 rounded mt-0.5">Sub: {g.substitute}</span>}
-                                        {g.teacher && absentTeachers.includes(g.teacher) && !g.substitute && (
+                                        {g.teacher && <span className={`text-[10px] mt-0.5 font-black ${g.teacher && isAbsentOnDay(g.teacher, day) ? 'line-through text-red-400' : 'text-surface-700'}`}>{g.teacher}</span>}
+                                        {g.substitute && (
+                                          <button onClick={e => { e.stopPropagation(); setSubModal({ day, period, groupId: g.id }) }} className="text-[9px] font-bold text-red-600 bg-red-100 px-1 py-0.5 rounded mt-0.5 hover:bg-red-200 cursor-pointer" title="Click to change">
+                                            Sub: {g.substitute} ✎
+                                          </button>
+                                        )}
+                                        {g.teacher && isAbsentOnDay(g.teacher, day) && !g.substitute && (
                                           <button onClick={e => { e.stopPropagation(); setSubModal({ day, period, groupId: g.id }) }} className="text-[9px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full mt-0.5 animate-pulse">Assign Sub</button>
                                         )}
                                       </>
@@ -1892,7 +2534,9 @@ export default function Timetable() {
                                 {cell.teacher && <span className={`text-sm mt-1.5 font-black ${isAbsent ? 'line-through text-red-400' : 'text-surface-700'}`}>{cell.teacher}</span>}
                                 {cell.substitute && (
                                   <div className="flex items-center justify-end gap-1.5 mt-1">
-                                    <span className="text-[11px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded">Sub: {cell.substitute}</span>
+                                    <button onClick={e => { e.stopPropagation(); setSubModal({ day, period }) }} className="text-[11px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded hover:bg-red-200 cursor-pointer" title="Click to change substitute">
+                                      Sub: {cell.substitute} ✎
+                                    </button>
                                     <button onClick={(e) => { e.stopPropagation(); notifySub(cell.substitute, day, period, cell.subject, cell.teacher) }} className="p-1 bg-green-100 text-green-700 hover:bg-green-200 rounded-md shadow-sm" title="Notify via WhatsApp">
                                       <MessageCircle className="w-3 h-3" />
                                     </button>
@@ -1959,7 +2603,7 @@ export default function Timetable() {
                                     }).map(t => {
                                       const isMatch = group.subject && (teacherSubjects[t] || []).includes(group.subject)
                                       return (
-                                        <button key={t} onClick={() => setCellTeacher(day, period, t, gId)} className={`px-3 py-2 rounded-xl text-xs font-bold text-left border ${group.teacher === t ? 'ring-2 ring-indigo-400' : ''} ${absentTeachers.includes(t) ? 'bg-red-50 text-red-400 border-red-200 line-through' : onBreak.includes(t) ? 'bg-amber-50 text-amber-600 border-amber-200' : isMatch ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm' : 'bg-white text-surface-700 border-surface-200 hover:bg-indigo-50'}`}>{t} {isMatch && '✨'}</button>
+                                        <button key={t} onClick={() => setCellTeacher(day, period, t, gId)} className={`px-3 py-2 rounded-xl text-xs font-bold text-left border ${group.teacher === t ? 'ring-2 ring-indigo-400' : ''} ${isAbsentOnDay(t, day) ? 'bg-red-50 text-red-400 border-red-200 line-through' : onBreak.includes(t) ? 'bg-amber-50 text-amber-600 border-amber-200' : isMatch ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm' : 'bg-white text-surface-700 border-surface-200 hover:bg-indigo-50'}`}>{t} {isMatch && '✨'}</button>
                                       )
                                     })}
                                   </div>
@@ -2005,21 +2649,33 @@ export default function Timetable() {
             <p className="text-xs font-bold text-surface-400 uppercase tracking-widest mb-2">Available Teachers</p>
             <div className="space-y-2 max-h-[250px] overflow-y-auto">
               {(() => {
-                const subj = grid[subModal.day]?.[subModal.period]?.subject
-                const avail = getAvailable().sort((a, b) => {
+                const subj = grid[subModal.day]?.[subModal.period]?.subject || (grid[subModal.day]?.[subModal.period]?.groups?.find(g => g.id === subModal.groupId)?.subject)
+                const teachersInCurrentClass = new Set();
+                ALL_DAYS.forEach(d => PERIODS.forEach(p => {
+                  const c = grid[d]?.[p];
+                  if (c?.isSplit && c.groups) c.groups.forEach(g => { if (g.teacher) teachersInCurrentClass.add(g.teacher) });
+                  else if (c?.teacher) teachersInCurrentClass.add(c.teacher);
+                }));
+
+                const avail = getAvailable(subModal.day).sort((a, b) => {
                   const aMatch = (teacherSubjects[a] || []).includes(subj) ? 0 : 1
                   const bMatch = (teacherSubjects[b] || []).includes(subj) ? 0 : 1
-                  return aMatch - bMatch
+                  if (aMatch !== bMatch) return aMatch - bMatch
+                  const aInClass = teachersInCurrentClass.has(a) ? 0 : 1;
+                  const bInClass = teachersInCurrentClass.has(b) ? 0 : 1;
+                  return aInClass - bInClass
                 })
                 return avail.length > 0 ? avail.map(t => {
                   const teachesSubj = (teacherSubjects[t] || []).includes(subj)
+                  const isInClass = teachersInCurrentClass.has(t)
                   return (
                     <button key={t} onClick={() => setSubstitute(subModal.day, subModal.period, t, subModal.groupId)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${teachesSubj ? 'border-emerald-300 bg-emerald-50 hover:bg-emerald-100' : 'border-surface-200 hover:border-surface-300 hover:bg-surface-50'}`}>
-                      <UserCheck className={`w-4 h-4 shrink-0 ${teachesSubj ? 'text-emerald-600' : 'text-surface-400'}`} />
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${teachesSubj ? 'border-emerald-300 bg-emerald-50 hover:bg-emerald-100' : isInClass ? 'border-blue-200 bg-blue-50/50 hover:bg-blue-100' : 'border-surface-200 hover:border-surface-300 hover:bg-surface-50'}`}>
+                      <UserCheck className={`w-4 h-4 shrink-0 ${teachesSubj ? 'text-emerald-600' : isInClass ? 'text-blue-600' : 'text-surface-400'}`} />
                       <div className="flex-1">
                         <span className="text-sm font-bold text-surface-800">{t}</span>
                         {teachesSubj && <span className="ml-2 text-[10px] font-bold bg-emerald-200 text-emerald-700 px-1.5 py-0.5 rounded">Teaches {subj}</span>}
+                        {isInClass && !teachesSubj && <span className="ml-2 text-[10px] font-bold bg-blue-200 text-blue-700 px-1.5 py-0.5 rounded">Same Class</span>}
                         {(teacherSubjects[t] || []).length > 0 && !teachesSubj && (
                           <span className="ml-2 text-[10px] text-surface-400">{(teacherSubjects[t] || []).join(', ')}</span>
                         )}
@@ -2034,6 +2690,282 @@ export default function Timetable() {
                 Remove Current Substitute
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* School-Wide Substitute Panel */}
+      {isSubPanelOpen && (() => {
+        // Always show ALL days where ANY teacher is absent - not filtered by subAssignDay
+        const allAbsentDays = new Set();
+        getAbsentTeacherNames().forEach(t => { (absentTeachers[t] || []).forEach(d => allAbsentDays.add(d)); });
+        const daysToShow = activeDays.filter(d => allAbsentDays.has(d));
+        if (daysToShow.length === 0) { return <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsSubPanelOpen(false)}><div className="bg-white rounded-[28px] shadow-2xl p-12 text-center" onClick={e => e.stopPropagation()}><UserX className="w-16 h-16 mx-auto mb-4 text-surface-300" /><p className="text-lg font-bold text-surface-700">No absent teachers found</p><button onClick={() => setIsSubPanelOpen(false)} className="mt-4 px-6 py-2 bg-surface-100 rounded-xl font-bold text-sm hover:bg-surface-200">Close</button></div></div>; }
+        const sName = schoolName || 'Unassigned School';
+        const schoolTbs = cloudTimetables.filter(tb => (tb.schoolName || 'Unassigned School') === sName).map(tb => {
+          if (tb.id === currentTimetableId) return { ...tb, grid, className };
+          return tb;
+        });
+        if (!schoolTbs.find(tb => tb.id === currentTimetableId)) {
+          schoolTbs.push({ id: currentTimetableId || 'current', className, grid, schoolName: sName });
+        }
+
+        const allAffected = [];
+        daysToShow.forEach(day => {
+          const absentees = getAbsentTeacherNames().filter(t => isAbsentOnDay(t, day));
+          schoolTbs.forEach(tb => {
+            const g = tb.grid || {};
+            PERIODS.forEach(p => {
+              if (p === 'Lunch') return;
+              const cell = g[day]?.[p];
+              if (!cell) return;
+              if (cell.isSplit && cell.groups) {
+                cell.groups.forEach(group => {
+                  if (group.teacher && absentees.includes(group.teacher)) {
+                    allAffected.push({ day, tbId: tb.id, className: tb.className, period: p, teacher: group.teacher, subject: group.subject, substitute: group.substitute || '', isCurrent: tb.id === currentTimetableId });
+                  }
+                });
+              } else {
+                if (cell.teacher && absentees.includes(cell.teacher)) {
+                  allAffected.push({ day, tbId: tb.id, className: tb.className, period: p, teacher: cell.teacher, subject: cell.subject, substitute: cell.substitute || '', isCurrent: tb.id === currentTimetableId });
+                }
+              }
+            });
+          });
+        });
+
+        const byTeacher = allAffected.reduce((acc, item) => {
+          if (!acc[item.teacher]) acc[item.teacher] = [];
+          acc[item.teacher].push(item);
+          return acc;
+        }, {});
+
+        const totalAffected = allAffected.length;
+        const totalAssigned = allAffected.filter(a => a.substitute).length;
+
+        const handleSchoolWideAutoAssign = async () => {
+          try {
+            const modifiedTbs = {};
+            const busyMap = {};
+            const getBKey = (d, p) => `${d}|||${p}`;
+
+            // Build initial busy map from ALL timetables
+            schoolTbs.forEach(tb => {
+              const g = tb.grid || {};
+              ALL_DAYS.forEach(d => {
+                PERIODS.forEach(p => {
+                  const key = getBKey(d, p);
+                  if (!busyMap[key]) busyMap[key] = new Set();
+                  const cell = g[d]?.[p];
+                  if (!cell) return;
+                  if (cell.isSplit && cell.groups) {
+                    cell.groups.forEach(gr => { if (gr.teacher) busyMap[key].add(gr.teacher); if (gr.substitute) busyMap[key].add(gr.substitute); });
+                  } else {
+                    if (cell.teacher) busyMap[key].add(cell.teacher);
+                    if (cell.substitute) busyMap[key].add(cell.substitute);
+                  }
+                });
+              });
+            });
+
+            const subCount = {};
+            let assignedCount = 0;
+
+            allAffected.filter(a => !a.substitute).forEach(item => {
+              const busy = busyMap[getBKey(item.day, item.period)] || new Set();
+              const free = teachers.filter(t => {
+                if (busy.has(t) || t === item.teacher) return false;
+                if (!isAbsentOnDay(t, item.day) === false && isAbsentAnyDay(t)) return false;
+                if (isAbsentOnDay(t, item.day)) return false;
+                if (onBreak.includes(t)) return false;
+                return true;
+              });
+
+              if (free.length > 0) {
+                free.sort((a, b) => {
+                  const aMatch = (teacherSubjects[a] || []).includes(item.subject) ? 0 : 1;
+                  const bMatch = (teacherSubjects[b] || []).includes(item.subject) ? 0 : 1;
+                  if (aMatch !== bMatch) return aMatch - bMatch;
+                  return (subCount[a] || 0) - (subCount[b] || 0);
+                });
+                const chosen = free[0];
+                subCount[chosen] = (subCount[chosen] || 0) + 1;
+                busyMap[getBKey(item.day, item.period)].add(chosen);
+
+                // Apply to the right timetable
+                const tb = schoolTbs.find(t => t.id === item.tbId);
+                if (tb) {
+                  if (!modifiedTbs[item.tbId]) modifiedTbs[item.tbId] = JSON.parse(JSON.stringify(tb.grid));
+                  const cell = modifiedTbs[item.tbId][item.day]?.[item.period];
+                  if (cell) {
+                    if (cell.isSplit && cell.groups) {
+                      const g = cell.groups.find(gr => gr.teacher === item.teacher);
+                      if (g) g.substitute = chosen;
+                    } else {
+                      cell.substitute = chosen;
+                    }
+                  }
+                  assignedCount++;
+                }
+              }
+            });
+
+            // Save modified timetables
+            for (const [tbId, modGrid] of Object.entries(modifiedTbs)) {
+              if (tbId === currentTimetableId || tbId === 'current') {
+                setGrid(modGrid);
+              } else if (currentUser) {
+                try { await updateDoc(doc(db, 'timetables', tbId), { grid: modGrid }); } catch (e) { console.error('Save error:', e); }
+              }
+            }
+
+            if (assignedCount > 0) {
+              await loadTimetables();
+              alert(`✅ ${assignedCount} substitutes assigned across all classes!`);
+            } else {
+              alert('No free teachers available for the remaining periods.');
+            }
+          } catch (err) {
+            console.error(err);
+            alert('Error: ' + err.message);
+          }
+        };
+
+        return (
+          <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsSubPanelOpen(false)}>
+            <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="p-6 border-b border-surface-100">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xl font-extrabold text-surface-900 flex items-center gap-2">{'\ud83c\udfeb'} School-Wide Substitute Panel</h3>
+                  <button onClick={() => setIsSubPanelOpen(false)} className="p-2 hover:bg-surface-100 rounded-xl"><X className="w-5 h-5 text-surface-500" /></button>
+                </div>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="font-bold text-surface-500">{totalAffected} periods affected</span>
+                  <span className="font-bold text-emerald-600">{totalAssigned} covered</span>
+                  <span className="font-bold text-red-600">{totalAffected - totalAssigned} pending</span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <button onClick={handleSchoolWideAutoAssign} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-xl text-sm hover:bg-indigo-700 transition-colors">
+                      {'\u26a1'} Auto-Assign All Classes
+                    </button>
+                    <button onClick={() => { setReportSelectedDays([...activeDays]); setIsReportModalOpen(true) }} className="px-4 py-2 bg-surface-100 text-surface-700 font-bold rounded-xl text-sm hover:bg-surface-200 transition-colors flex items-center gap-1">
+                      <Printer className="w-4 h-4" /> Reports & Download
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {Object.keys(byTeacher).length === 0 ? (
+                  <div className="text-center py-12 text-surface-400">
+                    <UserX className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p className="font-bold">No absent teachers for the selected day</p>
+                  </div>
+                ) : Object.entries(byTeacher).map(([teacher, items]) => {
+                  const covered = items.filter(i => i.substitute).length;
+                  return (
+                    <div key={teacher} className="border border-surface-200 rounded-2xl overflow-hidden">
+                      <div className="bg-surface-900 text-white px-5 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <UserX className="w-5 h-5 text-red-400" />
+                          <span className="font-bold text-lg">{teacher}</span>
+                          <span className="text-xs opacity-70 bg-white/10 px-2 py-0.5 rounded-full">{(absentTeachers[teacher] || []).map(d => d.slice(0,3)).join(', ')}</span>
+                        </div>
+                        <span className={`text-sm font-bold px-3 py-1 rounded-full ${covered === items.length ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}>
+                          {covered}/{items.length} covered
+                        </span>
+                      </div>
+                      <div className="divide-y divide-surface-100">
+                        {items.map((item, idx) => (
+                          <div key={idx} className="flex items-center gap-4 px-5 py-3 hover:bg-surface-50 transition-colors">
+                            <div className="w-20 text-xs font-bold text-surface-400">{item.day.slice(0,3)}</div>
+                            <div className="w-28 text-sm font-bold text-surface-800">{item.className}</div>
+                            <div className="w-20 text-sm text-surface-500">{item.period}</div>
+                            <div className="flex-1 text-sm font-medium text-surface-600">{item.subject || '-'}</div>
+                            <div className="w-40 text-right">
+                              {item.substitute ? (
+                                <span className="text-sm font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200">{item.substitute}</span>
+                              ) : (
+                                <span className="text-sm font-bold text-red-500 italic">Pending</span>
+                              )}
+                            </div>
+                            <div className="w-24 text-right">
+                              {item.isCurrent ? (
+                                <button onClick={() => { setIsSubPanelOpen(false); setSubModal({ day: item.day, period: item.period }); }} className="text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-200 transition-colors">
+                                  {item.substitute ? 'Change' : 'Assign'}
+                                </button>
+                              ) : (
+                                <button onClick={() => { const tb = cloudTimetables.find(t => t.id === item.tbId); if (tb) { handleLoadTimetable(tb); setIsSubPanelOpen(false); } }} className="text-xs font-bold text-surface-500 bg-surface-100 hover:bg-surface-200 px-3 py-1.5 rounded-lg border border-surface-200 transition-colors">
+                                  Load Class
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Report Options Modal */}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsReportModalOpen(false)}>
+          <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-surface-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-extrabold text-surface-900 flex items-center gap-2">{'\ud83d\udcca'} Download Reports</h3>
+                <button onClick={() => setIsReportModalOpen(false)} className="p-2 hover:bg-surface-100 rounded-xl"><X className="w-5 h-5 text-surface-500" /></button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Day Selection */}
+              <div>
+                <label className="text-xs font-black text-surface-500 uppercase tracking-widest mb-2 block">Select Days for Report</label>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setReportSelectedDays(reportSelectedDays.length === activeDays.length ? [] : [...activeDays])} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${reportSelectedDays.length === activeDays.length ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-surface-500 border-surface-200 hover:border-indigo-300'}`}>
+                    {reportSelectedDays.length === activeDays.length ? '✓ All Days' : 'All Days'}
+                  </button>
+                  {activeDays.map(d => (
+                    <button key={d} onClick={() => setReportSelectedDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${reportSelectedDays.includes(d) ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-white text-surface-500 border-surface-200 hover:border-indigo-300'}`}>
+                      {d.slice(0, 3)}
+                    </button>
+                  ))}
+                </div>
+                {reportSelectedDays.length > 0 && <p className="text-[10px] text-surface-400 mt-1.5 font-medium">{reportSelectedDays.length} day{reportSelectedDays.length > 1 ? 's' : ''} selected</p>}
+              </div>
+
+              {/* Report Options */}
+              <div className="space-y-3">
+                <button onClick={() => { if (reportSelectedDays.length === 0) return alert('Select at least one day'); printMultiDayReport(reportSelectedDays); setIsReportModalOpen(false); }} className="w-full flex items-center gap-4 p-4 rounded-2xl border border-surface-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition-all group text-left">
+                  <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center text-xl shrink-0 group-hover:bg-indigo-200 transition-colors">{'\ud83d\udcc4'}</div>
+                  <div>
+                    <p className="text-sm font-extrabold text-surface-900">Daily Substitute Report</p>
+                    <p className="text-xs text-surface-500 mt-0.5">Day-wise absent teacher details, substitute assignments & status for selected days</p>
+                  </div>
+                </button>
+
+                <button onClick={() => { printMonthlySummary(); setIsReportModalOpen(false); }} className="w-full flex items-center gap-4 p-4 rounded-2xl border border-surface-200 hover:border-emerald-300 hover:bg-emerald-50/50 transition-all group text-left">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-xl shrink-0 group-hover:bg-emerald-200 transition-colors">{'\ud83d\udcca'}</div>
+                  <div>
+                    <p className="text-sm font-extrabold text-surface-900">Monthly Staff Summary</p>
+                    <p className="text-xs text-surface-500 mt-0.5">Leave count, substitute duty count, regular workload & full staff overview across all classes</p>
+                  </div>
+                </button>
+
+                <button onClick={() => { if (reportSelectedDays.length === 1) { setSubReportDay(reportSelectedDays[0]); printMasterSubReport(); } else { setSubReportDay(reportSelectedDays[0] || activeDays[0]); printMasterSubReport(); } setIsReportModalOpen(false); }} className="w-full flex items-center gap-4 p-4 rounded-2xl border border-surface-200 hover:border-amber-300 hover:bg-amber-50/50 transition-all group text-left">
+                  <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center text-xl shrink-0 group-hover:bg-amber-200 transition-colors">{'\ud83d\udce8'}</div>
+                  <div>
+                    <p className="text-sm font-extrabold text-surface-900">Formal Duty Report (Single Day)</p>
+                    <p className="text-xs text-surface-500 mt-0.5">Professional duty report with school header, signature blocks & summary cards for {reportSelectedDays[0] || 'selected day'}</p>
+                  </div>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -2087,6 +3019,9 @@ export default function Timetable() {
                           <BookOpen className="w-5 h-5 text-indigo-500" /> {sName} <span className="text-xs font-bold bg-white px-2 py-0.5 rounded-full text-indigo-600 border border-indigo-100">{tbs.length} Classes</span>
                         </h4>
                         <div className="flex flex-wrap items-center gap-2">
+                          <button onClick={() => setIsSubReportModalOpen(true)} className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 border border-blue-200">
+                            <Users className="w-3.5 h-3.5" /> Daily Subs Report
+                          </button>
                           <button onClick={() => executeSchoolPrint(sName)} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 border border-emerald-200">
                             <Printer className="w-3.5 h-3.5" /> Download Full School
                           </button>
@@ -2385,6 +3320,136 @@ export default function Timetable() {
           </div>
         </div>
       )}
+
+      {/* Substitute Report Modal — Professional Report Center */}
+      {isSubReportModalOpen && (() => {
+        // Live preview stats
+        const selectedDays = reportSelectedDays.length > 0 ? reportSelectedDays : [subReportDay];
+        const sName = schoolName || 'Unassigned School';
+        const previewTbs = cloudTimetables.filter(tb => (tb.schoolName || 'Unassigned School') === sName).map(tb => {
+          if (tb.id === currentTimetableId) return { ...tb, grid, className };
+          return tb;
+        });
+        if (!previewTbs.find(tb => tb.id === currentTimetableId)) {
+          previewTbs.push({ id: currentTimetableId || 'current', className, grid, schoolName: sName });
+        }
+        let previewAffected = 0, previewCovered = 0;
+        const previewTeachers = new Set();
+        selectedDays.forEach(day => {
+          const absentees = getAbsentTeacherNames().filter(t => isAbsentOnDay(t, day));
+          absentees.forEach(t => previewTeachers.add(t));
+          previewTbs.forEach(tb => {
+            const g = tb.grid || {};
+            PERIODS.forEach(p => {
+              if (p === 'Lunch') return;
+              const cell = g[day]?.[p];
+              if (!cell) return;
+              const check = (teacher, substitute) => {
+                if (teacher && absentees.includes(teacher)) { previewAffected++; if (substitute) previewCovered++; }
+              };
+              if (cell.isSplit && cell.groups) cell.groups.forEach(gr => check(gr.teacher, gr.substitute));
+              else check(cell.teacher, cell.substitute);
+            });
+          });
+        });
+
+        return (
+          <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsSubReportModalOpen(false)}>
+            <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="p-6 border-b border-surface-100 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-[28px]">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-extrabold text-surface-900 flex items-center gap-2"><BookOpen className="w-6 h-6 text-blue-500" /> Report Center</h3>
+                  <button onClick={() => setIsSubReportModalOpen(false)} className="p-2 hover:bg-white/60 rounded-xl transition-colors"><X className="w-5 h-5 text-surface-500" /></button>
+                </div>
+                <p className="text-sm text-surface-600">Generate professional reports for <strong>{sName}</strong></p>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {/* Day Selection */}
+                <div>
+                  <label className="text-xs font-black text-surface-500 uppercase tracking-widest mb-2 block">Select Days</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => setReportSelectedDays(prev => prev.length === activeDays.length ? [] : [...activeDays])} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${reportSelectedDays.length === activeDays.length ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-surface-500 border-surface-200 hover:border-blue-300'}`}>
+                      {reportSelectedDays.length === activeDays.length ? '✓ All' : 'All'}
+                    </button>
+                    {activeDays.map(d => {
+                      const hasAbsent = getAbsentTeacherNames().some(t => isAbsentOnDay(t, d));
+                      return (
+                        <button key={d} onClick={() => { setSubReportDay(d); setReportSelectedDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]); }} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all relative ${reportSelectedDays.includes(d) ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-surface-500 border-surface-200 hover:border-blue-300'}`}>
+                          {d.slice(0, 3)}
+                          {hasAbsent && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500"></span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Live Preview */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
+                    <div className="text-2xl font-black text-red-600">{previewTeachers.size}</div>
+                    <div className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Absent</div>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+                    <div className="text-2xl font-black text-amber-600">{previewAffected}</div>
+                    <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Periods</div>
+                  </div>
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
+                    <div className="text-2xl font-black text-emerald-600">{previewCovered}</div>
+                    <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Covered</div>
+                  </div>
+                </div>
+
+                {/* Absent Teachers Preview */}
+                {previewTeachers.size > 0 && (
+                  <div className="bg-surface-50 rounded-xl p-3 border border-surface-200">
+                    <div className="text-[10px] font-black text-surface-400 uppercase tracking-widest mb-2">Absent Teachers</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[...previewTeachers].map(t => (
+                        <span key={t} className="text-xs font-bold bg-red-100 text-red-700 px-2 py-1 rounded-lg border border-red-200">
+                          {t} <span className="text-red-400 font-medium">({(absentTeachers[t] || []).map(d => d.slice(0,3)).join(', ')})</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Report Options */}
+                <div className="space-y-2.5">
+                  <div className="text-[10px] font-black text-surface-400 uppercase tracking-widest">Download Options</div>
+
+                  <button onClick={() => { if (reportSelectedDays.length === 0) return alert('Select at least one day'); printMultiDayReport(reportSelectedDays); setIsSubReportModalOpen(false); }} className="w-full flex items-center gap-4 p-4 rounded-2xl border border-surface-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all group text-left">
+                    <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center text-lg shrink-0 group-hover:bg-blue-200 transition-colors">{'\ud83d\udcc4'}</div>
+                    <div className="flex-1">
+                      <p className="text-sm font-extrabold text-surface-900">Daily Substitute Report</p>
+                      <p className="text-[11px] text-surface-500">Day-wise details with substitute status for {reportSelectedDays.length || 0} day(s)</p>
+                    </div>
+                    <Download className="w-4 h-4 text-surface-300 group-hover:text-blue-500 transition-colors" />
+                  </button>
+
+                  <button onClick={() => { printMonthlySummary(); setIsSubReportModalOpen(false); }} className="w-full flex items-center gap-4 p-4 rounded-2xl border border-surface-200 hover:border-emerald-300 hover:bg-emerald-50/50 transition-all group text-left">
+                    <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center text-lg shrink-0 group-hover:bg-emerald-200 transition-colors">{'\ud83d\udcca'}</div>
+                    <div className="flex-1">
+                      <p className="text-sm font-extrabold text-surface-900">Monthly Staff Summary</p>
+                      <p className="text-[11px] text-surface-500">Leave count, sub duties, workload & full staff overview</p>
+                    </div>
+                    <Download className="w-4 h-4 text-surface-300 group-hover:text-emerald-500 transition-colors" />
+                  </button>
+
+                  <button onClick={() => { setSubReportDay(reportSelectedDays[0] || activeDays[0]); printMasterSubReport(); setIsSubReportModalOpen(false); }} className="w-full flex items-center gap-4 p-4 rounded-2xl border border-surface-200 hover:border-amber-300 hover:bg-amber-50/50 transition-all group text-left">
+                    <div className="w-11 h-11 rounded-xl bg-amber-100 flex items-center justify-center text-lg shrink-0 group-hover:bg-amber-200 transition-colors">{'\ud83d\udce8'}</div>
+                    <div className="flex-1">
+                      <p className="text-sm font-extrabold text-surface-900">Formal Duty Report</p>
+                      <p className="text-[11px] text-surface-500">Professional single-day report with signatures for {reportSelectedDays[0] || activeDays[0]}</p>
+                    </div>
+                    <Download className="w-4 h-4 text-surface-300 group-hover:text-amber-500 transition-colors" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* AI Auto-Generate Modal */}
       {isAIModalOpen && (
