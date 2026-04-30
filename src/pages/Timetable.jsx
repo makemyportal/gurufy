@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles, Send, Mail, Link as LinkIcon, Edit2, Upload, Download, Trash2, Database } from 'lucide-react'
+import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles, Send, Mail, Link as LinkIcon, Edit2, Upload, Download, Trash2, Database, Clock, ArrowRight, Lock, Unlock } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
 import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore'
@@ -47,16 +47,23 @@ const gc = s => SC[s] || 'bg-indigo-100 text-indigo-800 border-indigo-200'
 export default function Timetable() {
   const { currentUser } = useAuth()
   
-  // grid[day][period] = { subject, teacher, substitute }
-  const [grid, setGrid] = useState(() => {
+  // grid[day][period] = { subject, teacher, substitute, room, isLocked }
+  const [gridHistory, setGridHistory] = useState(() => {
+    const s = localStorage.getItem('ldms_timetable_v2')
+    return [s ? s : JSON.stringify({})]
+  })
+  const [historyIndex, setHistoryIndex] = useState(0)
+
+  const [grid, _setGrid] = useState(() => {
     const s = localStorage.getItem('ldms_timetable_v2')
     if (s) {
       const parsed = JSON.parse(s);
       ALL_DAYS.forEach(d => {
         if(parsed[d]) {
           PERIODS.forEach(p => {
-            if(parsed[d][p] && parsed[d][p].room === undefined) {
-              parsed[d][p].room = '';
+            if(parsed[d][p]) {
+              if (parsed[d][p].room === undefined) parsed[d][p].room = '';
+              if (parsed[d][p].isLocked === undefined) parsed[d][p].isLocked = false;
             }
           })
         }
@@ -64,9 +71,60 @@ export default function Timetable() {
       return parsed;
     }
     const g = {}
-    ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '', room: '' } }) })
+    ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '', room: '', isLocked: false } }) })
     return g
   })
+
+  const setGrid = (action) => {
+    _setGrid(prev => {
+      const nextGrid = typeof action === 'function' ? action(prev) : action;
+      const gridStr = JSON.stringify(nextGrid);
+      const prevStr = JSON.stringify(prev);
+      
+      if (gridStr !== prevStr) {
+        setGridHistory(curr => {
+          const newHist = [...curr.slice(0, historyIndex + 1), gridStr];
+          if (newHist.length > 20) newHist.shift(); // keep last 20 actions
+          return newHist;
+        });
+        setHistoryIndex(curr => Math.min(curr + 1, 19));
+      }
+      return nextGrid;
+    });
+  }
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const prevStr = gridHistory[historyIndex - 1];
+      _setGrid(JSON.parse(prevStr));
+      setHistoryIndex(i => i - 1);
+    }
+  }
+
+  const handleRedo = () => {
+    if (historyIndex < gridHistory.length - 1) {
+      const nextStr = gridHistory[historyIndex + 1];
+      _setGrid(JSON.parse(nextStr));
+      setHistoryIndex(i => i + 1);
+    }
+  }
+
+  // Keyboard shortcuts for Undo/Redo
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) handleRedo();
+        else handleUndo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [historyIndex, gridHistory]);
 
   const [isUploadingPDF, setIsUploadingPDF] = useState(false)
   const fileInputRef = useRef(null)
@@ -225,9 +283,20 @@ export default function Timetable() {
   const [newTeacher, setNewTeacher] = useState('')
   const [newSubject, setNewSubject] = useState('')
   const [newRoom, setNewRoom] = useState('')
+  const [showBulkActions, setShowBulkActions] = useState(false)
+  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false)
+  const [templates, setTemplates] = useState(() => {
+    const s = localStorage.getItem('ldms_timetable_templates')
+    return s ? JSON.parse(s) : []
+  })
+  const [teacherContacts, setTeacherContacts] = useState(() => {
+    const s = localStorage.getItem('ldms_teacher_contacts')
+    return s ? JSON.parse(s) : {}
+  })
   const [subModal, setSubModal] = useState(null)
   const [isSubPanelOpen, setIsSubPanelOpen] = useState(false)
   const [showAllTeachers, setShowAllTeachers] = useState(false)
+  const [showFreeOnly, setShowFreeOnly] = useState(false)
   const [editingTeacherName, setEditingTeacherName] = useState(null)
   const [editingTeacherNewName, setEditingTeacherNewName] = useState('')
   const [teacherSubjects, setTeacherSubjects] = useState(() => {
@@ -245,6 +314,21 @@ export default function Timetable() {
   const [expandedDay, setExpandedDay] = useState(ALL_DAYS[0])
   const [teacherExpandedDay, setTeacherExpandedDay] = useState(ALL_DAYS[0])
   const [showShareMenu, setShowShareMenu] = useState(false)
+  const [bellTimings, setBellTimings] = useState(() => {
+    const s = localStorage.getItem('ldms_bell_timings')
+    return s ? JSON.parse(s) : {
+      'Period 1': { start: '8:00', end: '8:45' },
+      'Period 2': { start: '8:45', end: '9:30' },
+      'Period 3': { start: '9:30', end: '10:15' },
+      'Period 4': { start: '10:15', end: '11:00' },
+      'Lunch': { start: '11:00', end: '11:30' },
+      'Period 5': { start: '11:30', end: '12:15' },
+      'Period 6': { start: '12:15', end: '1:00' },
+      'Period 7': { start: '1:00', end: '1:45' },
+      'Period 8': { start: '1:45', end: '2:30' }
+    }
+  })
+  const [showBellTimings, setShowBellTimings] = useState(false)
   const tableRef = useRef(null)
 
   useEffect(() => { localStorage.setItem('ldms_timetable_v2', JSON.stringify(grid)) }, [grid])
@@ -264,6 +348,9 @@ export default function Timetable() {
   useEffect(() => { localStorage.setItem('ldms_subject_colors', JSON.stringify(subjectColors)) }, [subjectColors])
   useEffect(() => { localStorage.setItem('ldms_teacher_subjects', JSON.stringify(teacherSubjects)) }, [teacherSubjects])
   useEffect(() => { localStorage.setItem('ldms_teacher_constraints', JSON.stringify(teacherConstraints)) }, [teacherConstraints])
+  useEffect(() => { localStorage.setItem('ldms_bell_timings', JSON.stringify(bellTimings)) }, [bellTimings])
+  useEffect(() => { localStorage.setItem('ldms_timetable_templates', JSON.stringify(templates)) }, [templates])
+  useEffect(() => { localStorage.setItem('ldms_teacher_contacts', JSON.stringify(teacherContacts)) }, [teacherContacts])
 
   const handleDragStart = (e, type, item) => {
     e.dataTransfer.setData('text/plain', JSON.stringify({ type, item }))
@@ -314,6 +401,7 @@ export default function Timetable() {
         activeDays,
         teacherSubjects,
         teacherConstraints,
+        bellTimings,
         updatedAt: serverTimestamp()
       }
 
@@ -799,7 +887,8 @@ export default function Timetable() {
     ALL_DAYS.forEach(d => w.document.write(`<th>${d}</th>`))
     w.document.write(`</tr></thead><tbody>`)
     PERIODS.forEach(p => {
-      w.document.write(`<tr><td><strong>${p}</strong></td>`)
+      const timing = bellTimings[p] ? `<br><span style="font-size:10px;font-weight:normal;color:#475569">${bellTimings[p].start} - ${bellTimings[p].end}</span>` : ''
+      w.document.write(`<tr><td><strong>${p}</strong>${timing}</td>`)
       ALL_DAYS.forEach(d => {
         const assignments = teacherViewGrid[d]?.[p] || []
         if (assignments.length === 0) {
@@ -842,6 +931,7 @@ export default function Timetable() {
     setActiveDays(tb.activeDays || ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'])
     setTeacherSubjects(tb.teacherSubjects || {})
     setTeacherConstraints(tb.teacherConstraints || {})
+    if (tb.bellTimings) setBellTimings(tb.bellTimings)
     setCurrentTimetableId(tb.id)
     setIsCloudModalOpen(false)
   }
@@ -1169,6 +1259,42 @@ export default function Timetable() {
     })
   }
 
+  const getFreeTeachers = (day, period) => {
+    const busy = new Set()
+    
+    // 1. Current grid busy
+    ALL_DAYS.forEach(d => {
+      PERIODS.forEach(p => {
+        if (d !== day || p !== period) return; // wait, if we are checking day and period, we only care about that specific slot
+        const c = grid[d]?.[p]
+        if (!c) return
+        if (c.isSplit && c.groups) c.groups.forEach(g => g.teacher && busy.add(g.teacher))
+        else if (c.teacher) busy.add(c.teacher)
+      })
+    })
+
+    // 2. Other classes busy
+    cloudTimetables.forEach(tb => {
+      if (tb.id === currentTimetableId || tb.className === className) return
+      const oc = tb.grid?.[day]?.[period]
+      if (oc) {
+        if (oc.isSplit && oc.groups) oc.groups.forEach(g => g.teacher && busy.add(g.teacher))
+        else if (oc.teacher) busy.add(oc.teacher)
+      }
+    })
+
+    return [...teachers].filter(t => !busy.has(t) && !isAbsentOnDay(t, day) && !onBreak.includes(t))
+  }
+
+  const toggleLock = (e, day, period) => {
+    e.stopPropagation()
+    setGrid(p => {
+      const next = JSON.parse(JSON.stringify(p))
+      next[day][period].isLocked = !next[day][period].isLocked
+      return next
+    })
+  }
+
   const splitCell = (day, period) => {
     setGrid(p => {
       const next = JSON.parse(JSON.stringify(p))
@@ -1237,7 +1363,8 @@ export default function Timetable() {
 
   const notifySub = (subName, day, period, subject, absentTeacher) => {
     const text = `Hi ${subName}, you have been assigned as a substitute teacher for *${className}* on *${day}* for *${period}*.\n\n*Subject:* ${subject || 'Not specified'}\n*In place of:* ${absentTeacher}\n\nPlease check your schedule.`
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+    const phone = teacherContacts[subName] ? teacherContacts[subName].replace(/[^0-9]/g, '') : ''
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank')
   }
 
   const toggleAbsentDay = (teacher, day) => {
@@ -1636,7 +1763,8 @@ export default function Timetable() {
     activeDays.forEach(d => w.document.write(`<th>${d}</th>`))
     w.document.write(`</tr></thead><tbody>`)
     PERIODS.forEach(p => {
-      w.document.write(`<tr><td><strong>${p}</strong></td>`)
+      const timing = bellTimings[p] ? `<br><span style="font-size:10px;font-weight:normal;color:#475569">${bellTimings[p].start} - ${bellTimings[p].end}</span>` : ''
+      w.document.write(`<tr><td><strong>${p}</strong>${timing}</td>`)
       activeDays.forEach(d => {
         const c = grid[d]?.[p] || {}
         let html = '';
@@ -1670,6 +1798,72 @@ export default function Timetable() {
     w.document.write(`<div class="sign-box"><div class="sign-line">Principal Signature</div><div class="sign-name">${principalName || ''}</div></div>`)
     w.document.write(`</div>`)
     
+    w.document.write(`</body></html>`)
+    w.document.close()
+    setTimeout(() => w.print(), 500)
+  }
+
+  const generateClashReport = () => {
+    // Gather all timetables
+    const allTbs = [...cloudTimetables.filter(t => t.id !== currentTimetableId)]
+    if (className) {
+      allTbs.push({ id: 'current', className, grid })
+    }
+
+    const clashes = []
+    
+    ALL_DAYS.forEach(d => {
+      PERIODS.forEach(p => {
+        const teacherClassMap = {}
+        
+        allTbs.forEach(tb => {
+          const c = tb.grid?.[d]?.[p]
+          if (!c) return
+          if (c.isSplit && c.groups) {
+            c.groups.forEach(g => {
+              if (g.teacher) {
+                if (!teacherClassMap[g.teacher]) teacherClassMap[g.teacher] = []
+                teacherClassMap[g.teacher].push(tb.className)
+              }
+            })
+          } else if (c.teacher) {
+            if (!teacherClassMap[c.teacher]) teacherClassMap[c.teacher] = []
+            teacherClassMap[c.teacher].push(tb.className)
+          }
+        })
+
+        // Check for duplicates
+        Object.entries(teacherClassMap).forEach(([teacher, classNames]) => {
+          if (classNames.length > 1) {
+            clashes.push({ teacher, day: d, period: p, classes: classNames })
+          }
+        })
+      })
+    })
+
+    const w = window.open('', '_blank')
+    w.document.write(`<html><head><title>Clash Report - ${schoolName || 'School'}</title><style>body{font-family:Inter,sans-serif;padding:30px;max-width:800px;margin:0 auto}table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px}th,td{border:1px solid #cbd5e1;padding:10px;text-align:left}th{background:#fef2f2;color:#b91c1c;font-weight:bold}.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #e2e8f0;padding-bottom:20px}.header h1{margin:0 0 10px 0;font-size:24px;color:#b91c1c}.header p{margin:0;color:#475569;font-size:14px}</style></head><body>`)
+    
+    w.document.write(`<div class="header">`)
+    w.document.write(`<h1>🚨 Scheduling Clash Report</h1>`)
+    w.document.write(`<p>Generated on ${new Date().toLocaleDateString()}</p>`)
+    w.document.write(`</div>`)
+    
+    if (clashes.length === 0) {
+      w.document.write(`<div style="text-align:center; padding: 40px; background: #ecfdf5; color: #047857; border-radius: 8px; font-size: 16px; font-weight: bold;">✅ No scheduling conflicts detected across all classes!</div>`)
+    } else {
+      w.document.write(`<table><thead><tr><th>Teacher</th><th>Day</th><th>Period</th><th>Conflicting Classes</th></tr></thead><tbody>`)
+      clashes.sort((a,b) => a.teacher.localeCompare(b.teacher)).forEach(c => {
+        w.document.write(`<tr>
+          <td><strong>${c.teacher}</strong></td>
+          <td>${c.day}</td>
+          <td>${c.period}</td>
+          <td style="color:#b91c1c; font-weight:bold;">${c.classes.join(' &amp; ')}</td>
+        </tr>`)
+      })
+      w.document.write(`</tbody></table>`)
+      w.document.write(`<p style="color:#64748b; font-size:12px;">Total Clashes Found: <strong>${clashes.length}</strong></p>`)
+    }
     w.document.write(`</body></html>`)
     w.document.close()
     setTimeout(() => w.print(), 500)
@@ -1715,11 +1909,92 @@ export default function Timetable() {
     document.body.removeChild(link);
   };
 
-  const handleReset = () => {
-    if (!confirm('Reset entire timetable?')) return
+  const handleSaveTemplate = () => {
+    const name = prompt('Enter a name for this template (e.g., "Standard Middle School")')
+    if (!name) return
+    const templateGrid = {}
+    ALL_DAYS.forEach(d => {
+      templateGrid[d] = {}
+      PERIODS.forEach(p => {
+        if (grid[d]?.[p]) {
+          const c = grid[d][p]
+          if (c.isSplit) {
+            templateGrid[d][p] = {
+              isSplit: true,
+              groups: c.groups.map(g => ({ ...g, teacher: '', substitute: '' }))
+            }
+          } else {
+            templateGrid[d][p] = { subject: c.subject, room: c.room, teacher: '', substitute: '', isLocked: false }
+          }
+        }
+      })
+    })
+    const newTemplate = { id: Date.now().toString(), name, grid: templateGrid, createdAt: new Date().toISOString() }
+    setTemplates(prev => [...prev, newTemplate])
+    alert('Template saved successfully!')
+  }
+
+  const handleApplyTemplate = (template) => {
+    if (!confirm(`Apply template "${template.name}"? This will overwrite the current structure but clear all teachers.`)) return
+    setGrid(template.grid)
+    setIsTemplatesModalOpen(false)
+  }
+
+  const handleDeleteTemplate = (id) => {
+    if (!confirm('Delete this template?')) return
+    setTemplates(prev => prev.filter(t => t.id !== id))
+  }
+
+  // Bulk Actions
+  const handleBulkClearGrid = () => {
+    if (!confirm('Are you sure you want to completely clear the grid? This cannot be undone.')) return
     const g = {}
-    ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '', room: '' } }) })
+    ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '', room: '', isLocked: false } }) })
     setGrid(g)
+    setShowBulkActions(false)
+  }
+
+  const handleBulkClearTeachers = () => {
+    if (!confirm('Remove all teachers but keep subjects?')) return
+    const newGrid = JSON.parse(JSON.stringify(grid))
+    ALL_DAYS.forEach(d => {
+      PERIODS.forEach(p => {
+        if (newGrid[d]?.[p] && !newGrid[d][p].isLocked) {
+          if (newGrid[d][p].isSplit && newGrid[d][p].groups) {
+            newGrid[d][p].groups.forEach(g => { g.teacher = ''; g.substitute = ''; })
+          } else {
+            newGrid[d][p].teacher = '';
+            newGrid[d][p].substitute = '';
+          }
+        }
+      })
+    })
+    setGrid(newGrid)
+    setShowBulkActions(false)
+  }
+
+  const handleBulkClearSubs = () => {
+    if (!confirm('Remove all substitute assignments?')) return
+    const newGrid = JSON.parse(JSON.stringify(grid))
+    ALL_DAYS.forEach(d => {
+      PERIODS.forEach(p => {
+        if (newGrid[d]?.[p] && !newGrid[d][p].isLocked) {
+          if (newGrid[d][p].isSplit && newGrid[d][p].groups) {
+            newGrid[d][p].groups.forEach(g => g.substitute = '')
+          } else {
+            newGrid[d][p].substitute = ''
+          }
+        }
+      })
+    })
+    setGrid(newGrid)
+    setShowBulkActions(false)
+  }
+
+  const handleBulkResetAbsences = () => {
+    if (!confirm('Mark all teachers as present?')) return
+    setAbsentTeachers({})
+    setShowBulkActions(false)
   }
 
   const generateAITimetable = () => {
@@ -1840,7 +2115,7 @@ export default function Timetable() {
       // Fill each day within this period row
       activeDays.forEach(day => {
         const c = newGrid[day]?.[period] || {}
-        if (c.isSplit || c.subject) return // skip already filled
+        if (c.isSplit || c.subject || c.isLocked) return // skip already filled or locked
 
         // Re-sort by remaining count so highest-need subject fills this period row
         subjectReqs.sort((a, b) => b.remaining - a.remaining)
@@ -2085,9 +2360,32 @@ export default function Timetable() {
             </button>
           )}
 
-          <button onClick={handleReset} className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 border border-orange-200 text-orange-600 rounded-xl text-sm font-bold hover:bg-orange-100 shadow-sm">
-            <RotateCcw className="w-4 h-4" /> <span>Clear Grid</span>
+          <div className="flex items-center gap-2 border-l border-surface-200 pl-2">
+            <button onClick={handleUndo} disabled={historyIndex <= 0} className="p-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl hover:bg-surface-50 shadow-sm disabled:opacity-50 transition-all" title="Undo (Ctrl+Z)">
+              <RotateCcw className="w-4 h-4" />
+            </button>
+            <button onClick={handleRedo} disabled={historyIndex >= gridHistory.length - 1} className="p-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl hover:bg-surface-50 shadow-sm disabled:opacity-50 transition-all" title="Redo (Ctrl+Y)">
+              <RotateCcw className="w-4 h-4 transform scale-x-[-1]" />
+            </button>
+          </div>
+
+          <button onClick={() => setIsTemplatesModalOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-sm font-bold hover:bg-amber-100 shadow-sm transition-all">
+            <Copy className="w-4 h-4" /> <span>Templates</span>
           </button>
+
+          <div className="relative">
+            <button onClick={() => setShowBulkActions(!showBulkActions)} className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 border border-orange-200 text-orange-600 rounded-xl text-sm font-bold hover:bg-orange-100 shadow-sm transition-all">
+              <Sparkles className="w-4 h-4" /> <span>Bulk Actions</span> <ChevronDown className="w-3 h-3 ml-1" />
+            </button>
+            {showBulkActions && (
+              <div className="absolute top-full right-0 mt-2 w-56 bg-white border border-surface-200 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
+                <button onClick={handleBulkClearTeachers} className="w-full text-left px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-50 border-b border-surface-100 flex items-center gap-2"><UserX className="w-4 h-4 text-surface-400" /> Clear Teachers</button>
+                <button onClick={handleBulkClearSubs} className="w-full text-left px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-50 border-b border-surface-100 flex items-center gap-2"><UserX className="w-4 h-4 text-red-400" /> Clear Substitutes</button>
+                <button onClick={handleBulkResetAbsences} className="w-full text-left px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-50 border-b border-surface-100 flex items-center gap-2"><UserCheck className="w-4 h-4 text-emerald-400" /> Reset All Absences</button>
+                <button onClick={handleBulkClearGrid} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 className="w-4 h-4" /> Clear Entire Grid</button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -2197,6 +2495,16 @@ export default function Timetable() {
                       <Coffee className="w-3.5 h-3.5" />
                     </button>
                     <button onClick={() => removeTeacher(t)} className="p-1.5 rounded-lg hover:bg-red-100 text-surface-300 hover:text-red-500 transition-colors"><X className="w-3.5 h-3.5" /></button>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 px-1">
+                    <MessageCircle className="w-3 h-3 text-surface-400" />
+                    <input 
+                      type="text" 
+                      placeholder="WhatsApp No. (e.g. +91...)" 
+                      value={teacherContacts[t] || ''} 
+                      onChange={e => setTeacherContacts(prev => ({ ...prev, [t]: e.target.value }))}
+                      className="text-[10px] font-bold bg-white border border-surface-200 rounded px-2 py-1 w-full focus:outline-none focus:border-[#25D366] transition-colors"
+                    />
                   </div>
                   {/* Day-specific absent chips */}
                   {isAbsent && (
@@ -2310,8 +2618,38 @@ export default function Timetable() {
               ))}
             </div>
           </div>
+
         </div>
       )}
+
+      {/* Advanced Timetable Controls */}
+      <div className="mb-6 animate-fade-in">
+        {/* Bell Timings Editor */}
+        <div className="bg-white rounded-[24px] border border-surface-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-extrabold text-surface-900 flex items-center gap-2"><Clock className="w-4 h-4 text-violet-500" /> Bell Timings</h3>
+              <p className="text-xs text-surface-500 mt-1">Set period start and end times for printing.</p>
+            </div>
+            <button onClick={() => setShowBellTimings(!showBellTimings)} className={`text-xs font-bold px-4 py-2 rounded-xl transition-all ${showBellTimings ? 'bg-violet-100 text-violet-700' : 'bg-surface-100 text-surface-600 hover:bg-surface-200'}`}>
+              {showBellTimings ? 'Hide Editor' : 'Edit Timings'}
+            </button>
+          </div>
+          {showBellTimings && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-4 border-t border-surface-100">
+              {PERIODS.map(p => (
+                <div key={p} className="flex items-center gap-2 bg-surface-50 rounded-xl px-3 py-2.5 border border-surface-100">
+                  <span className="text-xs font-bold text-surface-600 w-16 truncate">{p}</span>
+                  <input type="time" value={bellTimings[p]?.start || ''} onChange={e => setBellTimings(prev => ({ ...prev, [p]: { ...prev[p], start: e.target.value } }))} className="text-xs font-bold bg-white border border-surface-200 rounded-lg px-2 py-1.5 w-[85px] focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all" />
+                  <span className="text-[10px] font-bold text-surface-400">to</span>
+                  <input type="time" value={bellTimings[p]?.end || ''} onChange={e => setBellTimings(prev => ({ ...prev, [p]: { ...prev[p], end: e.target.value } }))} className="text-xs font-bold bg-white border border-surface-200 rounded-lg px-2 py-1.5 w-[85px] focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+      </div>
 
       {/* Timetable Grid */}
       <div ref={tableRef} className="bg-white rounded-[28px] border border-surface-200 shadow-sm overflow-hidden">
@@ -2322,15 +2660,50 @@ export default function Timetable() {
             <thead>
               <tr>
                 <th className="p-4 text-left text-xs font-black uppercase tracking-widest text-surface-400 bg-surface-50 w-[100px]">Period</th>
-                {activeDays.map((d, i) => (
-                  <th key={d} className="p-4 text-center text-xs font-black uppercase tracking-widest text-surface-500 bg-surface-50">{d}</th>
-                ))}
+                {activeDays.map((d, i) => {
+                  // Clash detection for this day
+                  const dayClashes = [];
+                  PERIODS.forEach(p => {
+                    const cell = grid[d]?.[p];
+                    if (!cell) return;
+                    const teachers_in_period = [];
+                    if (cell.isSplit && cell.groups) cell.groups.forEach(g => { if (g.teacher) teachers_in_period.push(g.teacher); });
+                    else if (cell.teacher) teachers_in_period.push(cell.teacher);
+                    
+                    teachers_in_period.forEach(t => {
+                      (cloudTimetables || []).forEach(tb => {
+                        if (tb.id === currentTimetableId) return;
+                        const otherCell = tb.grid?.[d]?.[p];
+                        if (!otherCell) return;
+                        const otherTeachers = [];
+                        if (otherCell.isSplit && otherCell.groups) otherCell.groups.forEach(g => { if (g.teacher) otherTeachers.push(g.teacher); });
+                        else if (otherCell.teacher) otherTeachers.push(otherCell.teacher);
+                        if (otherTeachers.includes(t)) dayClashes.push({ period: p, teacher: t, otherClass: tb.className });
+                      });
+                    });
+                  });
+                  return (
+                    <th key={d} className="p-4 text-center text-xs font-black uppercase tracking-widest text-surface-500 bg-surface-50 relative">
+                      {d}
+                      {dayClashes.length > 0 && (
+                        <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-black flex items-center justify-center animate-pulse" title={`${dayClashes.length} clash(es): ${dayClashes.map(c => `${c.teacher} (${c.period} - ${c.otherClass})`).join(', ')}`}>
+                          {dayClashes.length}
+                        </span>
+                      )}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
               {PERIODS.map((period, pi) => (
                 <tr key={period} className={`${pi % 2 === 0 ? '' : 'bg-surface-50/30'} border-t border-surface-100`}>
-                  <td className="p-3 text-xs font-bold text-surface-500 whitespace-nowrap">{period}</td>
+                  <td className="p-3 text-xs font-bold text-surface-500 whitespace-nowrap">
+                    <div>{period}</div>
+                    {bellTimings[period] && (
+                      <div className="text-[9px] text-surface-400 font-medium mt-0.5">{bellTimings[period].start} - {bellTimings[period].end}</div>
+                    )}
+                  </td>
                   {activeDays.map(day => {
                     const cell = grid[day]?.[period] || {}
                     const isEd = editing === `${day}-${period}`
@@ -2338,10 +2711,10 @@ export default function Timetable() {
                     return (
                       <td 
                         key={`${day}-${period}`} 
-                        className="p-1.5 text-center relative" 
-                        onClick={() => { if (!isEd) { setEditing(`${day}-${period}`); setShowAllTeachers(false); } }}
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDropOnCell(e, day, period)}
+                        className={`p-1.5 text-center relative group ${cell.isLocked ? 'bg-surface-100 opacity-80' : ''}`} 
+                        onClick={() => { if (!isEd && !cell.isLocked) { setEditing(`${day}-${period}`); setShowAllTeachers(false); } }}
+                        onDragOver={(e) => { if (!cell.isLocked) handleDragOver(e); }}
+                        onDrop={(e) => { if (!cell.isLocked) handleDropOnCell(e, day, period); }}
                       >
                         {isEd && (
                           <div className="absolute inset-0 z-20 bg-white border-2 border-indigo-400 rounded-xl shadow-xl p-2 flex flex-col gap-1 max-h-[320px] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -2373,14 +2746,23 @@ export default function Timetable() {
                                   
                                   <div className="flex items-center justify-between px-1 mt-2 mb-1">
                                     <span className="text-[9px] font-bold text-surface-400">TEACHER</span>
-                                    {group.subject && (
-                                      <button onClick={() => setShowAllTeachers(!showAllTeachers)} className="text-[9px] text-indigo-500 font-bold hover:underline">
-                                        {showAllTeachers ? 'Hide Unrelated' : 'Show All'}
+                                    <div className="flex items-center gap-2">
+                                      <button onClick={() => setShowFreeOnly(!showFreeOnly)} className={`text-[9px] font-bold px-1.5 py-0.5 rounded transition-all ${showFreeOnly ? 'bg-emerald-100 text-emerald-700' : 'text-emerald-600 hover:bg-emerald-50'}`}>
+                                        {showFreeOnly ? 'Showing Free' : 'Find Free'}
                                       </button>
-                                    )}
+                                      {group.subject && (
+                                        <button onClick={() => setShowAllTeachers(!showAllTeachers)} className="text-[9px] text-indigo-500 font-bold hover:underline">
+                                          {showAllTeachers ? 'Hide Unrelated' : 'Show All'}
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                   <div className="flex flex-wrap gap-1">
-                                    {[...teachers].filter(t => !group.subject || showAllTeachers || (teacherSubjects[t] || []).includes(group.subject)).sort((a,b) => {
+                                    {[...teachers].filter(t => {
+                                      if (showFreeOnly && !getFreeTeachers(day, period).includes(t)) return false;
+                                      if (!group.subject || showAllTeachers || (teacherSubjects[t] || []).includes(group.subject)) return true;
+                                      return false;
+                                    }).sort((a,b) => {
                                       const aMatch = group.subject && (teacherSubjects[a] || []).includes(group.subject) ? -1 : 1
                                       const bMatch = group.subject && (teacherSubjects[b] || []).includes(group.subject) ? -1 : 1
                                       return aMatch - bMatch
@@ -2431,7 +2813,10 @@ export default function Timetable() {
                             ))}
                           </div>
                         ) : (
-                          <div className={`px-2 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border min-h-[52px] flex flex-col items-center justify-center gap-0.5 ${cell.subject ? gc(cell.subject) : 'border-dashed border-surface-200 text-surface-300 hover:border-surface-400'}`}>
+                          <div className={`px-2 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border min-h-[52px] flex flex-col items-center justify-center gap-0.5 relative ${cell.subject ? gc(cell.subject) : 'border-dashed border-surface-200 text-surface-300 hover:border-surface-400'}`}>
+                            <button onClick={(e) => toggleLock(e, day, period)} className={`absolute top-1 right-1 p-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity ${cell.isLocked ? 'opacity-100 text-red-500 bg-red-100' : 'text-surface-400 hover:bg-surface-100'}`} title={cell.isLocked ? 'Unlock Cell' : 'Lock Cell'}>
+                              {cell.isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                            </button>
                             {cell.subject ? (
                               <>
                                 <span>{cell.subject}</span>
@@ -3444,6 +3829,15 @@ export default function Timetable() {
                     </div>
                     <Download className="w-4 h-4 text-surface-300 group-hover:text-amber-500 transition-colors" />
                   </button>
+
+                  <button onClick={() => { generateClashReport(); setIsSubReportModalOpen(false); }} className="w-full flex items-center gap-4 p-4 rounded-2xl border border-surface-200 hover:border-red-300 hover:bg-red-50/50 transition-all group text-left">
+                    <div className="w-11 h-11 rounded-xl bg-red-100 flex items-center justify-center text-lg shrink-0 group-hover:bg-red-200 transition-colors">{'\ud83d\udea8'}</div>
+                    <div className="flex-1">
+                      <p className="text-sm font-extrabold text-surface-900">Scheduling Clash Report</p>
+                      <p className="text-[11px] text-surface-500">Scan all classes to detect double-booked teachers</p>
+                    </div>
+                    <Download className="w-4 h-4 text-surface-300 group-hover:text-red-500 transition-colors" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -3491,6 +3885,48 @@ export default function Timetable() {
             <button onClick={generateAITimetable} className="w-full py-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2">
               <Sparkles className="w-5 h-5" /> Run AI Generator
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Templates Modal */}
+      {isTemplatesModalOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsTemplatesModalOpen(false)}>
+          <div className="bg-white rounded-[28px] shadow-2xl flex flex-col w-full max-w-2xl max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-6 sm:p-8 flex items-center justify-between border-b border-surface-100">
+              <div>
+                <h3 className="text-xl sm:text-2xl font-extrabold text-surface-900 flex items-center gap-2 font-display">
+                  <Copy className="w-6 h-6 text-amber-500" /> Templates
+                </h3>
+                <p className="text-sm text-surface-500 mt-1">Save grid structures (subjects & rooms) to reuse later.</p>
+              </div>
+              <button onClick={() => setIsTemplatesModalOpen(false)} className="p-2 hover:bg-surface-100 rounded-xl transition-colors"><X className="w-5 h-5 text-surface-500" /></button>
+            </div>
+            
+            <div className="p-6 sm:p-8 flex-1 overflow-y-auto bg-surface-50">
+              <button onClick={handleSaveTemplate} className="w-full py-4 mb-6 bg-white border-2 border-dashed border-amber-300 text-amber-700 rounded-xl text-sm font-bold shadow-sm hover:bg-amber-50 transition-all flex items-center justify-center gap-2">
+                <Plus className="w-5 h-5" /> Save Current Grid as Template
+              </button>
+
+              {templates.length === 0 ? (
+                <div className="text-center py-10 text-surface-400 font-medium">No templates saved yet.</div>
+              ) : (
+                <div className="grid gap-4">
+                  {templates.map(t => (
+                    <div key={t.id} className="bg-white p-4 rounded-xl border border-surface-200 shadow-sm flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-surface-800">{t.name}</div>
+                        <div className="text-xs text-surface-400 mt-1">Saved {new Date(t.createdAt).toLocaleDateString()}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleApplyTemplate(t)} className="px-4 py-2 bg-amber-100 text-amber-700 font-bold rounded-lg hover:bg-amber-200 text-xs transition-colors">Apply</button>
+                        <button onClick={() => handleDeleteTemplate(t.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
