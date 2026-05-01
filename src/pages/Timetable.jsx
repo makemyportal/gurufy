@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
 import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { generateWithGeminiVision } from '../utils/aiService'
+import { useGamification } from '../contexts/GamificationContext'
 
 const ALL_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
 const PERIODS = ['Period 1','Period 2','Period 3','Period 4','Lunch','Period 5','Period 6','Period 7','Period 8']
@@ -46,6 +47,11 @@ const gc = s => SC[s] || 'bg-indigo-100 text-indigo-800 border-indigo-200'
 
 export default function Timetable() {
   const { currentUser } = useAuth()
+  const { spendCoins, toolCosts, stats } = useGamification()
+  
+  const GENERATION_COST = toolCosts?.['timetable'] ?? 10
+  const VISION_TAX = 10
+  const visionUses = stats?.visionUploads || 0
   
   // grid[day][period] = { subject, teacher, substitute, room, isLocked }
   const [gridHistory, setGridHistory] = useState(() => {
@@ -133,6 +139,20 @@ export default function Timetable() {
     const file = e.target.files?.[0]
     if (!file) return
     
+    if (visionUses >= 2) {
+      if ((stats?.coins || 0) < VISION_TAX) {
+        alert(`Not enough coins for Vision AI! You need ${VISION_TAX} 🪙.`)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+        return
+      }
+      const success = await spendCoins(VISION_TAX, 'Timetable OCR Vision')
+      if (!success) {
+        alert('Failed to deduct coins.')
+        if (fileInputRef.current) fileInputRef.current.value = ''
+        return
+      }
+    }
+
     setIsUploadingPDF(true)
     try {
       const reader = new FileReader()
@@ -1997,7 +2017,7 @@ export default function Timetable() {
     setShowBulkActions(false)
   }
 
-  const generateAITimetable = () => {
+  const generateAITimetable = async () => {
     let totalReq = 0
     Object.values(aiRequirements).forEach(v => totalReq += (parseInt(v) || 0))
     const teachingPeriods = PERIODS.filter(p => p !== 'Lunch')
@@ -2005,6 +2025,12 @@ export default function Timetable() {
     if (totalReq > maxPeriods) {
       return alert(`Too many periods required! You requested ${totalReq}, but there are only ${maxPeriods} slots available.`)
     }
+
+    if ((stats?.coins || 0) < GENERATION_COST) {
+      return alert(`Not enough coins! You need ${GENERATION_COST} 🪙 to use AI Timetable Generation.`)
+    }
+    const success = await spendCoins(GENERATION_COST, 'AI Timetable Generation')
+    if (!success) return alert('Failed to deduct coins.')
 
     const newGrid = JSON.parse(JSON.stringify(grid))
 
@@ -2443,7 +2469,7 @@ export default function Timetable() {
               className="px-4 py-2.5 bg-violet-100 text-violet-700 border border-violet-200 rounded-xl text-sm font-bold hover:bg-violet-200 transition-colors flex items-center gap-2"
             >
               <Upload className="w-4 h-4" />
-              {isUploadingPDF ? 'Scanning...' : 'Import from PDF'}
+              {isUploadingPDF ? 'Scanning...' : `Import from PDF ${visionUses >= 2 ? `(${VISION_TAX} 🪙)` : '(Free)'}`}
             </button>
           </div>
           {/* Teacher list */}
@@ -3883,7 +3909,7 @@ export default function Timetable() {
             </div>
 
             <button onClick={generateAITimetable} className="w-full py-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2">
-              <Sparkles className="w-5 h-5" /> Run AI Generator
+              <Sparkles className="w-5 h-5" /> Run AI Generator ({GENERATION_COST} 🪙)
             </button>
           </div>
         </div>
