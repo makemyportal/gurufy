@@ -27,6 +27,7 @@ function getTeacherNav(t, settings) {
     { to: '/timetable', icon: CalendarDays, label: 'Timetable', color: 'from-teal-500 to-teal-600', shadow: 'rgba(20,184,166,0.4)' },
     { to: '/ai-directory', icon: Sparkles, label: 'AI Platforms', color: 'from-pink-500 to-rose-600', shadow: 'rgba(236,72,153,0.4)' },
     { to: '/smart-exam', icon: FileQuestion, label: 'Smart Exam Maker', color: 'from-fuchsia-500 to-purple-600', shadow: 'rgba(192,38,211,0.4)' },
+    { to: '/syllabus-bifurcator', icon: CalendarDays, label: 'Syllabus Pro', color: 'from-cyan-500 to-blue-600', shadow: 'rgba(6,182,212,0.4)' },
     { to: '/history', icon: History, label: 'Generation History', color: 'from-purple-500 to-violet-600', shadow: 'rgba(139,92,246,0.4)' },
     { to: '/resources', icon: FolderOpen, label: 'My Files & Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
     { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
@@ -38,6 +39,7 @@ function getSchoolNav(t, settings) {
     { to: '/timetable', icon: CalendarDays, label: 'Timetable', color: 'from-teal-500 to-teal-600', shadow: 'rgba(20,184,166,0.4)' },
     { to: '/ai-directory', icon: Sparkles, label: 'AI Platforms', color: 'from-pink-500 to-rose-600', shadow: 'rgba(236,72,153,0.4)' },
     { to: '/smart-exam', icon: FileQuestion, label: 'Smart Exam Maker', color: 'from-fuchsia-500 to-purple-600', shadow: 'rgba(192,38,211,0.4)' },
+    { to: '/syllabus-bifurcator', icon: CalendarDays, label: 'Syllabus Pro', color: 'from-cyan-500 to-blue-600', shadow: 'rgba(6,182,212,0.4)' },
     { to: '/history', icon: History, label: 'History', color: 'from-purple-500 to-violet-600', shadow: 'rgba(139,92,246,0.4)' },
     { to: '/resources', icon: FolderOpen, label: 'Shared Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
     { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }

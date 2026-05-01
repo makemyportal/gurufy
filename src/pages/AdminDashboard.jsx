@@ -1130,6 +1130,7 @@ export default function AdminDashboard() {
                     { id: 'lesson-planner', name: 'Lesson Planner', defaultCost: 10, icon: '📖' },
                     { id: 'timetable', name: 'Timetable Builder', defaultCost: 10, icon: '📅' },
                     { id: 'classroom-quiz', name: 'Classroom Quiz', defaultCost: 5, icon: '🎮' },
+                    { id: 'syllabus-bifurcator', name: 'Syllabus Bifurcation', defaultCost: 5, icon: '📅' },
                   ].map(tool => {
                     const currentCost = platformSettings?.toolCosts?.[tool.id] ?? tool.defaultCost
                     return (

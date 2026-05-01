@@ -4,7 +4,7 @@ import { generateWithGeminiVision, generateAIContent } from '../utils/aiService'
 import { useGamification } from '../contexts/GamificationContext'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, increment } from 'firebase/firestore'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -28,6 +28,23 @@ export default function SmartExamMaker() {
     difficulty: 'Medium', language: 'English', paperSets: 1, watermarkText: '', useBlooms: true, includePYQ: false, useAutoPattern: false
   })
   
+  const [vaultItems, setVaultItems] = useState([])
+  const [selectedVaultItem, setSelectedVaultItem] = useState(null)
+  
+  // Load Vault items on mount
+  useEffect(() => {
+    if (!currentUser) return
+    const fetchVault = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'users', currentUser.uid, 'vault'))
+        const now = Date.now()
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.expiresAt > now)
+        setVaultItems(items)
+      } catch (err) { console.error('Failed to load vault', err) }
+    }
+    fetchVault()
+  }, [currentUser])
+  
   // Custom Blueprint State
   const [blueprint, setBlueprint] = useState([
     { id: 1, type: 'Multiple Choice Questions (MCQ)', count: 5, marksPerQuestion: 1 },
@@ -42,6 +59,7 @@ export default function SmartExamMaker() {
 
   const calculatedTotalMarks = blueprint.reduce((acc, curr) => acc + (curr.count * curr.marksPerQuestion), 0)
   const totalMarksDisplay = form.useAutoPattern ? 'Auto (Official)' : calculatedTotalMarks
+
 
   const [inputMode, setInputMode] = useState('upload') 
   const [topic, setTopic] = useState('')
@@ -63,6 +81,12 @@ export default function SmartExamMaker() {
   const { spendCoins, toolCosts, stats } = useGamification()
 
   const GENERATION_COST = toolCosts?.['smart-exam'] ?? 5
+  
+  const VISION_TAX = 10
+  const visionUses = stats?.visionUploads || 0
+  const isPremiumVision = inputMode === 'upload' && visionUses >= 2
+  const TOTAL_COST = (GENERATION_COST * form.paperSets) + (isPremiumVision ? VISION_TAX : 0)
+
   const canGenerate = form.subject && form.grade && (inputMode === 'upload' ? file : topic.trim().length > 3)
 
   const handleFileChange = (e) => {
@@ -119,8 +143,6 @@ export default function SmartExamMaker() {
   // Firebase history saving has been disabled per new economic policy
 
   const handleGenerate = async () => {
-    const TOTAL_COST = GENERATION_COST * form.paperSets
-
     if ((stats?.coins || 0) < TOTAL_COST) {
       return setError(`Not enough coins! You need ${TOTAL_COST} 🪙. Current: ${stats?.coins || 0}`)
     }
@@ -137,7 +159,10 @@ export default function SmartExamMaker() {
         if (!filePreview) throw new Error("File not loaded properly.")
         base64Data = filePreview.split(',')[1]
         mimeType = file.type
-        promptPrefix = `Based ONLY on the content provided in the image/PDF material`
+        promptPrefix = `Based ONLY on the content provided in the uploaded document. FIRST, extract all the core text, syllabus, and concepts from the document and wrap it exactly inside <vault_text> and </vault_text> tags at the very beginning of your response. THEN proceed to generate the exam.`
+      } else if (inputMode === 'vault') {
+        if (!selectedVaultItem) throw new Error("Please select a document from the vault.")
+        promptPrefix = `Based on the following extracted document text: "${selectedVaultItem.textData}"`
       } else {
         promptPrefix = `Based on the official syllabus for topic: "${topic}"`
       }
@@ -189,8 +214,34 @@ IMPORTANT:
 - Separate sets using SET_START and SET_END.
 - Format beautifully using Markdown.`
 
-      const content = await generateWithGeminiVision(prompt, base64Data, mimeType)
+      let content = await generateWithGeminiVision(prompt, base64Data, mimeType)
       
+      // Parse Vault Text
+      const vaultMatch = content.match(/<vault_text>([\s\S]*?)<\/vault_text>/)
+      if (vaultMatch && vaultMatch[1]) {
+        const extractedText = vaultMatch[1].trim()
+        content = content.replace(/<vault_text>[\s\S]*?<\/vault_text>/, '').trim()
+        
+        // Save to Firebase Vault
+        if (currentUser) {
+          try {
+            const vaultDoc = {
+              fileName: file?.name || 'Extracted Document',
+              textData: extractedText,
+              expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
+              createdAt: Date.now()
+            }
+            const docRef = await addDoc(collection(db, 'users', currentUser.uid, 'vault'), vaultDoc)
+            setVaultItems(prev => [{ id: docRef.id, ...vaultDoc }, ...prev])
+            
+            // Increment Vision Usage
+            await updateDoc(doc(db, 'gamification', currentUser.uid), {
+              visionUploads: increment(1)
+            })
+          } catch (err) { console.error("Failed to save to vault", err) }
+        }
+      }
+
       const sets = []
       // Use strict regex to find blocks between SET_START and SET_END
       const setMatches = content.match(/SET_START: Set [A-Z][\s\S]*?SET_END/g)
@@ -374,29 +425,69 @@ IMPORTANT:
                 <FileText className="w-5 h-5 text-fuchsia-600" /> Syllabus Source
               </h2>
               
-              <div className="flex bg-surface-100 p-1 rounded-xl mb-6">
+              <div className="flex bg-surface-100 p-1 rounded-xl mb-4">
                 <button onClick={() => setInputMode('upload')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputMode === 'upload' ? 'bg-white text-fuchsia-600 shadow-sm' : 'text-surface-600 hover:text-surface-800'}`}>Upload File</button>
                 <button onClick={() => setInputMode('topic')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputMode === 'topic' ? 'bg-white text-fuchsia-600 shadow-sm' : 'text-surface-600 hover:text-surface-800'}`}>Select Topic</button>
+                <button onClick={() => setInputMode('vault')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputMode === 'vault' ? 'bg-white text-fuchsia-600 shadow-sm' : 'text-surface-600 hover:text-surface-800'}`}>Recent Uploads</button>
               </div>
 
               {inputMode === 'upload' ? (
-                <div onClick={() => !file && fileInputRef.current?.click()} className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${file ? 'border-fuchsia-400 bg-fuchsia-50/50' : 'border-surface-300 bg-surface-50 hover:bg-surface-100 cursor-pointer'}`}>
-                  <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/jpeg, image/png, application/pdf" className="hidden" />
-                  {file ? (
-                    <div className="relative animate-fade-in">
-                      {file.type.startsWith('image/') ? (
-                        <div className="aspect-[3/4] max-h-[200px] mx-auto rounded-xl overflow-hidden shadow-sm mb-3 border border-surface-200"><img src={filePreview} alt="Preview" className="w-full h-full object-cover" /></div>
-                      ) : (
-                        <div className="w-16 h-16 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mx-auto mb-3"><FileText className="w-8 h-8" /></div>
-                      )}
-                      <p className="text-sm font-bold text-surface-800 truncate px-4">{file.name}</p>
-                      <button onClick={(e) => { e.stopPropagation(); setFile(null); setFilePreview(null); }} className="absolute -top-3 -right-3 w-8 h-8 bg-white border border-surface-200 text-surface-500 rounded-full flex items-center justify-center shadow-md hover:text-red-500"><X className="w-4 h-4" /></button>
+                <div>
+                  <div onClick={() => !file && fileInputRef.current?.click()} className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${file ? 'border-fuchsia-400 bg-fuchsia-50/50' : 'border-surface-300 bg-surface-50 hover:bg-surface-100 cursor-pointer'}`}>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/jpeg, image/png, application/pdf" className="hidden" />
+                    {file ? (
+                      <div className="relative animate-fade-in">
+                        {file.type.startsWith('image/') ? (
+                          <div className="aspect-[3/4] max-h-[200px] mx-auto rounded-xl overflow-hidden shadow-sm mb-3 border border-surface-200"><img src={filePreview} alt="Preview" className="w-full h-full object-cover" /></div>
+                        ) : (
+                          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mx-auto mb-3"><FileText className="w-8 h-8" /></div>
+                        )}
+                        <p className="text-sm font-bold text-surface-800 truncate px-4">{file.name}</p>
+                        <button onClick={(e) => { e.stopPropagation(); setFile(null); setFilePreview(null); }} className="absolute -top-3 -right-3 w-8 h-8 bg-white border border-surface-200 text-surface-500 rounded-full flex items-center justify-center shadow-md hover:text-red-500"><X className="w-4 h-4" /></button>
+                      </div>
+                    ) : (
+                      <div className="py-8">
+                        <div className="w-16 h-16 bg-white border border-surface-200 shadow-sm rounded-full flex items-center justify-center mx-auto mb-4"><UploadCloud className="w-8 h-8 text-fuchsia-500" /></div>
+                        <p className="text-base font-bold text-surface-800">Click to Upload</p>
+                        <p className="text-xs font-medium text-surface-500 mt-1">Supports JPG, PNG, or PDF (Max 5MB)</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 bg-surface-50 p-3 rounded-xl border border-surface-200 flex justify-between items-center">
+                    <div>
+                      <p className="text-xs font-bold text-surface-800">Vision OCR Uses: {visionUses}/2 Free</p>
+                      <p className="text-[10px] text-surface-500 font-medium">Text will be extracted and saved to vault for 24h.</p>
+                    </div>
+                    {isPremiumVision && <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-lg">Premium: +{VISION_TAX} Coins</span>}
+                  </div>
+                </div>
+              ) : inputMode === 'vault' ? (
+                <div className="animate-fade-in">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-bold text-surface-700">Select Extracted Document (Valid for 24h)</label>
+                  </div>
+                  {vaultItems.length === 0 ? (
+                    <div className="text-center py-10 bg-surface-50 rounded-xl border border-surface-200">
+                      <p className="text-sm font-bold text-surface-500">Your vault is empty.</p>
+                      <p className="text-xs text-surface-400 mt-1">Upload a PDF/Image first to extract text here.</p>
                     </div>
                   ) : (
-                    <div className="py-8">
-                      <div className="w-16 h-16 bg-white border border-surface-200 shadow-sm rounded-full flex items-center justify-center mx-auto mb-4"><UploadCloud className="w-8 h-8 text-fuchsia-500" /></div>
-                      <p className="text-base font-bold text-surface-800">Click to Upload</p>
-                      <p className="text-xs font-medium text-surface-500 mt-1">Supports JPG, PNG, or PDF (Max 5MB)</p>
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                      {vaultItems.map(item => {
+                        const isSelected = selectedVaultItem?.id === item.id;
+                        const hoursLeft = Math.max(0, Math.floor((item.expiresAt - Date.now()) / (1000 * 60 * 60)));
+                        return (
+                          <div key={item.id} onClick={() => setSelectedVaultItem(item)} className={`p-3 rounded-xl border cursor-pointer transition-all ${isSelected ? 'bg-fuchsia-50 border-fuchsia-400' : 'bg-white border-surface-200 hover:border-fuchsia-200'}`}>
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="text-sm font-bold text-surface-800">{item.fileName}</p>
+                                <p className="text-xs text-surface-500 line-clamp-1 mt-1">{item.textData.substring(0, 100)}...</p>
+                              </div>
+                              <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-md">{hoursLeft}h left</span>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -558,8 +649,8 @@ IMPORTANT:
 
                 {error && <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 text-sm text-red-700 font-bold">{error}</div>}
                 
-                <button onClick={handleGenerate} disabled={!canGenerate || generating} className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white font-extrabold rounded-xl hover:from-fuchsia-500 hover:to-indigo-500 transition-all disabled:opacity-40 shadow-lg text-lg">
-                  {generating ? <><Loader2 className="w-5 h-5 animate-spin"/> Crafting CBSE Pattern Exam...</> : <><Sparkles className="w-5 h-5"/> Generate Board Pattern Exam <span className="ml-1 text-sm bg-white/20 px-2 py-1 rounded-md">Cost: {GENERATION_COST * form.paperSets} 🪙</span></>}
+                <button onClick={handleGenerate} disabled={generating || (inputMode==='upload'&&!file) || (inputMode==='vault'&&!selectedVaultItem) || (inputMode==='topic'&&topic.trim().length<3)} className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white font-extrabold rounded-xl hover:from-fuchsia-500 hover:to-indigo-500 transition-all disabled:opacity-40 shadow-lg text-lg">
+                  {generating ? <><Loader2 className="w-5 h-5 animate-spin"/> Crafting CBSE Pattern Exam...</> : <><Sparkles className="w-5 h-5"/> Generate Board Pattern Exam <span className="ml-1 text-sm bg-white/20 px-2 py-1 rounded-md">Cost: {TOTAL_COST} 🪙</span></>}
                 </button>
               </div>
             </div>

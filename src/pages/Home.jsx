@@ -80,6 +80,15 @@ const utilityApps = [
     hover: 'group-hover:shadow-[0_0_20px_rgba(192,38,211,0.4)]'
   },
   {
+    id: 'syllabus-bifurcator',
+    title: 'Syllabus Pro',
+    description: 'Bifurcate textbook index photos into weekly or monthly plans.',
+    icon: CalendarDays,
+    path: '/syllabus-bifurcator',
+    bg: 'bg-cyan-600',
+    hover: 'group-hover:shadow-[0_0_20px_rgba(8,145,178,0.4)]'
+  },
+  {
     id: 'classroom-quiz',
     title: 'Classroom Quiz',
     description: 'Create & present live quizzes Kahoot-style.',
