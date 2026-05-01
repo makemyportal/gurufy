@@ -116,28 +116,18 @@ export default function SmartExamMaker() {
   const removeBlueprintItem = (id) => setBlueprint(prev => prev.filter(item => item.id !== id))
   const addBlueprintItem = () => setBlueprint(prev => [...prev, { id: Date.now(), type: 'New Section', count: 1, marksPerQuestion: 1 }])
 
-  const saveToFirebase = async (paperSetsContent) => {
-    if (!currentUser) return
-    try {
-      await addDoc(collection(db, 'users', currentUser.uid, 'generations'), {
-        toolId: 'smart-exam',
-        toolTitle: `Smart Exam: ${form.subject} - ${form.grade}`,
-        toolColor: 'from-fuchsia-500 to-purple-600',
-        content: paperSetsContent[0].paper + (form.includeAnswerKey ? '\n\n' + paperSetsContent[0].key : ''),
-        createdAt: serverTimestamp(),
-        metadata: { subject: form.subject, grade: form.grade, board: form.board }
-      })
-    } catch (err) { console.warn("Failed to save to history", err) }
-  }
+  // Firebase history saving has been disabled per new economic policy
 
   const handleGenerate = async () => {
-    if (generationCount > 0) {
-      if ((stats?.coins || 0) < GENERATION_COST) return setError(`Not enough coins! You need ${GENERATION_COST} 🪙. Current: ${stats?.coins || 0}`)
-      const success = await spendCoins(GENERATION_COST, 'Smart Exam Maker')
-      if (!success) return setError('Failed to deduct coins.')
+    const TOTAL_COST = GENERATION_COST * form.paperSets
+
+    if ((stats?.coins || 0) < TOTAL_COST) {
+      return setError(`Not enough coins! You need ${TOTAL_COST} 🪙. Current: ${stats?.coins || 0}`)
     }
     
-    setGenerationCount(prev => prev + 1)
+    const success = await spendCoins(TOTAL_COST, 'Smart Exam Maker')
+    if (!success) return setError('Failed to deduct coins.')
+    
     setGenerating(true); setError(''); setResults([])
     
     try {
@@ -228,7 +218,7 @@ IMPORTANT:
       setResults(sets)
       setActiveSetIndex(0)
       setActiveTab('questionPaper')
-      saveToFirebase(sets)
+      // History saving disabled: saveToFirebase(sets)
       
     } catch (err) { setError(err.message || 'Failed to generate exam. Please try again.') } 
     finally { setGenerating(false) }
@@ -263,7 +253,7 @@ IMPORTANT:
           </tr>
           <tr>
             <td style="border: 1px solid #000; padding: 8px;">Time Allowed: ${form.duration}</td>
-            <td style="border: 1px solid #000; padding: 8px;">Maximum Marks: ${totalMarks}</td>
+            <td style="border: 1px solid #000; padding: 8px;">Maximum Marks: ${form.useAutoPattern ? '........' : calculatedTotalMarks}</td>
           </tr>
         </table>
         <table style="width: 100%; border: none; margin-bottom: 20px; font-size: 14px;">
@@ -550,16 +540,26 @@ IMPORTANT:
                 </div>
               )}
 
-              <div className="mt-auto">
+              <div className="mt-auto pt-4 border-t border-surface-200">
                 <div className="flex items-center justify-between mb-4">
                   <label className="flex items-center gap-2 text-sm font-bold text-surface-800 cursor-pointer">
                     <input type="checkbox" checked={form.includeAnswerKey} onChange={e=>setForm(f=>({...f,includeAnswerKey:e.target.checked}))} className="w-5 h-5 rounded border-surface-300 text-fuchsia-600" /> 
                     Generate Answer Key
                   </label>
                 </div>
+                
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+                  <p className="text-xs font-bold text-amber-800 flex items-center gap-2 mb-1">
+                    <span className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px]">!</span>
+                    Important Notice
+                  </p>
+                  <p className="text-xs font-medium text-amber-700">Exam papers are <strong>NOT saved</strong> in your generation history. Please download or copy your paper immediately after generation.</p>
+                </div>
+
                 {error && <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 text-sm text-red-700 font-bold">{error}</div>}
+                
                 <button onClick={handleGenerate} disabled={!canGenerate || generating} className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white font-extrabold rounded-xl hover:from-fuchsia-500 hover:to-indigo-500 transition-all disabled:opacity-40 shadow-lg text-lg">
-                  {generating ? <><Loader2 className="w-5 h-5 animate-spin"/> Crafting CBSE Pattern Exam...</> : <><Sparkles className="w-5 h-5"/> Generate Board Pattern Exam {generationCount > 0 && <span className="ml-1 text-sm opacity-80">({GENERATION_COST} 🪙)</span>}</>}
+                  {generating ? <><Loader2 className="w-5 h-5 animate-spin"/> Crafting CBSE Pattern Exam...</> : <><Sparkles className="w-5 h-5"/> Generate Board Pattern Exam <span className="ml-1 text-sm bg-white/20 px-2 py-1 rounded-md">Cost: {GENERATION_COST * form.paperSets} 🪙</span></>}
                 </button>
               </div>
             </div>
