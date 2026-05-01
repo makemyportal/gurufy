@@ -96,7 +96,7 @@ export default function Layout() {
   const { theme, toggleTheme } = useTheme()
   const { t } = useLanguage()
   const currentLevel = getLevel(stats.xp || 0)
-  
+
   const [platformSettings, setPlatformSettings] = useState({})
 
   useEffect(() => {
@@ -293,16 +293,16 @@ export default function Layout() {
 
   return (
     <div className={`min-h-screen text-surface-900 selection:bg-primary-100 selection:text-primary-800 font-sans overflow-x-hidden ${theme === 'dark' ? 'dark bg-[#0f0f14]' : 'bg-surface-50'}`}>
-      
+
       {/* Immersive Animated Background */}
       <div className="fixed inset-0 pointer-events-none -z-10">
         {theme === 'dark'
           ? <div className="absolute inset-0 bg-[#0f0f14]" />
           : <>
-              <div className="absolute inset-0 bg-surface-50" />
-              <div className="absolute inset-0 bg-mesh-gradient opacity-40 animate-pulse-soft" />
-              <div className="absolute inset-0 bg-white/20 backdrop-blur-[100px]" />
-            </>
+            <div className="absolute inset-0 bg-surface-50" />
+            <div className="absolute inset-0 bg-mesh-gradient opacity-40 animate-pulse-soft" />
+            <div className="absolute inset-0 bg-white/20 backdrop-blur-[100px]" />
+          </>
         }
       </div>
 
@@ -310,8 +310,8 @@ export default function Layout() {
       <header className="fixed top-0 left-0 right-0 h-[70px] bg-white/95 backdrop-blur-xl border-b border-surface-200/80 z-50 px-3 sm:px-6 flex items-center justify-between transition-all">
         {/* Logo & Brand + Hamburger */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <button 
-            onClick={() => setSidebarOpen(!sidebarOpen)} 
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
             className="xl:hidden p-2 -ml-1 hover:bg-surface-100 rounded-xl transition-colors"
           >
             <Menu className="w-5 h-5 text-surface-700" />
@@ -352,9 +352,8 @@ export default function Layout() {
                       key={item.id}
                       onClick={() => handleSearchSelect(item)}
                       onMouseEnter={() => setSelectedSearchIdx(idx)}
-                      className={`w-full flex items-center gap-4 px-5 py-3 text-left transition-all duration-150 ${
-                        idx === selectedSearchIdx ? 'bg-indigo-50' : 'hover:bg-surface-50'
-                      }`}
+                      className={`w-full flex items-center gap-4 px-5 py-3 text-left transition-all duration-150 ${idx === selectedSearchIdx ? 'bg-indigo-50' : 'hover:bg-surface-50'
+                        }`}
                     >
                       <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center text-white shrink-0 shadow-sm`}>
                         <item.icon className="w-5 h-5" />
@@ -363,11 +362,10 @@ export default function Layout() {
                         <p className="text-sm font-bold text-surface-900 truncate">{item.title}</p>
                         <p className="text-xs text-surface-500 font-medium truncate">{item.description}</p>
                       </div>
-                      <span className={`shrink-0 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${
-                        item.category === 'AI Tool' ? 'bg-indigo-100 text-indigo-700' :
-                        item.category === 'Utility' ? 'bg-emerald-100 text-emerald-700' :
-                        'bg-surface-100 text-surface-600'
-                      }`}>{item.category}</span>
+                      <span className={`shrink-0 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${item.category === 'AI Tool' ? 'bg-indigo-100 text-indigo-700' :
+                          item.category === 'Utility' ? 'bg-emerald-100 text-emerald-700' :
+                            'bg-surface-100 text-surface-600'
+                        }`}>{item.category}</span>
                       <ArrowRight className={`w-4 h-4 shrink-0 transition-all ${idx === selectedSearchIdx ? 'text-indigo-500 translate-x-0.5' : 'text-surface-300'}`} />
                     </button>
                   ))}
@@ -393,7 +391,7 @@ export default function Layout() {
           {/* Platform Economy: Premium Wallet */}
           {currentUser && (
             <div className="relative" ref={walletRef}>
-              <button 
+              <button
                 onClick={() => { setWalletOpen(!walletOpen); setDropdownOpen(false); setShowNotifications(false); }}
                 className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-full hover:bg-amber-100 transition-colors"
               >
@@ -418,7 +416,7 @@ export default function Layout() {
                         <p className="text-[11px] font-semibold text-indigo-200">{currentLevel.emoji} Level {currentLevel.name} • {stats?.xp || 0} XP</p>
                       </div>
                     </div>
-                    
+
                     <div className="bg-white/5 border border-white/10 rounded-xl p-3 mb-4">
                       <p className="text-[10px] text-indigo-300 font-bold uppercase tracking-widest mb-2 border-b border-white/10 pb-1">Earn Free Tokens</p>
                       <div className="flex justify-between items-center mb-1">
@@ -448,7 +446,7 @@ export default function Layout() {
             <Search className="w-5 h-5" />
           </button>
           {/* Dark Mode Toggle */}
-          <button 
+          <button
             onClick={toggleTheme}
             className="p-2 rounded-full transition-all duration-300 text-surface-500 hover:bg-surface-100 hover:text-surface-800"
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
@@ -461,7 +459,7 @@ export default function Layout() {
           {/* User Profile Trigger or Login Button */}
           {currentUser ? (
             <div className="relative" ref={dropdownRef}>
-              <button 
+              <button
                 onClick={() => { setDropdownOpen(!dropdownOpen); setShowNotifications(false); }}
                 className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 transition-all focus:outline-none overflow-hidden ${dropdownOpen ? 'border-primary-400 ring-4 ring-primary-50' : 'border-surface-200 hover:border-primary-300'}`}
               >
@@ -480,7 +478,7 @@ export default function Layout() {
                     <p className="font-bold text-surface-900 truncate flex items-center gap-1.5">
                       {userProfile?.name || currentUser?.email?.split('@')[0]}
                       {userProfile?.isVerified && (
-                        <span className={`w-4 h-4 text-white rounded-full flex items-center justify-center text-[9px] shadow-sm shrink-0 ${{'blue':'bg-blue-500','gold':'bg-yellow-500','emerald':'bg-emerald-500','purple':'bg-purple-500'}[userProfile.verificationColor] || 'bg-blue-500'}`}>✓</span>
+                        <span className={`w-4 h-4 text-white rounded-full flex items-center justify-center text-[9px] shadow-sm shrink-0 ${{ 'blue': 'bg-blue-500', 'gold': 'bg-yellow-500', 'emerald': 'bg-emerald-500', 'purple': 'bg-purple-500' }[userProfile.verificationColor] || 'bg-blue-500'}`}>✓</span>
                       )}
                     </p>
                     <p className="text-xs font-semibold text-surface-500 capitalize">{userProfile?.role || 'Teacher'}</p>
@@ -508,7 +506,7 @@ export default function Layout() {
               )}
             </div>
           ) : (
-            <button 
+            <button
               onClick={() => navigate('/login')}
               className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm sm:text-base font-extrabold rounded-full transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
             >
@@ -604,16 +602,14 @@ export default function Layout() {
                     key={item.to}
                     to={item.to}
                     end={item.to === '/'}
-                    className={`relative group flex items-center gap-3.5 px-4 mb-1.5 py-3 rounded-[14px] text-[13.5px] font-bold transition-all duration-300 ${
-                      isActive
+                    className={`relative group flex items-center gap-3.5 px-4 mb-1.5 py-3 rounded-[14px] text-[13.5px] font-bold transition-all duration-300 ${isActive
                         ? 'bg-slate-900 text-white shadow-[0_8px_20px_rgba(0,0,0,0.12)] translate-x-1'
                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-1'
-                    }`}
+                      }`}
                   >
                     {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full" />}
-                    <item.icon className={`w-[18px] h-[18px] transition-all duration-300 ${
-                      isActive ? 'text-indigo-400 scale-110 drop-shadow-sm' : 'text-slate-400 group-hover:text-indigo-500 group-hover:scale-110'
-                    }`} strokeWidth={isActive ? 2.5 : 2} />
+                    <item.icon className={`w-[18px] h-[18px] transition-all duration-300 ${isActive ? 'text-indigo-400 scale-110 drop-shadow-sm' : 'text-slate-400 group-hover:text-indigo-500 group-hover:scale-110'
+                      }`} strokeWidth={isActive ? 2.5 : 2} />
                     <span className="truncate">{item.label}</span>
                   </NavLink>
                 )
@@ -635,7 +631,7 @@ export default function Layout() {
                     <p className="text-[12px] font-bold text-surface-800 truncate flex items-center gap-1">
                       {userProfile?.name || (['admin', 'superadmin'].includes(userProfile?.role) ? 'Super Admin' : 'User')}
                       {userProfile?.isVerified && (
-                        <span className={`w-3.5 h-3.5 text-white rounded-full flex items-center justify-center text-[7px] shadow-sm shrink-0 ${{'blue':'bg-blue-500','gold':'bg-yellow-500','emerald':'bg-emerald-500','purple':'bg-purple-500'}[userProfile.verificationColor] || 'bg-blue-500'}`}>✓</span>
+                        <span className={`w-3.5 h-3.5 text-white rounded-full flex items-center justify-center text-[7px] shadow-sm shrink-0 ${{ 'blue': 'bg-blue-500', 'gold': 'bg-yellow-500', 'emerald': 'bg-emerald-500', 'purple': 'bg-purple-500' }[userProfile.verificationColor] || 'bg-blue-500'}`}>✓</span>
                       )}
                     </p>
                     <p className="text-[10px] font-semibold text-surface-400 capitalize">{userProfile?.role || 'Teacher'}</p>
@@ -662,16 +658,14 @@ export default function Layout() {
                   key={item.to}
                   to={item.to}
                   end={item.to === '/'}
-                  className={`relative group flex items-center gap-3.5 px-4 mb-1.5 py-3 rounded-[14px] text-[13.5px] font-bold transition-all duration-300 ${
-                    isActive
+                  className={`relative group flex items-center gap-3.5 px-4 mb-1.5 py-3 rounded-[14px] text-[13.5px] font-bold transition-all duration-300 ${isActive
                       ? 'bg-slate-900 text-white shadow-[0_8px_20px_rgba(0,0,0,0.12)] translate-x-1'
                       : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-1'
-                  }`}
+                    }`}
                 >
                   {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full" />}
-                  <item.icon className={`w-[18px] h-[18px] transition-all duration-300 ${
-                    isActive ? 'text-indigo-400 scale-110 drop-shadow-sm' : 'text-slate-400 group-hover:text-indigo-500 group-hover:scale-110'
-                  }`} strokeWidth={isActive ? 2.5 : 2} />
+                  <item.icon className={`w-[18px] h-[18px] transition-all duration-300 ${isActive ? 'text-indigo-400 scale-110 drop-shadow-sm' : 'text-slate-400 group-hover:text-indigo-500 group-hover:scale-110'
+                    }`} strokeWidth={isActive ? 2.5 : 2} />
                   <span className="truncate">{item.label}</span>
                 </NavLink>
               )
@@ -685,21 +679,20 @@ export default function Layout() {
                 onClick={() => navigate('/profile')}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-surface-100 transition-colors group"
               >
-                <div className={`w-8 h-8 rounded-lg shrink-0 overflow-hidden border border-surface-200 flex items-center justify-center text-white text-xs font-black ${
-                  userProfile?.profilePhoto ? '' : 'bg-surface-700'
-                }`}>
+                <div className={`w-8 h-8 rounded-lg shrink-0 overflow-hidden border border-surface-200 flex items-center justify-center text-white text-xs font-black ${userProfile?.profilePhoto ? '' : 'bg-surface-700'
+                  }`}>
                   {userProfile?.profilePhoto
                     ? <img src={userProfile.profilePhoto} alt="" className="w-full h-full object-cover" />
                     : (userProfile?.name || 'U')[0].toUpperCase()
                   }
                 </div>
                 <div className="flex-1 min-w-0 text-left">
-                    <p className="text-[12.5px] font-bold text-surface-800 truncate flex items-center gap-1">
-                      {userProfile?.name || (['admin', 'superadmin'].includes(userProfile?.role) ? 'Super Admin' : 'User')}
-                      {userProfile?.isVerified && (
-                        <span className={`w-3.5 h-3.5 text-white rounded-full flex items-center justify-center text-[7px] shadow-sm shrink-0 ${{'blue':'bg-blue-500','gold':'bg-yellow-500','emerald':'bg-emerald-500','purple':'bg-purple-500'}[userProfile.verificationColor] || 'bg-blue-500'}`}>✓</span>
-                      )}
-                    </p>
+                  <p className="text-[12.5px] font-bold text-surface-800 truncate flex items-center gap-1">
+                    {userProfile?.name || (['admin', 'superadmin'].includes(userProfile?.role) ? 'Super Admin' : 'User')}
+                    {userProfile?.isVerified && (
+                      <span className={`w-3.5 h-3.5 text-white rounded-full flex items-center justify-center text-[7px] shadow-sm shrink-0 ${{ 'blue': 'bg-blue-500', 'gold': 'bg-yellow-500', 'emerald': 'bg-emerald-500', 'purple': 'bg-purple-500' }[userProfile.verificationColor] || 'bg-blue-500'}`}>✓</span>
+                    )}
+                  </p>
                   <p className="text-[10px] font-semibold text-surface-400 capitalize truncate">{userProfile?.role || 'Teacher'}</p>
                 </div>
                 <Settings className="w-3.5 h-3.5 text-surface-300 group-hover:text-surface-500 shrink-0 transition-colors" />
@@ -729,10 +722,10 @@ export default function Layout() {
           {mobileNavItems.map(item => {
             const isActive = currentPath === item.to || (item.to !== '/' && currentPath.startsWith(item.to))
             return (
-              <NavLink 
-                key={item.to} 
-                to={item.to} 
-                end={item.to === '/'} 
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
                 className={`relative flex-1 flex flex-col items-center justify-center h-full ${isActive ? 'text-primary-600' : 'text-surface-500 hover:text-surface-800'} transition-colors duration-200`}
               >
                 {isActive && (

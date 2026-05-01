@@ -62,7 +62,7 @@ function ToolUsageAnalytics({ users }) {
     const toolName = entry.toolName || entry.toolId || 'Unknown'
     const userId = entry.userId || 'unknown'
     const userName = entry.userName || 'Unknown User'
-    
+
     if (!toolAgg[toolName]) toolAgg[toolName] = { count: 0, coinsSpent: 0 }
     toolAgg[toolName].count += (entry.count || 1)
     toolAgg[toolName].coinsSpent += (entry.coinsSpent || 0)
@@ -172,25 +172,25 @@ function EditorModal({ type, initialData, onSave, onCancel }) {
             <div key={field.key}>
               <label className="block text-xs font-bold text-surface-500 uppercase tracking-widest mb-1.5">{field.label}</label>
               {field.type === 'textarea' ? (
-                <textarea 
-                  value={formData[field.key] || ''} 
-                  onChange={e => setFormData(p => ({...p, [field.key]: e.target.value}))}
+                <textarea
+                  value={formData[field.key] || ''}
+                  onChange={e => setFormData(p => ({ ...p, [field.key]: e.target.value }))}
                   className="w-full px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 min-h-[100px] resize-none"
                 />
               ) : field.type === 'select' ? (
                 <select
-                  value={formData[field.key] || ''} 
-                  onChange={e => setFormData(p => ({...p, [field.key]: e.target.value}))}
+                  value={formData[field.key] || ''}
+                  onChange={e => setFormData(p => ({ ...p, [field.key]: e.target.value }))}
                   className="w-full px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   <option value="">Select...</option>
                   {field.options.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               ) : (
-                <input 
+                <input
                   type={field.type}
-                  value={formData[field.key] || ''} 
-                  onChange={e => setFormData(p => ({...p, [field.key]: field.type === 'number' ? Number(e.target.value) : e.target.value}))}
+                  value={formData[field.key] || ''}
+                  onChange={e => setFormData(p => ({ ...p, [field.key]: field.type === 'number' ? Number(e.target.value) : e.target.value }))}
                   className="w-full px-4 py-3 bg-surface-50 border border-surface-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500"
                 />
               )}
@@ -278,9 +278,9 @@ export default function AdminDashboard() {
       danger: true, onConfirm: async () => {
         try {
           await deleteDoc(doc(db, 'users', userId))
-          await deleteDoc(doc(db, 'teachers', userId)).catch(() => {})
-          await deleteDoc(doc(db, 'schools', userId)).catch(() => {})
-          await deleteDoc(doc(db, 'gamification', userId)).catch(() => {})
+          await deleteDoc(doc(db, 'teachers', userId)).catch(() => { })
+          await deleteDoc(doc(db, 'schools', userId)).catch(() => { })
+          await deleteDoc(doc(db, 'gamification', userId)).catch(() => { })
           setUsers(prev => prev.filter(u => u.id !== userId))
           showToast('User deleted successfully')
         } catch (err) { showToast('Failed to delete user', 'error') }
@@ -290,7 +290,7 @@ export default function AdminDashboard() {
   }
 
   async function handleToggleSuspend(userId, currentStatus) {
-      const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended'
+    const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended'
     try {
       await updateDoc(doc(db, 'users', userId), { status: newStatus })
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u))
@@ -302,9 +302,9 @@ export default function AdminDashboard() {
     const isVerified = !!color
     try {
       await updateDoc(doc(db, 'users', user.id), { isVerified, verificationColor: color || null })
-      if (user.role === 'teacher') await updateDoc(doc(db, 'teachers', user.id), { isVerified, verificationColor: color || null }).catch(() => {})
-      if (user.role === 'school') await updateDoc(doc(db, 'schools', user.id), { isVerified, verificationColor: color || null }).catch(() => {})
-      
+      if (user.role === 'teacher') await updateDoc(doc(db, 'teachers', user.id), { isVerified, verificationColor: color || null }).catch(() => { })
+      if (user.role === 'school') await updateDoc(doc(db, 'schools', user.id), { isVerified, verificationColor: color || null }).catch(() => { })
+
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isVerified, verificationColor: color || null } : u))
       showToast(`User ${isVerified ? 'verified' : 'unverified'} successfully`)
     } catch (err) { console.error(err); showToast('Action failed', 'error') }
@@ -334,15 +334,15 @@ export default function AdminDashboard() {
 
   async function handleTakeDown(report) {
     setConfirmModal({
-      title: 'Take Down Content', 
+      title: 'Take Down Content',
       message: `This will permanently delete the reported ${report.type || 'content'} and remove the report. This cannot be undone.`,
       danger: true,
       onConfirm: async () => {
         try {
           // Delete the actual content
           if (report.contentId) {
-              // Post takes down removed, resource support
-              if (report.type === 'resource') {
+            // Post takes down removed, resource support
+            if (report.type === 'resource') {
               await deleteDoc(doc(db, 'resources', report.contentId))
               setResources(prev => prev.filter(r => r.id !== report.contentId))
             }
@@ -351,9 +351,9 @@ export default function AdminDashboard() {
           await deleteDoc(doc(db, 'reports', report.id))
           setReports(prev => prev.filter(r => r.id !== report.id))
           showToast('Content removed & report resolved')
-        } catch (err) { 
+        } catch (err) {
           console.error('Take down error:', err)
-          showToast('Failed to take down', 'error') 
+          showToast('Failed to take down', 'error')
         }
         setConfirmModal(null)
       }
@@ -380,7 +380,7 @@ export default function AdminDashboard() {
     try {
       const req = paymentRequests.find(r => r.id === reqId)
       if (!req) return
-      
+
       const userGamRef = doc(db, 'gamification', req.userId)
       const userGamSnap = await getDoc(userGamRef)
       const currentCoins = userGamSnap.exists() ? (userGamSnap.data().coins || 0) : 0
@@ -391,7 +391,7 @@ export default function AdminDashboard() {
         await setDoc(userGamRef, { xp: 0, coins: newCoins, badges: [] })
       })
       await updateDoc(doc(db, 'paymentRequests', reqId), { status: 'approved' })
-      
+
       setGamificationData(prev => {
         const existing = prev.find(g => g.id === req.userId)
         if (existing) return prev.map(g => g.id === req.userId ? { ...g, coins: newCoins } : g)
@@ -423,9 +423,9 @@ export default function AdminDashboard() {
         text: announcementText,
         createdAt: new Date().toISOString()
       }
-      await setDoc(doc(db, 'platformSettings', 'global'), { 
-        ...platformSettings, 
-        latestBroadcast: broadcastPayload 
+      await setDoc(doc(db, 'platformSettings', 'global'), {
+        ...platformSettings,
+        latestBroadcast: broadcastPayload
       }, { merge: true })
       setPlatformSettings(prev => ({ ...prev, latestBroadcast: broadcastPayload }))
 
@@ -443,9 +443,9 @@ export default function AdminDashboard() {
       updatedAt: new Date().toISOString()
     }
     try {
-      await setDoc(doc(db, 'platformSettings', 'global'), { 
-        ...platformSettings, 
-        latestBroadcast: broadcastPayload 
+      await setDoc(doc(db, 'platformSettings', 'global'), {
+        ...platformSettings,
+        latestBroadcast: broadcastPayload
       }, { merge: true })
       setPlatformSettings(prev => ({ ...prev, latestBroadcast: broadcastPayload }))
       showToast('Global banner updated')
@@ -454,9 +454,9 @@ export default function AdminDashboard() {
 
   async function handleRemoveBanner() {
     try {
-      await setDoc(doc(db, 'platformSettings', 'global'), { 
-        ...platformSettings, 
-        latestBroadcast: null 
+      await setDoc(doc(db, 'platformSettings', 'global'), {
+        ...platformSettings,
+        latestBroadcast: null
       }, { merge: true })
       setPlatformSettings(prev => ({ ...prev, latestBroadcast: null }))
       showToast('Global banner removed')
@@ -485,7 +485,7 @@ export default function AdminDashboard() {
     const { type, data } = editingItem
     const isNew = !data?.id
     const colName = type === 'user' ? 'users' : type === 'resource' ? 'resources' : 'reports'
-    
+
     try {
       const processedData = { ...formData }
 
@@ -494,21 +494,21 @@ export default function AdminDashboard() {
           showToast('Cannot add users from Dashboard yet due to Auth requirements. Only edits are supported.', 'error')
           return
         }
-        
+
         const newDoc = {
           ...processedData,
           createdAt: new Date().toISOString()
         }
         if (type === 'resource') newDoc.authorName = newDoc.authorName || 'Platform Admin'
-        
+
         const docRef = await addDoc(collection(db, colName), newDoc)
         newDoc.id = docRef.id
-        
+
         if (type === 'resource') setResources([newDoc, ...resources])
         showToast(`${type} added successfully`)
       } else {
         await updateDoc(doc(db, colName, data.id), processedData)
-        
+
         const updater = items => items.map(i => i.id === data.id ? { ...i, ...processedData } : i)
         if (type === 'user') setUsers(updater(users))
         if (type === 'resource') setResources(updater(resources))
@@ -817,7 +817,7 @@ export default function AdminDashboard() {
             <div className="animate-fade-in">
               <h2 className="text-xl font-extrabold text-surface-900 mb-1">🛒 Marketplace Review Queue</h2>
               <p className="text-sm text-surface-500 font-medium mb-6">{resources.filter(r => r.status === 'pending').length} resources pending review</p>
-              
+
               {resources.filter(r => r.status === 'pending').length === 0 ? (
                 <div className="p-16 text-center">
                   <CheckCircle className="w-16 h-16 text-emerald-300 mx-auto mb-4" />
@@ -911,7 +911,7 @@ export default function AdminDashboard() {
             <div className="animate-fade-in">
               <h2 className="text-xl font-extrabold text-surface-900 mb-1">💰 Coin Purchase Requests</h2>
               <p className="text-sm text-surface-500 font-medium mb-6">{paymentRequests.filter(p => p.status === 'pending').length} pending · {paymentRequests.length} total requests</p>
-              
+
               {/* Summary Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
                 <div className="bg-amber-50 border border-amber-200/50 rounded-2xl p-4 text-center">
@@ -975,7 +975,7 @@ export default function AdminDashboard() {
                               </div>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center gap-2 p-3 bg-surface-50 rounded-xl border border-surface-100 mb-4">
                             <span className="text-xs font-black uppercase text-surface-400 tracking-wider">UTR:</span>
                             <span className="font-mono font-bold text-surface-900 text-sm tracking-wider">{req.utr || '-'}</span>
@@ -1068,7 +1068,7 @@ export default function AdminDashboard() {
           {/* ====== GAMIFICATION TAB ====== */}
           {activeTab === 'gamification' && (
             <div className="animate-fade-in space-y-8">
-              
+
               {/* Economy Blueprint — EDITABLE */}
               <div>
                 <h2 className="text-xl font-extrabold text-surface-900 mb-1">🏦 Economy Blueprint</h2>
@@ -1082,8 +1082,8 @@ export default function AdminDashboard() {
                     { key: 'follow_someone', title: 'Follow Someone', desc: 'Following a user', emoji: '👤' },
                     { key: 'get_followed', title: 'Get Followed', desc: 'Someone follows you', emoji: '🌟' },
                   ].map(rule => {
-                    const currentVal = platformSettings?.coinConfig?.[rule.key] ?? 
-                      ({daily_login:50,share_resource:25,use_ai_tool:5,create_post:10,follow_someone:2,get_followed:3}[rule.key] || 5)
+                    const currentVal = platformSettings?.coinConfig?.[rule.key] ??
+                      ({ daily_login: 50, share_resource: 25, use_ai_tool: 5, create_post: 10, follow_someone: 2, get_followed: 3 }[rule.key] || 5)
                     return (
                       <div key={rule.key} className="bg-surface-50 border border-surface-200 rounded-2xl p-5 hover:border-amber-300 transition-colors">
                         <div className="flex items-center gap-2 mb-3">
@@ -1117,7 +1117,7 @@ export default function AdminDashboard() {
               <div>
                 <h2 className="text-xl font-extrabold text-surface-900 mb-1">🛠️ Tool Pricing Configuration</h2>
                 <p className="text-sm text-surface-500 font-medium mb-6">Set the coin cost for each workspace and AI tool. Changes apply instantly.</p>
-                
+
                 <h3 className="text-sm font-extrabold text-surface-900 mb-3 uppercase tracking-wider">Workspace Tools</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
                   {[
@@ -1326,44 +1326,44 @@ export default function AdminDashboard() {
                 <h2 className="text-xl font-extrabold text-surface-900 mb-1">🏆 Player Balances</h2>
                 <p className="text-sm text-surface-500 font-medium mb-6">{gamificationData.length} user profiles in the economy</p>
                 <div className="border border-surface-200 rounded-2xl overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[600px]">
-                    <thead>
-                      <tr className="bg-surface-50 border-b border-surface-200 text-xs uppercase tracking-wider text-surface-500">
-                        <th className="p-4 font-bold">User</th><th className="p-4 font-bold">XP</th><th className="p-4 font-bold">Coins 🪙</th><th className="p-4 font-bold text-right">Fund / Edit</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-surface-100">
-                      {gamificationData.filter(g => !searchQuery || g.id.toLowerCase().includes(searchQuery.toLowerCase())).map(g => {
-                        const user = users.find(u => u.id === g.id)
-                        return (
-                          <tr key={g.id} className="hover:bg-surface-50/50">
-                            <td className="p-4"><p className="font-bold text-surface-900 text-sm">{user?.name || g.id.substring(0, 12) + '...'}</p><p className="text-xs text-surface-400">{user?.email || ''}</p></td>
-                            <td className="p-4 font-extrabold text-primary-700">{g.xp || 0}</td>
-                            <td className="p-4 font-extrabold text-amber-600">{g.coins || 0}</td>
-                            <td className="p-4 text-right">
-                              <div className="flex items-center justify-end gap-3 flex-wrap">
-                                <div className="inline-flex items-center gap-1.5 bg-surface-50 p-1 rounded-xl border border-surface-200">
-                                  <span className="text-[10px] font-bold text-surface-400 uppercase ml-1">XP</span>
-                                  <input type="number" defaultValue={g.xp || 0} className="w-16 px-1.5 py-1 bg-white border border-surface-200 rounded-lg text-xs text-center font-bold" id={`xp-${g.id}`} />
-                                  <button onClick={() => handleUpdateXP(g.id, document.getElementById(`xp-${g.id}`).value)} className="px-2 py-1 bg-primary-600 text-white rounded-lg text-[10px] font-bold hover:bg-primary-700">Save</button>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[600px]">
+                      <thead>
+                        <tr className="bg-surface-50 border-b border-surface-200 text-xs uppercase tracking-wider text-surface-500">
+                          <th className="p-4 font-bold">User</th><th className="p-4 font-bold">XP</th><th className="p-4 font-bold">Coins 🪙</th><th className="p-4 font-bold text-right">Fund / Edit</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-surface-100">
+                        {gamificationData.filter(g => !searchQuery || g.id.toLowerCase().includes(searchQuery.toLowerCase())).map(g => {
+                          const user = users.find(u => u.id === g.id)
+                          return (
+                            <tr key={g.id} className="hover:bg-surface-50/50">
+                              <td className="p-4"><p className="font-bold text-surface-900 text-sm">{user?.name || g.id.substring(0, 12) + '...'}</p><p className="text-xs text-surface-400">{user?.email || ''}</p></td>
+                              <td className="p-4 font-extrabold text-primary-700">{g.xp || 0}</td>
+                              <td className="p-4 font-extrabold text-amber-600">{g.coins || 0}</td>
+                              <td className="p-4 text-right">
+                                <div className="flex items-center justify-end gap-3 flex-wrap">
+                                  <div className="inline-flex items-center gap-1.5 bg-surface-50 p-1 rounded-xl border border-surface-200">
+                                    <span className="text-[10px] font-bold text-surface-400 uppercase ml-1">XP</span>
+                                    <input type="number" defaultValue={g.xp || 0} className="w-16 px-1.5 py-1 bg-white border border-surface-200 rounded-lg text-xs text-center font-bold" id={`xp-${g.id}`} />
+                                    <button onClick={() => handleUpdateXP(g.id, document.getElementById(`xp-${g.id}`).value)} className="px-2 py-1 bg-primary-600 text-white rounded-lg text-[10px] font-bold hover:bg-primary-700">Save</button>
+                                  </div>
+                                  <div className="inline-flex items-center gap-1.5 bg-amber-50 p-1 rounded-xl border border-amber-200">
+                                    <span className="text-[10px] font-bold text-amber-500 uppercase ml-1">Coins</span>
+                                    <input type="number" defaultValue={g.coins || 0} className="w-16 px-1.5 py-1 bg-white border border-amber-200 rounded-lg text-xs text-center font-bold" id={`coin-${g.id}`} />
+                                    <button onClick={() => handleUpdateCoins(g.id, document.getElementById(`coin-${g.id}`).value)} className="px-2 py-1 bg-amber-500 text-white rounded-lg text-[10px] font-bold hover:bg-amber-600">Fund</button>
+                                  </div>
                                 </div>
-                                <div className="inline-flex items-center gap-1.5 bg-amber-50 p-1 rounded-xl border border-amber-200">
-                                  <span className="text-[10px] font-bold text-amber-500 uppercase ml-1">Coins</span>
-                                  <input type="number" defaultValue={g.coins || 0} className="w-16 px-1.5 py-1 bg-white border border-amber-200 rounded-lg text-xs text-center font-bold" id={`coin-${g.id}`} />
-                                  <button onClick={() => handleUpdateCoins(g.id, document.getElementById(`coin-${g.id}`).value)} className="px-2 py-1 bg-amber-500 text-white rounded-lg text-[10px] font-bold hover:bg-amber-600">Fund</button>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {gamificationData.length === 0 && <div className="p-12 text-center text-surface-400 font-medium">No gamification data</div>}
                 </div>
-                {gamificationData.length === 0 && <div className="p-12 text-center text-surface-400 font-medium">No gamification data</div>}
               </div>
-            </div>
             </div>
           )}
 
@@ -1372,7 +1372,7 @@ export default function AdminDashboard() {
             <div className="animate-fade-in">
               <h2 className="text-xl font-extrabold text-surface-900 mb-1">📢 Broadcast Announcement</h2>
               <p className="text-sm text-surface-500 font-medium mb-6">Send a notification to all {users.length} users and update the global banner</p>
-              
+
               <div className="flex flex-col xl:flex-row gap-6 items-start">
                 <div className="w-full xl:w-1/2">
                   <div className="bg-surface-50 border border-surface-200 rounded-2xl p-6">
@@ -1411,8 +1411,8 @@ export default function AdminDashboard() {
                           </div>
                           <span className="text-[10px] text-indigo-200 font-semibold">{formatDate(platformSettings.latestBroadcast.createdAt)}</span>
                         </div>
-                        
-                        <textarea 
+
+                        <textarea
                           id="edit-banner-text"
                           defaultValue={platformSettings.latestBroadcast.text}
                           className="w-full bg-white/10 border border-white/20 rounded-xl p-3 text-sm font-semibold text-white placeholder-white/50 focus:bg-white/20 focus:outline-none transition-colors resize-none mb-4"
@@ -1423,8 +1423,8 @@ export default function AdminDashboard() {
                           <button onClick={() => handleRemoveBanner()} className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/40 text-white text-xs font-bold rounded-lg transition-colors border border-rose-500/30 flex items-center gap-1.5">
                             <Trash2 className="w-3.5 h-3.5" /> Remove
                           </button>
-                          <button 
-                            onClick={() => handleUpdateBannerOnly(document.getElementById('edit-banner-text').value)} 
+                          <button
+                            onClick={() => handleUpdateBannerOnly(document.getElementById('edit-banner-text').value)}
                             className="px-4 py-2 bg-white hover:bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg transition-colors shadow-sm flex items-center gap-1.5"
                           >
                             <Edit className="w-3.5 h-3.5 text-indigo-600" /> Save Edit
@@ -1470,13 +1470,13 @@ export default function AdminDashboard() {
                   <h4 className="font-bold text-surface-900 mb-1">Token Store UPI ID</h4>
                   <p className="text-sm font-medium text-surface-500 mb-4">Users will send manual payments to this UPI address. It dynamically updates the QR Code in the Store.</p>
                   <div className="flex gap-3">
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       id="upi-id-input"
-                      defaultValue={platformSettings.upiId || 'teacherhub@upi'} 
+                      defaultValue={platformSettings.upiId || 'teacherhub@upi'}
                       className="flex-1 px-4 py-2 bg-white border border-surface-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 font-bold font-mono"
                     />
-                    <button 
+                    <button
                       onClick={() => handleTextSetting('upiId', document.getElementById('upi-id-input').value)}
                       className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all"
                     >
@@ -1489,14 +1489,14 @@ export default function AdminDashboard() {
                   <h4 className="font-bold text-surface-900 mb-1">📱 Admin WhatsApp Number</h4>
                   <p className="text-sm font-medium text-surface-500 mb-4">When a user submits a coin purchase, they'll be prompted to send you a WhatsApp message with payment details. Enter with country code (e.g. 919876543210).</p>
                   <div className="flex gap-3">
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       id="admin-whatsapp-input"
-                      defaultValue={platformSettings.adminWhatsapp || ''} 
+                      defaultValue={platformSettings.adminWhatsapp || ''}
                       placeholder="e.g. 919876543210"
                       className="flex-1 px-4 py-2 bg-white border border-surface-200 rounded-xl outline-none focus:ring-2 focus:ring-[#25D366] font-bold font-mono"
                     />
-                    <button 
+                    <button
                       onClick={() => handleTextSetting('adminWhatsapp', document.getElementById('admin-whatsapp-input').value)}
                       className="px-6 py-2 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold rounded-xl transition-all"
                     >
@@ -1509,20 +1509,20 @@ export default function AdminDashboard() {
                   <h4 className="font-bold text-surface-900 mb-1">📢 Live Announcement</h4>
                   <p className="text-sm font-medium text-surface-500 mb-4">This message will appear as a banner on every user's Home page. Leave empty to hide.</p>
                   <div className="flex gap-3">
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       id="announcement-input"
-                      defaultValue={platformSettings.announcement || ''} 
+                      defaultValue={platformSettings.announcement || ''}
                       placeholder="e.g. Platform maintenance on Sunday 10 PM..."
                       className="flex-1 px-4 py-2 bg-white border border-surface-200 rounded-xl outline-none focus:ring-2 focus:ring-primary-500 font-bold"
                     />
-                    <button 
+                    <button
                       onClick={() => handleTextSetting('announcement', document.getElementById('announcement-input').value)}
                       className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all"
                     >
                       Save
                     </button>
-                    <button 
+                    <button
                       onClick={() => { handleTextSetting('announcement', ''); document.getElementById('announcement-input').value = '' }}
                       className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 font-bold rounded-xl transition-all"
                     >

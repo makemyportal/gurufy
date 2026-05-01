@@ -6,8 +6,8 @@ import { getLevel, getLevelProgress } from '../utils/gamificationUtils'
 import { tools as aiTools } from '../data/toolsList'
 import { db } from '../utils/firebase'
 import { collection, query, onSnapshot, orderBy, doc } from 'firebase/firestore'
-import { 
-  Sparkles, Briefcase, FolderOpen, Award, CheckSquare, 
+import {
+  Sparkles, Briefcase, FolderOpen, Award, CheckSquare,
   Calculator, Lock, ArrowRight, CalendarDays, TrendingUp, Zap, BarChart3, ShoppingCart, Coins, Megaphone, X,
   BookOpen, FileQuestion, Gamepad2, Share2
 } from 'lucide-react'
@@ -140,8 +140,8 @@ export default function Home() {
   const formattedDate = time.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   const greeting = time.getHours() < 12 ? 'Good morning' : time.getHours() < 18 ? 'Good afternoon' : 'Good evening'
 
-  const displayName = userProfile?.name 
-    ? userProfile.name.split(' ')[0] 
+  const displayName = userProfile?.name
+    ? userProfile.name.split(' ')[0]
     : currentUser?.email ? currentUser.email.split('@')[0] : 'Educator'
 
   // Dashboard Analytics
@@ -191,7 +191,7 @@ export default function Home() {
       {/* Top Hero / Welcome Panel */}
       <div className="relative overflow-hidden bg-slate-900 rounded-[32px] p-8 sm:p-10 mb-8 shadow-2xl border border-slate-800">
         <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/3 w-[600px] h-[600px] bg-gradient-to-tr from-indigo-500/20 to-emerald-500/20 rounded-full blur-[100px] pointer-events-none" />
-        
+
         <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 text-slate-400 font-bold tracking-wide uppercase text-xs mb-3">
@@ -204,7 +204,7 @@ export default function Home() {
               Welcome to your Teacher Desktop. Access your AI assistants, class utilities, and workflow tools instantly.
             </p>
           </div>
-          
+
           <div className="flex flex-col items-end">
             <div className="text-3xl sm:text-5xl font-black font-display tracking-tighter text-white tabular-nums drop-shadow-lg">
               {formattedTime}
@@ -267,20 +267,20 @@ export default function Home() {
               <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${tool.color} flex items-center justify-center text-white mb-5 transition-transform duration-300 group-hover:scale-110 shadow-md`}>
                 <tool.icon className="w-7 h-7" />
               </div>
-              
+
               <h3 className="text-[17px] font-bold text-surface-900 mb-2 group-hover:text-indigo-600 transition-colors">
                 {tool.title}
               </h3>
-              
+
               <p className="text-xs sm:text-sm text-surface-500 font-medium leading-relaxed mb-6 flex-1">
                 {tool.description}
               </p>
-              
+
               <div className="flex items-center justify-between mt-auto border-t border-surface-100 pt-3">
                 <div className="flex items-center text-xs font-black text-surface-400 group-hover:text-indigo-600 transition-colors uppercase tracking-widest">
                   Launch AI <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
                 </div>
-                <button 
+                <button
                   onClick={(e) => handleShare(e, `/ai-tools?tool=${tool.id}`, tool.title, tool.description)}
                   className="p-1.5 -mr-1.5 text-surface-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all z-10"
                   title="Share Tool"
@@ -314,20 +314,20 @@ export default function Home() {
               <div className={`w-14 h-14 rounded-2xl ${app.bg} flex items-center justify-center text-white mb-5 transition-all duration-300 ${app.hover}`}>
                 <app.icon className="w-7 h-7" />
               </div>
-              
+
               <h3 className="text-[17px] font-bold text-surface-900 mb-2 group-hover:text-primary-600 transition-colors">
                 {app.title}
               </h3>
-              
+
               <p className="text-xs sm:text-sm text-surface-500 font-medium leading-relaxed mb-6 flex-1">
                 {app.description}
               </p>
-              
+
               <div className="flex items-center justify-between mt-auto border-t border-surface-100 pt-3">
                 <div className="flex items-center text-xs font-black text-surface-400 group-hover:text-primary-600 transition-colors uppercase tracking-widest">
                   Launch App <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
                 </div>
-                <button 
+                <button
                   onClick={(e) => handleShare(e, app.path, app.title, app.description)}
                   className="p-1.5 -mr-1.5 text-surface-300 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all z-10"
                   title="Share App"
@@ -339,7 +339,7 @@ export default function Home() {
           ))}
         </div>
       </div>
-      
+
       {/* Footer hint */}
       <div className="mt-12 text-center text-surface-300 text-xs font-bold uppercase tracking-[0.2em]">
         End of Workspace

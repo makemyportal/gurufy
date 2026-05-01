@@ -1,41 +1,61 @@
-import { useState, useRef } from 'react'
-import { FileQuestion, Sparkles, Loader2, Download, Copy, Check, RotateCcw, Image as ImageIcon, FileText, UploadCloud, X, Share2, FileCode } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { FileQuestion, Sparkles, Loader2, Download, Copy, Check, RotateCcw, FileText, UploadCloud, X, Share2, FileCode, Settings2, Target, History, Plus, Image as ImageIcon, Trash2 } from 'lucide-react'
 import { generateWithGeminiVision, generateAIContent } from '../utils/aiService'
 import { useGamification } from '../contexts/GamificationContext'
+import { useAuth } from '../contexts/AuthContext'
+import { db } from '../utils/firebase'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import 'katex/dist/katex.min.css'
 import { saveAs } from 'file-saver'
 import { asBlob } from 'html-docx-js-typescript'
+import { useNavigate } from 'react-router-dom'
 
 const boardList = ['CBSE', 'ICSE', 'State Board', 'IB', 'Cambridge', 'General']
 const gradeList = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12']
-const marksList = ['20 Marks (Unit Test)', '40 Marks (Mid-Term)', '80 Marks (Final Exam)', '100 Marks (Board Style)']
 const timeList = ['30 Minutes', '1 Hour', '1.5 Hours', '2 Hours', '3 Hours']
 const subjectList = ['Mathematics', 'Science', 'Physics', 'Chemistry', 'Biology', 'English', 'Hindi', 'Social Studies', 'History', 'Geography', 'Computer Science', 'Economics', 'Accountancy']
 
 export default function SmartExamMaker() {
+  const { currentUser } = useAuth()
+  const navigate = useNavigate()
   const [form, setForm] = useState({ 
-    board: 'CBSE', 
-    subject: '', 
-    grade: '', 
-    totalMarks: '80 Marks (Final Exam)', 
-    duration: '2 Hours', 
-    includeAnswerKey: true,
-    institutionName: '',
-    coachingName: '',
-    session: '',
-    unitType: ''
+    board: 'CBSE', subject: '', grade: '', duration: '3 Hours', 
+    includeAnswerKey: true, institutionName: '', examName: '', session: '',
+    difficulty: 'Medium', language: 'English', paperSets: 1, watermarkText: '', useBlooms: true, includePYQ: false, useAutoPattern: false
   })
-  const [inputMode, setInputMode] = useState('upload') // 'upload' or 'topic'
+  
+  // Custom Blueprint State
+  const [blueprint, setBlueprint] = useState([
+    { id: 1, type: 'Multiple Choice Questions (MCQ)', count: 5, marksPerQuestion: 1 },
+    { id: 2, type: 'Very Short Answer (VSA)', count: 3, marksPerQuestion: 2 },
+    { id: 3, type: 'Short Answer (SA)', count: 3, marksPerQuestion: 3 },
+    { id: 4, type: 'Long Answer (LA)', count: 2, marksPerQuestion: 5 },
+    { id: 5, type: 'Case-Based / Source-Based', count: 1, marksPerQuestion: 4 }
+  ])
+  
+  const [schoolLogo, setSchoolLogo] = useState(null)
+  const logoInputRef = useRef(null)
+
+  const calculatedTotalMarks = blueprint.reduce((acc, curr) => acc + (curr.count * curr.marksPerQuestion), 0)
+  const totalMarksDisplay = form.useAutoPattern ? 'Auto (Official)' : calculatedTotalMarks
+
+  const [inputMode, setInputMode] = useState('upload') 
   const [topic, setTopic] = useState('')
   const [file, setFile] = useState(null)
   const [filePreview, setFilePreview] = useState(null)
   const [generating, setGenerating] = useState(false)
-  const [questionPaper, setQuestionPaper] = useState('')
-  const [answerKey, setAnswerKey] = useState('')
+  
+  const [results, setResults] = useState([])
+  const [activeSetIndex, setActiveSetIndex] = useState(0)
   const [activeTab, setActiveTab] = useState('questionPaper')
+  
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const [suggestedChapters, setSuggestedChapters] = useState([])
   const [fetchingChapters, setFetchingChapters] = useState(false)
   const [generationCount, setGenerationCount] = useState(0)
@@ -43,507 +63,503 @@ export default function SmartExamMaker() {
   const { spendCoins, toolCosts, stats } = useGamification()
 
   const GENERATION_COST = toolCosts?.['smart-exam'] ?? 5
-
   const canGenerate = form.subject && form.grade && (inputMode === 'upload' ? file : topic.trim().length > 3)
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0]
     if (!selectedFile) return
-    
-    // Check if it's an image or pdf
     if (!selectedFile.type.startsWith('image/') && selectedFile.type !== 'application/pdf') {
       setError('Please upload a valid Image (JPG, PNG) or PDF file.')
       return
     }
-    
-    if (selectedFile.size > 5 * 1024 * 1024) {
-      setError('File size must be less than 5MB.')
-      return
-    }
-
+    if (selectedFile.size > 5 * 1024 * 1024) return setError('File size must be less than 5MB.')
     setFile(selectedFile)
     setError('')
-
-    // Generate preview
     const reader = new FileReader()
-    reader.onload = () => {
-      setFilePreview(reader.result)
-    }
+    reader.onload = () => setFilePreview(reader.result)
     reader.readAsDataURL(selectedFile)
   }
 
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      if (file.size > 1 * 1024 * 1024) return alert('Logo size must be under 1MB')
+      const reader = new FileReader()
+      reader.onload = () => setSchoolLogo(reader.result)
+      reader.readAsDataURL(file)
+    }
+  }
+
   const handleFetchChapters = async () => {
-    if (!form.board || !form.grade || !form.subject) {
-      setError('Please select Board, Class, and Subject first to fetch chapters.');
-      return;
-    }
-    setFetchingChapters(true);
-    setError('');
+    if (!form.board || !form.grade || !form.subject) return setError('Please select Board, Class, and Subject first.')
+    setFetchingChapters(true); setError('')
     try {
-      const prompt = `You are a curriculum expert. List the official syllabus chapter names for ${form.board} ${form.grade} ${form.subject}. 
-Return EXACTLY a JSON array of strings, with NO markdown formatting, NO backticks, and NO extra text.
-Example: ["Chapter 1: Real Numbers", "Chapter 2: Polynomials"]`;
-      const response = await generateAIContent(prompt);
-      const jsonStr = response.replace(/```json/g, '').replace(/```/g, '').trim();
-      const chapters = JSON.parse(jsonStr);
-      if (Array.isArray(chapters) && chapters.length > 0) {
-        setSuggestedChapters(chapters);
-      } else {
-        throw new Error("Invalid chapters format");
-      }
-    } catch (err) {
-      console.error("Fetch chapters error:", err);
-      setError('Failed to auto-fetch chapters. Please type the topic manually.');
-    } finally {
-      setFetchingChapters(false);
-    }
+      const response = await generateAIContent(`List official syllabus chapter names for ${form.board} ${form.grade} ${form.subject}. Return ONLY a JSON array of strings. Example: ["Chapter 1", "Chapter 2"]`)
+      const chapters = JSON.parse(response.replace(/```json/g, '').replace(/```/g, '').trim())
+      if (Array.isArray(chapters)) setSuggestedChapters(chapters)
+    } catch (err) { setError('Failed to auto-fetch chapters.') } 
+    finally { setFetchingChapters(false) }
   }
 
   const toggleChapter = (ch) => {
     setTopic(prev => {
-      let chapters = prev.split('\n').map(s => s.trim()).filter(Boolean);
-      if (chapters.includes(ch)) {
-        chapters = chapters.filter(c => c !== ch);
-      } else {
-        chapters.push(ch);
-      }
-      return chapters.join('\n');
-    });
+      let chapters = prev.split('\n').map(s => s.trim()).filter(Boolean)
+      if (chapters.includes(ch)) chapters = chapters.filter(c => c !== ch)
+      else chapters.push(ch)
+      return chapters.join('\n')
+    })
+  }
+
+  const updateBlueprint = (id, field, value) => {
+    setBlueprint(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item))
+  }
+  const removeBlueprintItem = (id) => setBlueprint(prev => prev.filter(item => item.id !== id))
+  const addBlueprintItem = () => setBlueprint(prev => [...prev, { id: Date.now(), type: 'New Section', count: 1, marksPerQuestion: 1 }])
+
+  const saveToFirebase = async (paperSetsContent) => {
+    if (!currentUser) return
+    try {
+      await addDoc(collection(db, 'users', currentUser.uid, 'generations'), {
+        toolId: 'smart-exam',
+        toolTitle: `Smart Exam: ${form.subject} - ${form.grade}`,
+        toolColor: 'from-fuchsia-500 to-purple-600',
+        content: paperSetsContent[0].paper + (form.includeAnswerKey ? '\n\n' + paperSetsContent[0].key : ''),
+        createdAt: serverTimestamp(),
+        metadata: { subject: form.subject, grade: form.grade, board: form.board }
+      })
+    } catch (err) { console.warn("Failed to save to history", err) }
   }
 
   const handleGenerate = async () => {
-    // First generation is free (paid at CoinGate entry). Subsequent ones cost coins.
     if (generationCount > 0) {
-      if ((stats?.coins || 0) < GENERATION_COST) {
-        setError(`Not enough coins! You need ${GENERATION_COST} 🪙 to generate again. Current balance: ${stats?.coins || 0} 🪙`)
-        return
-      }
+      if ((stats?.coins || 0) < GENERATION_COST) return setError(`Not enough coins! You need ${GENERATION_COST} 🪙. Current: ${stats?.coins || 0}`)
       const success = await spendCoins(GENERATION_COST, 'Smart Exam Maker')
-      if (!success) {
-        setError('Failed to deduct coins. Please try again.')
-        return
-      }
+      if (!success) return setError('Failed to deduct coins.')
     }
+    
     setGenerationCount(prev => prev + 1)
-    setGenerating(true)
-    setError('')
+    setGenerating(true); setError(''); setResults([])
+    
     try {
-      let base64Data = null;
-      let mimeType = null;
-      let promptPrefix = '';
+      let base64Data = null, mimeType = null, promptPrefix = ''
 
       if (inputMode === 'upload') {
-        if (!filePreview) throw new Error("File not loaded properly. Please re-upload.");
-        base64Data = filePreview.split(',')[1];
-        mimeType = file.type;
-        promptPrefix = `I am providing you an image or PDF of a syllabus, textbook chapter, or notes. Based ONLY on the content provided in the file`;
+        if (!filePreview) throw new Error("File not loaded properly.")
+        base64Data = filePreview.split(',')[1]
+        mimeType = file.type
+        promptPrefix = `Based ONLY on the content provided in the image/PDF material`
       } else {
-        promptPrefix = `Based on the official syllabus and topics for the following chapter/topic: "${topic}"`;
+        promptPrefix = `Based on the official syllabus for topic: "${topic}"`
       }
 
-      let headerBlock = '';
-      if (form.institutionName || form.coachingName) {
-        headerBlock += `# ${form.institutionName || form.coachingName}\n`;
+      let blueprintPrompt = ''
+      if (form.useAutoPattern) {
+        blueprintPrompt = `CRITICAL EXAM BLUEPRINT: You MUST strictly format the exam according to the official and latest ${form.board} exam pattern for ${form.subject} ${form.grade}. Include all standard sections (Section A, B, C, D, etc.) with the correct marks weightage and standard question types (e.g. MCQs, Assertion-Reason, Short Answer, Long Answer, Case-Based) as per the actual board exams. IMPORTANT: Do NOT generate a short or abbreviated paper. You MUST generate a FULL-LENGTH paper with the EXACT TOTAL MARKS (e.g. 80 Marks or 100 Marks) as mandated by the official curriculum.`
+      } else {
+        const blueprintString = blueprint.map((item, idx) => 
+          `Section ${String.fromCharCode(65 + idx)}: ${item.type} - Generate EXACTLY ${item.count} questions worth ${item.marksPerQuestion} mark(s) each.`
+        ).join('\n')
+        blueprintPrompt = `CRITICAL EXAM BLUEPRINT (YOU MUST STRICTLY FOLLOW THIS EXACT COUNT AND MARKS):\n${blueprintString}`
       }
-      if (form.session || form.unitType) {
-        let subHeader = [];
-        if (form.session) subHeader.push(`Session: ${form.session}`);
-        if (form.unitType) subHeader.push(form.unitType);
-        if (subHeader.length > 0) headerBlock += `### ${subHeader.join(' | ')}\n`;
-      }
-      headerBlock += `**Subject:** ${form.subject} | **Class:** ${form.grade}\n`;
-      headerBlock += `**Time Allowed:** ${form.duration} | **Maximum Marks:** ${form.totalMarks}\n`;
 
-      const prompt = `Act as an expert ${form.board} teacher. ${promptPrefix}, generate a highly structured ${form.totalMarks} exam paper.
+      const prompt = `Act as an expert ${form.board} examiner. ${promptPrefix}, generate ${form.paperSets} distinct set(s) of an exam paper.
+      
+CRITICAL NEP 2020 & CBSE COMPLIANCE:
+- Integrate Competency-Based Education (CBE) principles.
+- Use LaTeX formatting for all math equations, fractions, and symbols using $ inline and $$ block markers. Ensure proper spacing.
+${form.useBlooms ? "- Follow Bloom's Taxonomy: Mix of Remembering (20%), Understanding (30%), Applying (30%), Analyzing/Evaluating (20%)." : ""}
+${form.includePYQ ? "- STRICTLY prioritize and adapt ACTUAL Previous Year Board Questions (PYQs) from the past 10 years. If a question is a PYQ, append the year in brackets at the end of the question e.g. '(CBSE 2019)'." : ""}
 
 Configuration:
-- Institution Name: ${form.institutionName || 'Not specified'}
-- Coaching Name: ${form.coachingName || 'Not specified'}
-- Session: ${form.session || 'Not specified'}
-- Unit/Exam Type: ${form.unitType || 'Not specified'}
-- Board: ${form.board}
-- Subject: ${form.subject}
-- Grade: ${form.grade}
-- Duration: ${form.duration}
-${inputMode === 'topic' ? `- Topic: ${topic}` : ''}
+- Board: ${form.board} | Subject: ${form.subject} | Grade: ${form.grade}
+- Difficulty: ${form.difficulty}
+- Language: ${form.language} (If Bilingual, output English immediately followed by Hindi translation for every question)
+- Total Marks: ${form.useAutoPattern ? 'Official Board Maximum Marks (e.g. 80 or 100)' : calculatedTotalMarks}
 
-Structure Requirements:
-Create a professional header block EXACTLY as follows:
-${headerBlock}
+${blueprintPrompt}
 
-*General Instructions: Read all instructions carefully. Marks are indicated against each question.*
+For EACH set (Set A, Set B, etc.), use the following exact structure:
 
+SET_START: Set [A/B/C]
+*General Instructions:*
+*- All questions are compulsory.*
+*- Marks are indicated against each question.*
 ---
-**Exam Pattern & Blueprint:**
-You MUST strictly follow the LATEST official exam blueprint, section-wise weightage, and typography for the **${form.board}** Board, **${form.grade}**, **${form.subject}**.
-- Include exactly the sections mandated by ${form.board} (For example, CBSE typically requires Section A (MCQs/Assertion-Reason), Section B (VSA), Section C (SA), Section D (LA), and Section E (Case-Based/Source-Based questions)).
-- Clearly state the instructions and marks for each section and question just like the official ${form.board} board papers.
-- Ensure the difficulty level and typology of questions (Competency-based, analytical, etc.) perfectly match the official ${form.board} standards.
-- If this is a smaller unit test (e.g., 20 or 40 marks), adapt the official pattern proportionally while maintaining the core question types.
+[Generate the Questions following the exact Blueprint Sections]
 
 ${form.includeAnswerKey ? `
-IMPORTANT: You MUST separate the Question Paper and the Answer Key with exactly this delimiter on a new line:
---- ANSWER_KEY_SEPARATOR ---
-
-Then, generate the Answer Key. The Answer Key MUST ALSO start with the exact same header block as the question paper, but append " - ANSWER KEY" to the title. Provide detailed marking scheme for each question.
+ANSWER_KEY_SEPARATOR
+# Answer Key - Set [A/B/C]
+[Generate detailed Answer Key with marking scheme]
 ` : ''}
+SET_END
 
-Ensure all questions are directly derived from the specified material. Use professional markdown formatting.`
+IMPORTANT: 
+- Generate exactly ${form.paperSets} set(s).
+- Separate sets using SET_START and SET_END.
+- Format beautifully using Markdown.`
 
       const content = await generateWithGeminiVision(prompt, base64Data, mimeType)
       
-      if (form.includeAnswerKey && content.includes('--- ANSWER_KEY_SEPARATOR ---')) {
-        const parts = content.split('--- ANSWER_KEY_SEPARATOR ---');
-        setQuestionPaper(parts[0].trim());
-        setAnswerKey(parts[1].trim());
-      } else if (form.includeAnswerKey && content.includes('ANSWER_KEY_SEPARATOR')) {
-         const parts = content.split('ANSWER_KEY_SEPARATOR');
-        setQuestionPaper(parts[0].replace(/---/g, '').trim());
-        setAnswerKey(parts[1].replace(/---/g, '').trim());
+      const sets = []
+      // Use strict regex to find blocks between SET_START and SET_END
+      const setMatches = content.match(/SET_START: Set [A-Z][\s\S]*?SET_END/g)
+      
+      if (setMatches && setMatches.length > 0) {
+        setMatches.forEach(block => {
+          let cleanBlock = block.replace(/SET_START:\s*Set [A-Z]/, '').replace(/SET_END$/, '').trim()
+          let paper = cleanBlock
+          let key = ''
+          if (form.includeAnswerKey && cleanBlock.includes('ANSWER_KEY_SEPARATOR')) {
+            const parts = cleanBlock.split('ANSWER_KEY_SEPARATOR')
+            paper = parts[0].trim()
+            key = parts[1] ? parts[1].trim() : ''
+          }
+          sets.push({ paper, key })
+        })
       } else {
-        setQuestionPaper(content);
-        setAnswerKey('');
+        // Fallback
+        if (form.includeAnswerKey && content.includes('ANSWER_KEY_SEPARATOR')) {
+          const parts = content.split('ANSWER_KEY_SEPARATOR')
+          sets.push({ paper: parts[0].trim(), key: parts[1] ? parts[1].replace(/SET_END$/, '').trim() : '' })
+        } else sets.push({ paper: content.replace(/SET_END$/, '').trim(), key: '' })
       }
-      setActiveTab('questionPaper');
-    } catch (err) { 
-      console.error(err)
-      setError(err.message || 'Failed to generate exam paper. Please try again.') 
-    } finally { 
-      setGenerating(false) 
-    }
+
+      setResults(sets)
+      setActiveSetIndex(0)
+      setActiveTab('questionPaper')
+      saveToFirebase(sets)
+      
+    } catch (err) { setError(err.message || 'Failed to generate exam. Please try again.') } 
+    finally { setGenerating(false) }
   }
 
   const handleCopy = () => { 
-    const textToCopy = activeTab === 'questionPaper' ? questionPaper : answerKey;
-    navigator.clipboard.writeText(textToCopy); 
-    setCopied(true); 
-    setTimeout(() => setCopied(false), 2000) 
+    if(!results[activeSetIndex]) return
+    navigator.clipboard.writeText(activeTab === 'questionPaper' ? results[activeSetIndex].paper : results[activeSetIndex].key)
+    setCopied(true); setTimeout(() => setCopied(false), 2000) 
   }
   
   const handlePDF = () => {
     const el = document.getElementById('exam-output')
     if (!el) return
+    const docName = activeTab === 'questionPaper' ? 'Question_Paper' : 'Answer_Key'
+    const printWindow = window.open('', '_blank')
     
-    const docName = activeTab === 'questionPaper' ? 'Question_Paper' : 'Answer_Key';
-    const printWindow = window.open('', '_blank');
-    
+    // Header logic for proper printable document
+    let headerHTML = ''
+    if (activeTab === 'questionPaper') {
+      headerHTML = `
+        <div style="text-align: center; margin-bottom: 20px; position: relative;">
+          ${schoolLogo ? `<img src="${schoolLogo}" style="position: absolute; left: 0; top: 0; max-height: 80px; max-width: 80px; object-fit: contain;" />` : ''}
+          <h1 style="margin: 0; font-size: 26px; text-transform: uppercase;">${form.institutionName || 'EXAMINATION'}</h1>
+          <h2 style="margin: 5px 0; font-size: 18px;">${form.examName || ''}</h2>
+          ${form.session ? `<p style="margin: 0; font-size: 14px; font-weight: bold;">Session: ${form.session}</p>` : ''}
+        </div>
+        <table style="width: 100%; border: 2px solid #000; border-collapse: collapse; margin-bottom: 15px; font-weight: bold; font-size: 14px;">
+          <tr>
+            <td style="border: 1px solid #000; padding: 8px; width: 50%;">Subject: ${form.subject}</td>
+            <td style="border: 1px solid #000; padding: 8px; width: 50%;">Class: ${form.grade}</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #000; padding: 8px;">Time Allowed: ${form.duration}</td>
+            <td style="border: 1px solid #000; padding: 8px;">Maximum Marks: ${totalMarks}</td>
+          </tr>
+        </table>
+        <table style="width: 100%; border: none; margin-bottom: 20px; font-size: 14px;">
+          <tr>
+            <td style="padding: 5px 0;"><strong>Student Name:</strong> ..............................................................</td>
+            <td style="padding: 5px 0;"><strong>Roll No:</strong> ..........................</td>
+            <td style="padding: 5px 0; text-align: right;"><strong>Date:</strong> ....../....../20....</td>
+          </tr>
+        </table>
+        <hr style="border-top: 2px solid #000; margin-bottom: 20px;" />
+      `
+    } else {
+      headerHTML = `<h1 style="text-align:center;">${form.subject} - Answer Key</h1><hr style="margin-bottom: 20px;" />`
+    }
+
     printWindow.document.write(`
       <html>
         <head>
           <title>SmartExam_${form.subject}_${docName}</title>
+          <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" integrity="sha384-GvrOXuhMATgEsSwCs4smul74iXGOixntILdUW9XmUC6+HX0sLNAK3q71bZl5Oym" crossorigin="anonymous">
           <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              padding: 40px; 
-              color: #000; 
-              line-height: 1.6;
-            }
-            h1, h2, h3 { color: #000; text-align: center; margin-bottom: 15px; }
+            body { font-family: 'Times New Roman', Times, serif; padding: 40px; color: #000; line-height: 1.6; position: relative; max-width: 900px; margin: 0 auto; }
+            h1, h2, h3 { color: #000; margin-bottom: 15px; }
+            h3 { font-size: 18px; margin-top: 20px; text-decoration: underline; }
+            p { margin: 5px 0; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            th, td { border: 1px solid #000; padding: 10px; text-align: left; }
-            hr { border: none; border-top: 1px solid #000; margin: 20px 0; }
-            blockquote { border-left: 4px solid #ccc; padding-left: 15px; font-style: italic; }
-            @media print {
-              @page { margin: 20mm; }
-              body { padding: 0; }
-            }
+            th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+            .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 8rem; color: rgba(0,0,0,0.04); z-index: -1; font-weight: bold; pointer-events: none; white-space: nowrap;}
+            @media print { @page { margin: 15mm; } body { padding: 0; } }
           </style>
         </head>
         <body>
-          ${el.innerHTML}
-          <script>
-            setTimeout(() => {
-              window.print();
-              window.close();
-            }, 250);
-          </script>
+          ${form.watermarkText ? `<div class="watermark">${form.watermarkText}</div>` : ''}
+          ${headerHTML}
+          <div style="font-size: 15px;">${el.innerHTML}</div>
+          <script>setTimeout(() => { window.print(); window.close(); }, 800);</script>
         </body>
       </html>
-    `);
-    printWindow.document.close();
+    `)
+    printWindow.document.close()
   }
 
   const handleDOCX = async () => {
-    const el = document.getElementById('exam-output');
-    if (!el) return;
-    
-    const docName = activeTab === 'questionPaper' ? 'Question_Paper' : 'Answer_Key';
-    const safeSubject = (form.subject || 'Exam').replace(/[^a-zA-Z0-9]/g, '_');
-    const defaultName = `SmartExam_${safeSubject}_${docName}`;
-    
-    let fileName = window.prompt("Enter file name for your Word Document:", defaultName);
-    if (!fileName) return; // User cancelled
-    
-    // Ensure .docx extension
-    if (!fileName.toLowerCase().endsWith('.docx')) {
-      fileName = fileName.replace(/\.doc$/, '') + '.docx';
-    }
-    
-    // Create a clean HTML wrapper
-    const header = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Exam Document</title></head><body>";
-    const footer = "</body></html>";
-    const htmlString = header + el.innerHTML + footer;
-    
-    try {
-      // Convert HTML to true DOCX blob
-      const blob = await asBlob(htmlString, { orientation: 'portrait' });
-      // Trigger download
-      saveAs(blob, fileName);
-    } catch (err) {
-      console.error('DOCX Generation Error:', err);
-      alert('Failed to generate DOCX file. Please try the Print / PDF option instead.');
-    }
-  }
+    const el = document.getElementById('exam-output')
+    if (!el) return
+    const docName = activeTab === 'questionPaper' ? 'Question_Paper' : 'Answer_Key'
+    const fileName = prompt("Enter file name:", `SmartExam_${form.subject}_${docName}.docx`)
+    if (!fileName) return
 
-  const handleShare = async () => {
-    const textToShare = activeTab === 'questionPaper' ? questionPaper : answerKey;
-    const title = activeTab === 'questionPaper' ? `${form.subject} Exam Paper` : `${form.subject} Answer Key`;
-    
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: title,
-          text: textToShare,
-        })
-      } catch (err) {
-        console.log('Error sharing:', err)
-      }
+    let headerHTML = ''
+    if (activeTab === 'questionPaper') {
+      headerHTML = `
+        <div style="text-align: center; margin-bottom: 20px;">
+          ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 80px; max-width: 80px; margin-bottom: 10px;" />` : ''}
+          <h1 style="margin: 0; font-size: 22px; text-transform: uppercase; font-family: Arial, sans-serif;">${form.institutionName || 'EXAMINATION'}</h1>
+          <h2 style="margin: 5px 0; font-size: 16px; font-family: Arial, sans-serif;">${form.examName || ''}</h2>
+          ${form.session ? `<p style="margin: 0; font-size: 12px; font-weight: bold; font-family: Arial, sans-serif;">Session: ${form.session}</p>` : ''}
+        </div>
+        <table style="width: 100%; border: 1px solid #000; border-collapse: collapse; margin-bottom: 15px; font-weight: bold; font-size: 12px; font-family: Arial, sans-serif;">
+          <tr>
+            <td style="border: 1px solid #000; padding: 6px; width: 50%;">Subject: ${form.subject}</td>
+            <td style="border: 1px solid #000; padding: 6px; width: 50%;">Class: ${form.grade}</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #000; padding: 6px;">Time Allowed: ${form.duration}</td>
+            <td style="border: 1px solid #000; padding: 6px;">Maximum Marks: ${form.useAutoPattern ? '........' : calculatedTotalMarks}</td>
+          </tr>
+        </table>
+        <table style="width: 100%; border: none; margin-bottom: 20px; font-size: 12px; font-family: Arial, sans-serif;">
+          <tr>
+            <td style="padding: 5px 0;"><strong>Student Name:</strong> ........................................................</td>
+            <td style="padding: 5px 0;"><strong>Roll No:</strong> .....................</td>
+            <td style="padding: 5px 0; text-align: right;"><strong>Date:</strong> ....../....../20....</td>
+          </tr>
+        </table>
+        <hr style="border-top: 2px solid #000; margin-bottom: 20px;" />
+      `
     } else {
-      handleCopy();
-      alert("Sharing not supported on this browser. Text copied to clipboard instead.");
+      headerHTML = `<h1 style="text-align:center; font-family: Arial, sans-serif;">${form.subject} - Answer Key</h1><hr style="margin-bottom: 20px;" />`
     }
-  }
 
-  const handleReset = () => { 
-    setQuestionPaper('')
-    setAnswerKey('')
-    setFile(null)
-    setFilePreview(null)
-    setError('')
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    const htmlString = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Exam</title></head><body>${headerHTML}<div>${el.innerHTML}</div></body></html>`
+    try {
+      const blob = await asBlob(htmlString, { orientation: 'portrait', margins: { top: 1440, right: 1440, bottom: 1440, left: 1440 } })
+      saveAs(blob, fileName)
+    } catch (err) { alert('Failed to generate DOCX.') }
   }
 
   return (
-    <div className="max-w-[1000px] mx-auto animate-fade-in-up pb-24 lg:pb-8">
+    <div className="max-w-[1200px] mx-auto animate-fade-in-up pb-24 lg:pb-8">
       {/* Header */}
       <div className="relative overflow-hidden bg-gradient-to-br from-fuchsia-600 via-purple-600 to-indigo-700 rounded-[32px] p-8 sm:p-12 mb-8 shadow-2xl">
         <div className="absolute top-0 right-0 -translate-y-1/3 translate-x-1/4 w-[500px] h-[500px] bg-white/10 rounded-full blur-[80px] pointer-events-none" />
-        <div className="relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 border border-white/30 text-white text-xs font-black tracking-widest uppercase mb-5">
-            <Sparkles className="w-4 h-4" /> AI Vision Engine
+        <div className="relative z-10 flex justify-between items-start">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 border border-white/30 text-white text-xs font-black tracking-widest uppercase mb-5">
+              <Sparkles className="w-4 h-4" /> CBSE NEP 2020 Edition
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-black font-display text-white tracking-tight mb-3">
+              Smart Exam <span className="text-purple-200">Maker</span>
+            </h1>
+            <p className="text-purple-100 font-medium text-sm sm:text-base max-w-xl">
+              Create professional board-level exam papers with proper math rendering, custom blueprints, and branded headers.
+            </p>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black font-display text-white tracking-tight mb-3">
-            Smart Exam <span className="text-purple-200">Maker</span>
-          </h1>
-          <p className="text-purple-100 font-medium text-sm sm:text-base max-w-xl">
-            Upload a photo of a textbook page or a PDF chapter, and our AI will instantly generate a professional, board-aligned exam paper.
-          </p>
+          <button onClick={() => navigate('/history')} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl transition-all font-bold backdrop-blur-sm border border-white/20">
+            <History className="w-4 h-4" /> View Saved Exams
+          </button>
         </div>
       </div>
 
-      {!questionPaper ? (
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      {results.length === 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Input Source */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-[28px] border border-surface-200 shadow-sm p-6 sm:p-8 h-full">
+          <div className="lg:col-span-4">
+            <div className="bg-white rounded-[28px] border border-surface-200 shadow-sm p-6 h-full">
               <h2 className="text-lg font-black text-surface-900 mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-fuchsia-600" />
-                Source Material
+                <FileText className="w-5 h-5 text-fuchsia-600" /> Syllabus Source
               </h2>
               
               <div className="flex bg-surface-100 p-1 rounded-xl mb-6">
-                <button 
-                  onClick={() => setInputMode('upload')}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputMode === 'upload' ? 'bg-white text-fuchsia-600 shadow-sm' : 'text-surface-600 hover:text-surface-800'}`}
-                >
-                  Upload File
-                </button>
-                <button 
-                  onClick={() => setInputMode('topic')}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputMode === 'topic' ? 'bg-white text-fuchsia-600 shadow-sm' : 'text-surface-600 hover:text-surface-800'}`}
-                >
-                  Select Topic
-                </button>
+                <button onClick={() => setInputMode('upload')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputMode === 'upload' ? 'bg-white text-fuchsia-600 shadow-sm' : 'text-surface-600 hover:text-surface-800'}`}>Upload File</button>
+                <button onClick={() => setInputMode('topic')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${inputMode === 'topic' ? 'bg-white text-fuchsia-600 shadow-sm' : 'text-surface-600 hover:text-surface-800'}`}>Select Topic</button>
               </div>
 
               {inputMode === 'upload' ? (
-              <div 
-                className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${file ? 'border-fuchsia-400 bg-fuchsia-50/50' : 'border-surface-300 bg-surface-50 hover:bg-surface-100 hover:border-fuchsia-300 cursor-pointer'}`}
-                onClick={() => !file && fileInputRef.current?.click()}
-              >
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleFileChange} 
-                  accept="image/jpeg, image/png, application/pdf" 
-                  className="hidden" 
-                />
-                
-                {file ? (
-                  <div className="relative animate-fade-in">
-                    {file.type.startsWith('image/') ? (
-                      <div className="aspect-[3/4] max-h-[250px] mx-auto rounded-xl overflow-hidden shadow-sm mb-3 border border-surface-200">
-                        <img src={filePreview} alt="Preview" className="w-full h-full object-cover" />
-                      </div>
-                    ) : (
-                      <div className="w-20 h-20 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-sm">
-                        <FileText className="w-10 h-10" />
-                      </div>
-                    )}
-                    <p className="text-sm font-bold text-surface-800 truncate px-4">{file.name}</p>
-                    <p className="text-xs font-semibold text-surface-500 mt-0.5">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                    
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setFile(null); setFilePreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
-                      className="absolute -top-3 -right-3 w-8 h-8 bg-white border border-surface-200 text-surface-500 rounded-full flex items-center justify-center shadow-md hover:text-red-500 hover:border-red-200 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="py-8">
-                    <div className="w-16 h-16 bg-white border border-surface-200 shadow-sm rounded-full flex items-center justify-center mx-auto mb-4">
-                      <UploadCloud className="w-8 h-8 text-fuchsia-500" />
+                <div onClick={() => !file && fileInputRef.current?.click()} className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${file ? 'border-fuchsia-400 bg-fuchsia-50/50' : 'border-surface-300 bg-surface-50 hover:bg-surface-100 cursor-pointer'}`}>
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/jpeg, image/png, application/pdf" className="hidden" />
+                  {file ? (
+                    <div className="relative animate-fade-in">
+                      {file.type.startsWith('image/') ? (
+                        <div className="aspect-[3/4] max-h-[200px] mx-auto rounded-xl overflow-hidden shadow-sm mb-3 border border-surface-200"><img src={filePreview} alt="Preview" className="w-full h-full object-cover" /></div>
+                      ) : (
+                        <div className="w-16 h-16 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mx-auto mb-3"><FileText className="w-8 h-8" /></div>
+                      )}
+                      <p className="text-sm font-bold text-surface-800 truncate px-4">{file.name}</p>
+                      <button onClick={(e) => { e.stopPropagation(); setFile(null); setFilePreview(null); }} className="absolute -top-3 -right-3 w-8 h-8 bg-white border border-surface-200 text-surface-500 rounded-full flex items-center justify-center shadow-md hover:text-red-500"><X className="w-4 h-4" /></button>
                     </div>
-                    <p className="text-base font-bold text-surface-800 mb-1">Click to Upload</p>
-                    <p className="text-xs font-medium text-surface-500">Supports JPG, PNG, or PDF</p>
-                    <p className="text-[10px] font-semibold text-surface-400 mt-4 px-4 bg-white py-1 rounded-full border border-surface-100 inline-block">Max Size: 5MB</p>
-                  </div>
-                )}
-              </div>
-              ) : (
-                <div className="animate-fade-in">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                    <label className="block text-sm font-bold text-surface-700">Chapter or Topic Name *</label>
-                    <button 
-                      onClick={handleFetchChapters} 
-                      disabled={fetchingChapters || !form.board || !form.grade || !form.subject}
-                      className="text-xs font-extrabold text-fuchsia-600 bg-fuchsia-50 hover:bg-fuchsia-100 px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {fetchingChapters ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                      {fetchingChapters ? 'Fetching...' : 'Auto-fetch Chapters'}
-                    </button>
-                  </div>
-                  
-                  {suggestedChapters.length > 0 && (
-                    <div className="mb-3 animate-fade-in-up">
-                      <p className="text-xs font-bold text-fuchsia-700 mb-2">Select one or more chapters:</p>
-                      <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-3 bg-fuchsia-50/50 rounded-xl border border-fuchsia-100">
-                        {suggestedChapters.map((ch, i) => {
-                          const isSelected = topic.split('\n').map(s=>s.trim()).includes(ch);
-                          return (
-                            <button
-                              key={i}
-                              onClick={() => toggleChapter(ch)}
-                              className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all text-left ${isSelected ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-sm' : 'bg-white text-surface-600 border-surface-200 hover:border-fuchsia-300 hover:text-fuchsia-600'}`}
-                            >
-                              {isSelected && <Check className="w-3 h-3 inline-block mr-1" />}
-                              {ch}
-                            </button>
-                          )
-                        })}
-                      </div>
-                      <div className="flex items-center gap-3 my-3">
-                        <div className="flex-1 h-px bg-surface-200"></div>
-                        <div className="text-[10px] font-black text-surface-400 uppercase tracking-widest">OR TYPE MANUALLY</div>
-                        <div className="flex-1 h-px bg-surface-200"></div>
-                      </div>
+                  ) : (
+                    <div className="py-8">
+                      <div className="w-16 h-16 bg-white border border-surface-200 shadow-sm rounded-full flex items-center justify-center mx-auto mb-4"><UploadCloud className="w-8 h-8 text-fuchsia-500" /></div>
+                      <p className="text-base font-bold text-surface-800">Click to Upload</p>
+                      <p className="text-xs font-medium text-surface-500 mt-1">Supports JPG, PNG, or PDF (Max 5MB)</p>
                     </div>
                   )}
-
-                  <textarea 
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    placeholder="e.g. NCERT Science Chapter 4: Carbon and its Compounds"
-                    className="w-full px-4 py-3 bg-surface-50 border-2 border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:border-fuchsia-400 transition-all resize-none h-24 shadow-inner"
-                  ></textarea>
-                  <p className="text-xs text-surface-500 mt-2 font-medium">The AI will use the official syllabus to generate questions for this topic.</p>
+                </div>
+              ) : (
+                <div className="animate-fade-in">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-bold text-surface-700">Topic Name *</label>
+                    <button onClick={handleFetchChapters} disabled={fetchingChapters || !form.board || !form.grade || !form.subject} className="text-xs font-bold text-fuchsia-600 bg-fuchsia-50 hover:bg-fuchsia-100 px-2 py-1 rounded-lg flex items-center gap-1">
+                      {fetchingChapters ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Auto-fetch
+                    </button>
+                  </div>
+                  {suggestedChapters.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-2 max-h-40 overflow-y-auto p-3 bg-surface-50 rounded-xl border border-surface-200">
+                      {suggestedChapters.map((ch, i) => {
+                        const isSelected = topic.includes(ch)
+                        return <button key={i} onClick={() => toggleChapter(ch)} className={`px-2 py-1 text-xs font-bold rounded-lg border transition-all ${isSelected ? 'bg-fuchsia-600 text-white border-fuchsia-600' : 'bg-white text-surface-600 hover:border-fuchsia-300'}`}>{ch}</button>
+                      })}
+                    </div>
+                  )}
+                  <textarea value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Kinematics, Laws of Motion" className="w-full px-4 py-3 bg-surface-50 border-2 border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:border-fuchsia-400 h-32 resize-none"></textarea>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Right Column: Configuration */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-[28px] border border-surface-200 shadow-sm p-6 sm:p-8 h-full flex flex-col">
-              <h2 className="text-lg font-black text-surface-900 mb-6 flex items-center gap-2">
-                <FileQuestion className="w-5 h-5 text-indigo-600" />
-                Exam Configuration
-              </h2>
-
-              {/* Institution Header Settings */}
-              <div className="mb-6 p-4 bg-surface-50 rounded-xl border border-surface-200">
-                <h3 className="text-sm font-bold text-surface-800 mb-4 border-b border-surface-200 pb-2">Header Details (Optional)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-surface-700 mb-1">School Name</label>
-                    <input type="text" value={form.institutionName} onChange={e=>setForm(f=>({...f,institutionName:e.target.value}))} placeholder="e.g. Delhi Public School" className="w-full px-3 py-2 bg-white border border-surface-300 rounded-lg text-sm focus:outline-none focus:border-fuchsia-400" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-surface-700 mb-1">Coaching Name</label>
-                    <input type="text" value={form.coachingName} onChange={e=>setForm(f=>({...f,coachingName:e.target.value}))} placeholder="e.g. Allen Career Institute" className="w-full px-3 py-2 bg-white border border-surface-300 rounded-lg text-sm focus:outline-none focus:border-fuchsia-400" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-surface-700 mb-1">Session</label>
-                    <input type="text" value={form.session} onChange={e=>setForm(f=>({...f,session:e.target.value}))} placeholder="e.g. 2024-25" className="w-full px-3 py-2 bg-white border border-surface-300 rounded-lg text-sm focus:outline-none focus:border-fuchsia-400" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-surface-700 mb-1">Unit / Exam Type</label>
-                    <input type="text" value={form.unitType} onChange={e=>setForm(f=>({...f,unitType:e.target.value}))} placeholder="e.g. Unit Test 1" className="w-full px-3 py-2 bg-white border border-surface-300 rounded-lg text-sm focus:outline-none focus:border-fuchsia-400" />
-                  </div>
+          {/* Right Column: Configuration & Blueprint */}
+          <div className="lg:col-span-8">
+            <div className="bg-white rounded-[28px] border border-surface-200 shadow-sm p-6 flex flex-col h-full">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-black text-surface-900 flex items-center gap-2">
+                  <Target className="w-5 h-5 text-indigo-600" /> Exam Configuration
+                </h2>
+                <div className="px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-700 font-bold text-sm">
+                  Total Marks: {totalMarksDisplay}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
-                <div>
-                  <label className="block text-sm font-bold text-surface-700 mb-1.5">Grade/Class *</label>
-                  <select value={form.grade} onChange={e=>setForm(f=>({...f,grade:e.target.value}))} className="w-full px-4 py-3 bg-surface-50 border-2 border-surface-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-fuchsia-400 transition-all">
-                    <option value="">Select Class...</option>
-                    {gradeList.map(g=><option key={g}>{g}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-surface-700 mb-1.5">Subject *</label>
-                  <select value={form.subject} onChange={e=>setForm(f=>({...f,subject:e.target.value}))} className="w-full px-4 py-3 bg-surface-50 border-2 border-surface-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-fuchsia-400 transition-all">
-                    <option value="">Select Subject...</option>
-                    {subjectList.map(s=><option key={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-surface-700 mb-1.5">Board</label>
-                  <select value={form.board} onChange={e=>setForm(f=>({...f,board:e.target.value}))} className="w-full px-4 py-3 bg-surface-50 border-2 border-surface-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-fuchsia-400 transition-all">
-                    {boardList.map(b=><option key={b}>{b}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-surface-700 mb-1.5">Total Marks</label>
-                  <select value={form.totalMarks} onChange={e=>setForm(f=>({...f,totalMarks:e.target.value}))} className="w-full px-4 py-3 bg-surface-50 border-2 border-surface-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-fuchsia-400 transition-all">
-                    {marksList.map(m=><option key={m}>{m}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-surface-700 mb-1.5">Duration</label>
-                  <select value={form.duration} onChange={e=>setForm(f=>({...f,duration:e.target.value}))} className="w-full px-4 py-3 bg-surface-50 border-2 border-surface-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-fuchsia-400 transition-all">
-                    {timeList.map(t=><option key={t}>{t}</option>)}
-                  </select>
-                </div>
+              {/* Basic Config */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <div><label className="block text-[11px] font-bold text-surface-500 mb-1">Board</label><select value={form.board} onChange={e=>setForm(f=>({...f,board:e.target.value}))} className="w-full px-3 py-2 bg-surface-50 border border-surface-200 rounded-lg text-sm font-bold focus:border-fuchsia-400 focus:outline-none">{boardList.map(b=><option key={b}>{b}</option>)}</select></div>
+                <div><label className="block text-[11px] font-bold text-surface-500 mb-1">Class *</label><select value={form.grade} onChange={e=>setForm(f=>({...f,grade:e.target.value}))} className="w-full px-3 py-2 bg-surface-50 border border-surface-200 rounded-lg text-sm font-bold focus:border-fuchsia-400 focus:outline-none"><option value="">Select...</option>{gradeList.map(g=><option key={g}>{g}</option>)}</select></div>
+                <div><label className="block text-[11px] font-bold text-surface-500 mb-1">Subject *</label><select value={form.subject} onChange={e=>setForm(f=>({...f,subject:e.target.value}))} className="w-full px-3 py-2 bg-surface-50 border border-surface-200 rounded-lg text-sm font-bold focus:border-fuchsia-400 focus:outline-none"><option value="">Select...</option>{subjectList.map(s=><option key={s}>{s}</option>)}</select></div>
+                <div><label className="block text-[11px] font-bold text-surface-500 mb-1">Duration</label><select value={form.duration} onChange={e=>setForm(f=>({...f,duration:e.target.value}))} className="w-full px-3 py-2 bg-surface-50 border border-surface-200 rounded-lg text-sm font-bold focus:border-fuchsia-400 focus:outline-none">{timeList.map(t=><option key={t}>{t}</option>)}</select></div>
               </div>
 
-              <div className="mb-8 p-4 bg-purple-50/50 border border-purple-100 rounded-xl">
-                <label className="flex items-center gap-3 text-sm font-bold text-surface-800 cursor-pointer">
-                  <input type="checkbox" checked={form.includeAnswerKey} onChange={e=>setForm(f=>({...f,includeAnswerKey:e.target.checked}))} className="w-5 h-5 rounded border-surface-300 text-fuchsia-600 focus:ring-fuchsia-500" /> 
-                  Generate Answer Key Separately
+              <div className="flex items-center justify-between mb-4 mt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.useAutoPattern} onChange={e=>setForm(f=>({...f,useAutoPattern:e.target.checked}))} className="w-5 h-5 rounded border-surface-300 text-fuchsia-600 focus:ring-fuchsia-500" />
+                  <span className="text-sm font-bold text-surface-800">Auto-Generate Official Board Pattern</span>
                 </label>
+                {form.useAutoPattern && <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">AI will use real exam blueprint</span>}
               </div>
+
+              {/* Blueprint Builder */}
+              {!form.useAutoPattern && (
+                <div className="mb-6 p-4 bg-surface-50 rounded-2xl border border-surface-200">
+                  <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-sm font-extrabold text-surface-800">📋 Exact Paper Blueprint</h3>
+                  <button onClick={addBlueprintItem} className="text-[11px] font-bold text-fuchsia-600 bg-fuchsia-50 hover:bg-fuchsia-100 px-2 py-1 rounded-lg flex items-center gap-1"><Plus className="w-3 h-3" /> Add Section</button>
+                </div>
+                <div className="space-y-2">
+                  {blueprint.map((item, idx) => (
+                    <div key={item.id} className="flex flex-col md:flex-row items-center gap-2 bg-white p-2 border border-surface-200 rounded-xl">
+                      <span className="text-xs font-bold text-surface-400 w-6">Sec {String.fromCharCode(65+idx)}</span>
+                      <input type="text" value={item.type} onChange={e=>updateBlueprint(item.id, 'type', e.target.value)} className="flex-1 px-3 py-1.5 bg-surface-50 border border-surface-200 rounded-lg text-xs font-bold w-full" placeholder="Type (e.g. MCQ)" />
+                      <div className="flex items-center gap-2 w-full md:w-auto">
+                        <input type="number" min="1" value={item.count} onChange={e=>updateBlueprint(item.id, 'count', parseInt(e.target.value))} className="w-16 px-2 py-1.5 bg-surface-50 border border-surface-200 rounded-lg text-xs font-bold text-center" />
+                        <span className="text-[10px] font-bold text-surface-500">Qs ×</span>
+                        <input type="number" min="1" value={item.marksPerQuestion} onChange={e=>updateBlueprint(item.id, 'marksPerQuestion', parseInt(e.target.value))} className="w-16 px-2 py-1.5 bg-surface-50 border border-surface-200 rounded-lg text-xs font-bold text-center" />
+                        <span className="text-[10px] font-bold text-surface-500">Marks</span>
+                        <button onClick={()=>removeBlueprintItem(item.id)} className="p-1.5 text-surface-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-auto"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              )}
+
+              {/* Advanced Controls Toggle */}
+              <button onClick={() => setShowAdvanced(!showAdvanced)} className="w-full py-2 bg-white border border-surface-200 hover:bg-surface-50 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-surface-600 transition-colors mb-4">
+                <Settings2 className="w-4 h-4" /> {showAdvanced ? 'Hide Branding & Advanced Settings' : 'Show Branding & Advanced Settings'}
+              </button>
+
+              {/* Advanced Settings Drawer */}
+              {showAdvanced && (
+                <div className="animate-slide-down border-t border-b border-surface-100 py-4 mb-4 space-y-5">
+                  {/* Branding / Header Setup */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-surface-50 border border-surface-200 rounded-2xl">
+                      <p className="text-xs font-bold text-surface-800 mb-3 border-b border-surface-200 pb-1">Header Configuration</p>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => logoInputRef.current?.click()} className="shrink-0 w-12 h-12 bg-white border border-surface-300 rounded-xl flex items-center justify-center text-surface-400 hover:text-indigo-500 hover:border-indigo-300 transition-colors relative overflow-hidden">
+                            <input type="file" ref={logoInputRef} onChange={handleLogoUpload} accept="image/*" className="hidden" />
+                            {schoolLogo ? <img src={schoolLogo} className="w-full h-full object-contain p-1" /> : <ImageIcon className="w-5 h-5" />}
+                          </button>
+                          <input type="text" placeholder="School/Coaching Name" value={form.institutionName} onChange={e=>setForm(f=>({...f,institutionName:e.target.value}))} className="w-full px-3 py-2 bg-white border border-surface-300 rounded-lg text-xs font-bold" />
+                        </div>
+                        <input type="text" placeholder="Exam Name (e.g. Term 1 Examination)" value={form.examName} onChange={e=>setForm(f=>({...f,examName:e.target.value}))} className="w-full px-3 py-2 bg-white border border-surface-300 rounded-lg text-xs font-bold" />
+                        <div className="flex gap-2">
+                          <input type="text" placeholder="Session (2025-26)" value={form.session} onChange={e=>setForm(f=>({...f,session:e.target.value}))} className="w-full px-3 py-2 bg-white border border-surface-300 rounded-lg text-xs font-bold" />
+                          <input type="text" placeholder="Watermark Text" value={form.watermarkText} onChange={e=>setForm(f=>({...f,watermarkText:e.target.value}))} className="w-full px-3 py-2 bg-white border border-surface-300 rounded-lg text-xs font-bold" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Settings */}
+                    <div className="space-y-3">
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <label className="block text-[11px] font-bold text-surface-500 mb-1">Language</label>
+                          <select value={form.language} onChange={e=>setForm(f=>({...f,language:e.target.value}))} className="w-full px-3 py-2 bg-surface-50 border border-surface-200 rounded-lg text-xs font-bold focus:border-fuchsia-400">
+                            <option>English</option><option>Hindi</option><option>Bilingual (Both)</option>
+                          </select>
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-[11px] font-bold text-surface-500 mb-1">Paper Sets</label>
+                          <select value={form.paperSets} onChange={e=>setForm(f=>({...f,paperSets:parseInt(e.target.value)}))} className="w-full px-3 py-2 bg-surface-50 border border-surface-200 rounded-lg text-xs font-bold focus:border-fuchsia-400">
+                            <option value={1}>1 Set (Set A)</option><option value={2}>2 Sets (A, B)</option><option value={3}>3 Sets (A, B, C)</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-surface-500 mb-1">Difficulty Base</label>
+                        <div className="flex bg-surface-100 rounded-lg p-1">
+                          {['Easy', 'Medium', 'Hard'].map(d => (
+                            <button key={d} onClick={() => setForm(f => ({...f, difficulty: d}))} className={`flex-1 py-1.5 text-xs font-bold rounded-md ${form.difficulty === d ? (d==='Easy'?'bg-emerald-500 text-white':d==='Medium'?'bg-amber-500 text-white':'bg-red-500 text-white') : 'text-surface-600'}`}>{d}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer bg-fuchsia-50 p-2 rounded-lg border border-fuchsia-100">
+                        <input type="checkbox" checked={form.useBlooms} onChange={e=>setForm(f=>({...f,useBlooms:e.target.checked}))} className="w-4 h-4 rounded text-fuchsia-600 focus:ring-fuchsia-500" />
+                        <span className="text-[11px] font-bold text-surface-800">Enforce Bloom's Cognitive Load Balance</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer bg-amber-50 p-2 rounded-lg border border-amber-100">
+                        <input type="checkbox" checked={form.includePYQ} onChange={e=>setForm(f=>({...f,includePYQ:e.target.checked}))} className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500" />
+                        <span className="text-[11px] font-bold text-surface-800">🎯 Prioritize Previous Year Questions (PYQs)</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="mt-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <label className="flex items-center gap-2 text-sm font-bold text-surface-800 cursor-pointer">
+                    <input type="checkbox" checked={form.includeAnswerKey} onChange={e=>setForm(f=>({...f,includeAnswerKey:e.target.checked}))} className="w-5 h-5 rounded border-surface-300 text-fuchsia-600" /> 
+                    Generate Answer Key
+                  </label>
+                </div>
                 {error && <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 text-sm text-red-700 font-bold">{error}</div>}
-                <button 
-                  onClick={handleGenerate} 
-                  disabled={!canGenerate || generating || fetchingChapters}
-                  className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white font-extrabold rounded-xl hover:from-fuchsia-500 hover:to-purple-500 transition-all disabled:opacity-40 shadow-lg text-lg"
-                >
-                  {generating ? <><Loader2 className="w-5 h-5 animate-spin"/> Processing Document...</> : <><Sparkles className="w-5 h-5"/> Generate Smart Exam {generationCount > 0 && <span className="ml-1 text-sm opacity-80">({GENERATION_COST} 🪙)</span>}</>}
+                <button onClick={handleGenerate} disabled={!canGenerate || generating} className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white font-extrabold rounded-xl hover:from-fuchsia-500 hover:to-indigo-500 transition-all disabled:opacity-40 shadow-lg text-lg">
+                  {generating ? <><Loader2 className="w-5 h-5 animate-spin"/> Crafting CBSE Pattern Exam...</> : <><Sparkles className="w-5 h-5"/> Generate Board Pattern Exam {generationCount > 0 && <span className="ml-1 text-sm opacity-80">({GENERATION_COST} 🪙)</span>}</>}
                 </button>
               </div>
             </div>
@@ -551,46 +567,52 @@ Ensure all questions are directly derived from the specified material. Use profe
         </div>
       ) : (
         <div className="animate-fade-in">
-          {/* Tabs */}
-          {form.includeAnswerKey && answerKey && (
-            <div className="flex bg-surface-100 p-1.5 rounded-2xl mb-6 max-w-md mx-auto">
-              <button 
-                onClick={() => setActiveTab('questionPaper')}
-                className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'questionPaper' ? 'bg-white text-fuchsia-600 shadow-md' : 'text-surface-600 hover:text-surface-800'}`}
-              >
-                Question Paper
-              </button>
-              <button 
-                onClick={() => setActiveTab('answerKey')}
-                className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'answerKey' ? 'bg-white text-indigo-600 shadow-md' : 'text-surface-600 hover:text-surface-800'}`}
-              >
-                Answer Key
-              </button>
-            </div>
-          )}
+          {/* Output Toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-white p-4 rounded-[20px] shadow-sm border border-surface-200">
+            {/* Sets Selector */}
+            {results.length > 1 && (
+              <div className="flex bg-surface-100 p-1 rounded-xl">
+                {results.map((_, i) => (
+                  <button key={i} onClick={() => setActiveSetIndex(i)} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${activeSetIndex === i ? 'bg-white text-indigo-600 shadow-sm' : 'text-surface-600'}`}>
+                    Set {String.fromCharCode(65 + i)}
+                  </button>
+                ))}
+              </div>
+            )}
+            
+            {/* Tab Selector */}
+            {form.includeAnswerKey && results[activeSetIndex]?.key && (
+              <div className="flex gap-2">
+                <button onClick={() => setActiveTab('questionPaper')} className={`px-5 py-2 text-sm font-bold rounded-xl transition-all ${activeTab === 'questionPaper' ? 'bg-fuchsia-100 text-fuchsia-700' : 'bg-surface-50 text-surface-600 hover:bg-surface-100'}`}>Question Paper</button>
+                <button onClick={() => setActiveTab('answerKey')} className={`px-5 py-2 text-sm font-bold rounded-xl transition-all ${activeTab === 'answerKey' ? 'bg-indigo-100 text-indigo-700' : 'bg-surface-50 text-surface-600 hover:bg-surface-100'}`}>Answer Key</button>
+              </div>
+            )}
 
-          <div className="flex flex-wrap items-center gap-3 mb-6">
-            <button onClick={handleCopy} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${copied?'bg-emerald-100 text-emerald-700':'bg-white border border-surface-200 text-surface-700 hover:bg-surface-50'}`}>
-              {copied?<><Check className="w-4 h-4"/> Copied!</>:<><Copy className="w-4 h-4"/> Copy</>}
-            </button>
-            <button onClick={handlePDF} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm">
-              <Download className="w-4 h-4"/> Print / PDF
-            </button>
-            <button onClick={handleDOCX} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm">
-              <FileCode className="w-4 h-4"/> DOCX
-            </button>
-            <button onClick={handleShare} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm">
-              <Share2 className="w-4 h-4"/> Share
-            </button>
-            <button onClick={handleReset} className="flex items-center gap-2 px-5 py-2.5 bg-fuchsia-600 text-white rounded-xl text-sm font-bold hover:bg-fuchsia-700 shadow-md ml-auto">
-              <RotateCcw className="w-4 h-4"/> Create New
-            </button>
+            {/* Actions */}
+            <div className="flex items-center gap-2 sm:ml-auto">
+              <button onClick={handleCopy} className="p-2.5 bg-surface-50 text-surface-600 hover:text-surface-900 rounded-xl" title="Copy"><Copy className="w-4 h-4" /></button>
+              <button onClick={handlePDF} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-xl" title="Print as PDF"><Download className="w-4 h-4" /> Print / PDF</button>
+              <button onClick={handleDOCX} className="p-2.5 bg-surface-50 text-surface-600 hover:text-surface-900 rounded-xl" title="Download Word"><FileCode className="w-4 h-4" /></button>
+              <div className="w-px h-6 bg-surface-200 mx-1"></div>
+              <button onClick={() => setResults([])} className="flex items-center gap-2 px-4 py-2.5 bg-fuchsia-600 text-white rounded-xl text-sm font-bold hover:bg-fuchsia-700"><RotateCcw className="w-4 h-4"/> Edit/New</button>
+            </div>
           </div>
           
-          <div id="exam-output" className="bg-white rounded-[28px] border border-surface-200 shadow-sm p-8 sm:p-12 md:p-16 prose prose-slate max-w-none prose-headings:font-display prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-table:text-sm min-h-[600px]">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {activeTab === 'questionPaper' ? questionPaper : answerKey}
-            </ReactMarkdown>
+          <div className="bg-white rounded-[28px] border border-surface-200 shadow-sm p-8 sm:p-12 md:p-16 relative overflow-hidden min-h-[800px]">
+             {form.watermarkText && (
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-45 text-[6rem] sm:text-[8rem] font-black text-surface-900/5 pointer-events-none whitespace-nowrap z-0 select-none">
+                {form.watermarkText}
+              </div>
+            )}
+            
+            <div id="exam-output" className="relative z-10 w-full max-w-4xl mx-auto prose prose-slate max-w-none prose-headings:font-display">
+              {/* This inline style ensures ReactMarkdown renders math properly within prose */}
+              <style>{`.katex-display { margin: 1em 0; } .katex { font-size: 1.1em; }`}</style>
+              
+              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                {activeTab === 'questionPaper' ? results[activeSetIndex]?.paper : results[activeSetIndex]?.key}
+              </ReactMarkdown>
+            </div>
           </div>
         </div>
       )}
