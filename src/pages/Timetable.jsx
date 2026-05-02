@@ -3,7 +3,8 @@ import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, Al
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
 import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore'
-import { generateWithGeminiVision } from '../utils/aiService'
+import { generateAIContent } from '../utils/aiService'
+import { extractTextFromFile } from '../utils/fileExtractor'
 import { useGamification } from '../contexts/GamificationContext'
 
 const ALL_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
@@ -50,8 +51,6 @@ export default function Timetable() {
   const { spendCoins, toolCosts, stats } = useGamification()
   
   const GENERATION_COST = toolCosts?.['timetable'] ?? 10
-  const VISION_TAX = 10
-  const visionUses = stats?.visionUploads || 0
   
   // grid[day][period] = { subject, teacher, substitute, room, isLocked }
   const [gridHistory, setGridHistory] = useState(() => {
@@ -139,32 +138,12 @@ export default function Timetable() {
     const file = e.target.files?.[0]
     if (!file) return
     
-    if (visionUses >= 2) {
-      if ((stats?.coins || 0) < VISION_TAX) {
-        alert(`Not enough coins for Vision AI! You need ${VISION_TAX} 🪙.`)
-        if (fileInputRef.current) fileInputRef.current.value = ''
-        return
-      }
-      const success = await spendCoins(VISION_TAX, 'Timetable OCR Vision')
-      if (!success) {
-        alert('Failed to deduct coins.')
-        if (fileInputRef.current) fileInputRef.current.value = ''
-        return
-      }
-    }
-
     setIsUploadingPDF(true)
     try {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = async () => {
-        try {
-          const base64Data = reader.result.split(',')[1]
-          const mimeType = file.type
-          
-          const prompt = `Extract the list of teachers, their associated subjects, and designations from this document. Return ONLY a valid JSON array of objects, where each object has 'name' (string), 'subjects' (array of strings, try to map to standard school subjects like Mathematics, Science, English, etc.), and 'designation' (string). If no subjects or designations are found, leave them empty. DO NOT wrap in markdown block. Just raw JSON array starting with [ and ending with ].`
-          
-          const responseText = await generateWithGeminiVision(prompt, base64Data, mimeType)
+      const extractedText = await extractTextFromFile(file)
+      const prompt = `Extract the list of teachers, their associated subjects, and designations from this document. Return ONLY a valid JSON array of objects, where each object has 'name' (string), 'subjects' (array of strings, try to map to standard school subjects like Mathematics, Science, English, etc.), and 'designation' (string). If no subjects or designations are found, leave them empty. DO NOT wrap in markdown block. Just raw JSON array starting with [ and ending with ].\n\nDocument Text:\n"${extractedText}"`
+      
+      const responseText = await generateAIContent(prompt)
           
           let parsed = []
           try {
@@ -218,15 +197,9 @@ export default function Timetable() {
           } else {
             alert("Teachers were found but they are already in your list.")
           }
-        } catch (err) {
-          alert("Error processing document: " + err.message)
-        } finally {
-          setIsUploadingPDF(false)
-          if (fileInputRef.current) fileInputRef.current.value = ''
-        }
-      }
     } catch (err) {
-      alert("Error reading file: " + err.message)
+      alert("Error processing document: " + err.message)
+    } finally {
       setIsUploadingPDF(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }

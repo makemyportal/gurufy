@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { FileQuestion, Sparkles, Loader2, Download, Copy, Check, RotateCcw, FileText, UploadCloud, X, Share2, FileCode, Settings2, Target, History, Plus, Image as ImageIcon, Trash2 } from 'lucide-react'
-import { generateWithGeminiVision, generateAIContent } from '../utils/aiService'
+import { generateAIContent } from '../utils/aiService'
+import { extractTextFromFile } from '../utils/fileExtractor'
 import { useGamification } from '../contexts/GamificationContext'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
@@ -81,11 +82,7 @@ export default function SmartExamMaker() {
   const { spendCoins, toolCosts, stats } = useGamification()
 
   const GENERATION_COST = toolCosts?.['smart-exam'] ?? 5
-  
-  const VISION_TAX = 10
-  const visionUses = stats?.visionUploads || 0
-  const isPremiumVision = inputMode === 'upload' && visionUses >= 2
-  const TOTAL_COST = (GENERATION_COST * form.paperSets) + (isPremiumVision ? VISION_TAX : 0)
+  const TOTAL_COST = GENERATION_COST * form.paperSets
 
   const canGenerate = form.subject && form.grade && (inputMode === 'upload' ? file : topic.trim().length > 3)
 
@@ -147,24 +144,40 @@ export default function SmartExamMaker() {
       return setError(`Not enough coins! You need ${TOTAL_COST} 🪙. Current: ${stats?.coins || 0}`)
     }
     
-    const success = await spendCoins(TOTAL_COST, 'Smart Exam Maker')
-    if (!success) return setError('Failed to deduct coins.')
-    
     setGenerating(true); setError(''); setResults([])
+    
+    const success = await spendCoins(TOTAL_COST, 'Smart Exam Maker')
+    if (!success) {
+      setGenerating(false)
+      return setError('Failed to deduct coins.')
+    }
     
     try {
       let base64Data = null, mimeType = null, promptPrefix = ''
 
       if (inputMode === 'upload') {
         if (!filePreview) throw new Error("File not loaded properly.")
-        base64Data = filePreview.split(',')[1]
-        mimeType = file.type
-        promptPrefix = `Based ONLY on the content provided in the uploaded document. FIRST, extract all the core text, syllabus, and concepts from the document and wrap it exactly inside <vault_text> and </vault_text> tags at the very beginning of your response. THEN proceed to generate the exam.`
+        const extractedText = await extractTextFromFile(file, filePreview)
+        promptPrefix = `Based ONLY on the following extracted document text: "${extractedText}"\n\n`
+        
+        // Save to Firebase Vault directly
+        if (currentUser) {
+          try {
+            const vaultDoc = {
+              fileName: file?.name || 'Extracted Document',
+              textData: extractedText,
+              expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
+              createdAt: Date.now()
+            }
+            const docRef = await addDoc(collection(db, 'users', currentUser.uid, 'vault'), vaultDoc)
+            setVaultItems(prev => [{ id: docRef.id, ...vaultDoc }, ...prev])
+          } catch (err) { console.error("Failed to save to vault", err) }
+        }
       } else if (inputMode === 'vault') {
         if (!selectedVaultItem) throw new Error("Please select a document from the vault.")
-        promptPrefix = `Based on the following extracted document text: "${selectedVaultItem.textData}"`
+        promptPrefix = `Based on the following extracted document text: "${selectedVaultItem.textData}"\n\n`
       } else {
-        promptPrefix = `Based on the official syllabus for topic: "${topic}"`
+        promptPrefix = `Based on the official syllabus for topic: "${topic}"\n\n`
       }
 
       let blueprintPrompt = ''
@@ -214,33 +227,7 @@ IMPORTANT:
 - Separate sets using SET_START and SET_END.
 - Format beautifully using Markdown.`
 
-      let content = await generateWithGeminiVision(prompt, base64Data, mimeType)
-      
-      // Parse Vault Text
-      const vaultMatch = content.match(/<vault_text>([\s\S]*?)<\/vault_text>/)
-      if (vaultMatch && vaultMatch[1]) {
-        const extractedText = vaultMatch[1].trim()
-        content = content.replace(/<vault_text>[\s\S]*?<\/vault_text>/, '').trim()
-        
-        // Save to Firebase Vault
-        if (currentUser) {
-          try {
-            const vaultDoc = {
-              fileName: file?.name || 'Extracted Document',
-              textData: extractedText,
-              expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
-              createdAt: Date.now()
-            }
-            const docRef = await addDoc(collection(db, 'users', currentUser.uid, 'vault'), vaultDoc)
-            setVaultItems(prev => [{ id: docRef.id, ...vaultDoc }, ...prev])
-            
-            // Increment Vision Usage
-            await updateDoc(doc(db, 'gamification', currentUser.uid), {
-              visionUploads: increment(1)
-            })
-          } catch (err) { console.error("Failed to save to vault", err) }
-        }
-      }
+      let content = await generateAIContent(prompt)
 
       const sets = []
       // Use strict regex to find blocks between SET_START and SET_END
@@ -455,10 +442,9 @@ IMPORTANT:
                   </div>
                   <div className="mt-3 bg-surface-50 p-3 rounded-xl border border-surface-200 flex justify-between items-center">
                     <div>
-                      <p className="text-xs font-bold text-surface-800">Vision OCR Uses: {visionUses}/2 Free</p>
-                      <p className="text-[10px] text-surface-500 font-medium">Text will be extracted and saved to vault for 24h.</p>
+                      <p className="text-xs font-bold text-surface-800">Local OCR Processing</p>
+                      <p className="text-[10px] text-surface-500 font-medium">Text will be extracted securely and free on your device.</p>
                     </div>
-                    {isPremiumVision && <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-lg">Premium: +{VISION_TAX} Coins</span>}
                   </div>
                 </div>
               ) : inputMode === 'vault' ? (

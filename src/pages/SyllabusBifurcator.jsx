@@ -1,15 +1,17 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Calendar, Sparkles, Loader2, Download, Copy, Check, UploadCloud, X, FileText, Settings2, Image as ImageIcon, Briefcase } from 'lucide-react'
-import { generateWithGeminiVision, generateAIContent } from '../utils/aiService'
+import { generateAIContent } from '../utils/aiService'
+import { extractTextFromFile } from '../utils/fileExtractor'
 import { useGamification } from '../contexts/GamificationContext'
 import { useAuth } from '../contexts/AuthContext'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { saveAs } from 'file-saver'
 import { asBlob } from 'html-docx-js-typescript'
+import html2pdf from 'html2pdf.js'
 
 const boardList = ['CBSE', 'ICSE', 'IB Diploma', 'Cambridge IGCSE', 'State Board', 'General']
-const gradeList = ['Kindergarten', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12']
+const gradeList = ['All Classes', 'Kindergarten', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12']
 const durationList = ['Full Academic Year (April - March)', 'Full Academic Year (July - June)', 'Half Yearly / Term 1', 'Half Yearly / Term 2', '3 Months Crash Course', 'Custom Timeline']
 const granularityList = ['Month-by-Month', 'Week-by-Week']
 
@@ -18,30 +20,51 @@ export default function SyllabusBifurcator() {
   const { currentUser } = useAuth()
   
   const GENERATION_COST = toolCosts?.['syllabus-bifurcator'] ?? 5
-  const VISION_TAX = 10
   
-  const [form, setForm] = useState({ 
-    board: 'CBSE', subject: '', grade: '', duration: 'Full Academic Year (April - March)', granularity: 'Month-by-Month',
-    institutionName: '', session: '', includeRevision: true, includeExams: true, customDuration: '',
-    includeVacation: false, vacationDetails: '', examScheduleDetails: ''
+  const [form, setForm] = useState(() => {
+    const saved = localStorage.getItem('syllabus_pro_form')
+    if (saved) {
+      try { return JSON.parse(saved) } catch (e) { console.error(e) }
+    }
+    return { 
+      board: 'CBSE', subject: '', grade: '', duration: 'Full Academic Year (April - March)', granularity: 'Month-by-Month',
+      institutionName: '', session: '', includeRevision: true, includeExams: true, customDuration: '',
+      includeVacation: false, vacationDetails: '', examScheduleDetails: ''
+    }
   })
   
   const [inputMode, setInputMode] = useState('manual') // manual or upload
   const [manualTopics, setManualTopics] = useState('')
   const [file, setFile] = useState(null)
   const [filePreview, setFilePreview] = useState(null)
-  const [schoolLogo, setSchoolLogo] = useState(null)
+  const [schoolLogo, setSchoolLogo] = useState(() => {
+    return localStorage.getItem('syllabus_pro_logo') || null
+  })
   const fileInputRef = useRef(null)
   const logoInputRef = useRef(null)
+
+  useEffect(() => {
+    localStorage.setItem('syllabus_pro_form', JSON.stringify(form))
+  }, [form])
+
+  useEffect(() => {
+    if (schoolLogo) {
+      try {
+        localStorage.setItem('syllabus_pro_logo', schoolLogo)
+      } catch (e) {
+        console.warn("Logo too large to save in localStorage")
+      }
+    } else {
+      localStorage.removeItem('syllabus_pro_logo')
+    }
+  }, [schoolLogo])
 
   const [generating, setGenerating] = useState(false)
   const [result, setResult] = useState(null)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
   
-  const visionUses = stats?.visionUploads || 0
-  const isPremiumVision = inputMode === 'upload' && visionUses >= 2
-  const TOTAL_COST = GENERATION_COST + (isPremiumVision ? VISION_TAX : 0)
+  const TOTAL_COST = GENERATION_COST
 
   const canGenerate = form.subject && form.grade && (inputMode === 'upload' ? file : manualTopics.trim().length > 3)
 
@@ -67,42 +90,70 @@ export default function SyllabusBifurcator() {
       return setError(`Not enough coins! You need ${TOTAL_COST} 🪙. Current: ${stats?.coins || 0}`)
     }
     
-    const success = await spendCoins(TOTAL_COST, 'Syllabus Bifurcation')
-    if (!success) return setError('Failed to deduct coins.')
-    
     setGenerating(true); setError(''); setResult(null)
+    
+    const success = await spendCoins(TOTAL_COST, 'Syllabus Bifurcation')
+    if (!success) {
+      setGenerating(false)
+      return setError('Failed to deduct coins.')
+    }
     
     try {
       let extractedIndex = manualTopics
 
       // Process Vision Upload first if active
       if (inputMode === 'upload' && filePreview) {
-        const base64Data = filePreview.split(',')[1]
-        const mimeType = file.type
-        const extractPrompt = `Extract ALL chapter names, unit names, and index details from this textbook index page. Output them purely as a structured list.`
-        extractedIndex = await generateWithGeminiVision(extractPrompt, base64Data, mimeType)
+        extractedIndex = await extractTextFromFile(file, filePreview)
       }
 
       // Generate the Bifurcation
       const actualDuration = form.duration === 'Custom Timeline' ? form.customDuration : form.duration
+      let gradeInstruction = ''
+      let formattingInstruction = ''
+      
+      if (form.grade === 'All Classes') {
+        gradeInstruction = `TARGET CLASS: ALL CLASSES found in the document.
+(Please extract and organize the syllabus for EACH class separately. Create distinct sections for each class).`
+        formattingInstruction = `- Output ONLY the Markdown syllabus plan tables (start with a beautiful Markdown heading like "# 📘 ${form.subject} Syllabus Plan - Class X" for each class).`
+      } else {
+        gradeInstruction = `TARGET CLASS: ${form.grade}
+(Ignore all content related to other classes or subjects).`
+        formattingInstruction = `- Output ONLY the Markdown syllabus plan table (start with a beautiful Markdown heading like "# 📘 ${form.subject} Syllabus Plan - ${form.grade}").`
+      }
+
       const prompt = `Act as an expert International Curriculum Planner and Principal for ${form.board}.
-Task: Bifurcate (divide) the following syllabus/index into a highly professional ${form.granularity} plan for ${actualDuration}.
-Grade: ${form.grade} | Subject: ${form.subject}
+You have been given a raw syllabus/index document. This document might contain syllabus data for MULTIPLE classes or subjects mixed together.
 
-Syllabus/Chapters to cover:
+Your FIRST task is to carefully analyze the raw document and **EXTRACT ONLY** the chapters and topics that belong exactly to:
+${gradeInstruction}
+TARGET SUBJECT: ${form.subject}
+
+Your SECOND task is to bifurcate (divide) the extracted syllabus into a highly professional ${form.granularity} plan for ${actualDuration}. Group the chapters logically into 'Units' or 'Modules'.
+
+Raw Syllabus/Index Document:
+"""
 ${extractedIndex}
+"""
 
-Requirements:
-1. Divide the chapters logically, giving more time to complex chapters.
-2. Formats: Use a highly professional Markdown Table. The columns MUST BE: | ${form.granularity === 'Week-by-Week' ? 'Week/Date' : 'Month'} | Chapters/Topics | Key Concepts | ${form.includeRevision ? 'Assessments/Activities' : 'Notes'} |
-3. ${form.includeRevision ? 'Automatically reserve the last 15% of the timeline purely for "Revision & Remedial" and add Mid-Term exam periods where logical.' : ''}
-4. ${form.includeExams ? (form.examScheduleDetails ? `Add explicit Exam rows. CRITICAL SCHEDULE: You must explicitly add exams in these specific months/weeks as requested: ${form.examScheduleDetails}` : 'Add explicit "Formative Assessment (FA)" or "Term Exam" rows in the table at logical checkpoints.') : ''}
-5. ${form.includeVacation && form.vacationDetails ? `CRITICAL: You MUST explicitly add a dedicated row in the table for "${form.vacationDetails}" at the logical timeline position and DO NOT schedule any teaching/chapters during this period.` : ''}
+CRITICAL REQUIREMENTS FOR THE PLAN:
+1. Logical Pacing: Distribute the chapters evenly based on difficulty. Give more time to complex concepts.
+2. Structure: Use a highly professional and beautifully formatted Markdown Table. The columns MUST BE: | ${form.granularity === 'Week-by-Week' ? 'Week/Date' : 'Month'} | Unit & Chapters | Key Learning Outcomes | ${form.includeRevision ? 'Assessments/Activities' : 'Notes'} |
+3. ${form.includeRevision ? 'Automatically reserve the last 15% of the timeline purely for "Revision & Remedial" and add Mid-Term/Final exam periods where logical.' : ''}
+4. ${form.includeExams ? (form.examScheduleDetails ? `Explicitly add exams in these specific months/weeks: ${form.examScheduleDetails}` : 'Explicitly insert "Formative Assessment" or "Term Exam" rows in the table at logical checkpoints.') : ''}
+5. ${form.includeVacation && form.vacationDetails ? `CRITICAL: You MUST explicitly add a dedicated row in the table for "${form.vacationDetails}" at the logical timeline position and DO NOT schedule any teaching during this period.` : ''}
 
-Output ONLY the Markdown syllabus plan. Make it visually beautiful, use emojis where appropriate, and keep it extremely detailed and professional. DO NOT write introductory or concluding text outside the table and main headings.
-CRITICAL CONSTRAINT: DO NOT use any HTML tags (like <br>, <b>, <i>, etc.) anywhere in the output. Use pure Markdown syntax exclusively. If you need to separate items in a table cell, use Markdown list items or commas instead of <br> tags.`
+AESTHETICS & FORMATTING (CRITICAL):
+- Make it visually stunning. Use appropriate emojis for different topics or months.
+- Use bold text (**Text**) for Unit/Chapter names and bullet points (- item) for sub-topics and outcomes.
+${formattingInstruction}
+- DO NOT write any introductory or concluding text outside the core output.
+- CRITICAL CONSTRAINT: DO NOT use any HTML tags (like <br>, <b>, <i>, etc.). Use pure Markdown syntax exclusively.`
 
-      const content = await generateAIContent(prompt)
+      let content = await generateAIContent(prompt)
+      
+      // Permanently remove any <br> tags the AI might generate despite constraints
+      content = content.replace(/<br\s*\/?>/gi, ', ')
+      
       setResult(content)
       setCopied(false)
     } catch (err) {
@@ -196,8 +247,31 @@ CRITICAL CONSTRAINT: DO NOT use any HTML tags (like <br>, <b>, <i>, etc.) anywhe
     }
   }
 
-  const handlePrint = () => {
-    window.print()
+  const handleDownloadPDF = () => {
+    const element = document.getElementById('syllabus-print-area')
+    if (!element) return
+
+    // Hide any UI elements that shouldn't be in the PDF
+    const opt = {
+      margin:       10,
+      filename:     `${form.subject}_${form.grade}_Syllabus.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }
+    
+    // Temporarily make print styles visible for the PDF generation
+    const printHeaders = element.querySelectorAll('.print\\:block, .print\\:flex')
+    printHeaders.forEach(el => {
+      el.classList.remove('hidden')
+    })
+    
+    html2pdf().set(opt).from(element).save().then(() => {
+      // Revert visibility after generation
+      printHeaders.forEach(el => {
+        el.classList.add('hidden')
+      })
+    })
   }
 
   return (
@@ -358,16 +432,15 @@ CRITICAL CONSTRAINT: DO NOT use any HTML tags (like <br>, <b>, <i>, etc.) anywhe
                     <div className="py-8">
                       <div className="w-16 h-16 bg-white border border-surface-200 shadow-sm rounded-full flex items-center justify-center mx-auto mb-4"><UploadCloud className="w-8 h-8 text-blue-500" /></div>
                       <p className="text-base font-bold text-surface-800">Upload Textbook Index</p>
-                      <p className="text-xs font-medium text-surface-500 mt-1">Take a photo of the syllabus/table of contents</p>
+                      <p className="text-xs font-medium text-surface-500 mt-1">Take a photo or upload a PDF of the syllabus</p>
                     </div>
                   )}
                 </div>
                 <div className="mt-3 bg-surface-50 p-3 rounded-xl border border-surface-200 flex justify-between items-center">
                   <div>
-                    <p className="text-xs font-bold text-surface-800">Vision AI Uses: {visionUses}/2 Free</p>
-                    <p className="text-[10px] text-surface-500 font-medium">Extracts text from images via OCR.</p>
+                    <p className="text-xs font-bold text-surface-800">Local Free OCR Processing</p>
+                    <p className="text-[10px] text-surface-500 font-medium">Extracts text from images securely on your device.</p>
                   </div>
-                  {isPremiumVision && <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-lg">Premium: +{VISION_TAX} Coins</span>}
                 </div>
               </div>
             ) : (
@@ -405,14 +478,14 @@ CRITICAL CONSTRAINT: DO NOT use any HTML tags (like <br>, <b>, <i>, etc.) anywhe
                   <button onClick={handleWordExport} className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-sm">
                     <FileText className="w-4 h-4" /> Export DOCX
                   </button>
-                  <button onClick={handlePrint} className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-surface-900 text-white hover:bg-black transition-all shadow-sm">
-                    <Download className="w-4 h-4" /> Print / PDF
+                  <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-surface-900 text-white hover:bg-black transition-all shadow-sm">
+                    <Download className="w-4 h-4" /> Download PDF
                   </button>
                 </div>
               </div>
 
               {/* PRINTABLE CONTENT */}
-              <div className="p-8 print:p-0 print:m-0 bg-white min-h-[500px]">
+              <div id="syllabus-print-area" className="p-8 print:p-0 print:m-0 bg-white min-h-[500px]">
                 
                 {/* Print Headers (Only visible on print or PDF) */}
                 <div className="hidden print:block mb-8 pb-4 border-b-2 border-surface-800 text-center relative">

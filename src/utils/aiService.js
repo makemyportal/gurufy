@@ -1,9 +1,18 @@
 /**
  * Utility for interacting with AI APIs (Gemini, Groq, & OpenRouter)
- * Implements an ultimate triple-fallback mechanism.
+ * Implements an ultimate triple-fallback mechanism, multiple keys, and retry queue.
  */
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const GEMINI_API_KEYS = (import.meta.env.VITE_GEMINI_API_KEYS || import.meta.env.VITE_GEMINI_API_KEY || "").split(',').map(k => k.trim()).filter(Boolean);
+let currentGeminiKeyIndex = 0;
+
+function getGeminiKey() {
+  if (GEMINI_API_KEYS.length === 0) return null;
+  const key = GEMINI_API_KEYS[currentGeminiKeyIndex];
+  currentGeminiKeyIndex = (currentGeminiKeyIndex + 1) % GEMINI_API_KEYS.length;
+  return key;
+}
+
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
 const SARVAM_API_KEY = import.meta.env.VITE_SARVAM_API_KEY || "sk_oha21jef_sB9s7qV1x6W5BE78Cqbi3YtS";
@@ -28,45 +37,54 @@ FORMATTING RULES:
 12. Output ONLY the requested content. No meta-commentary like "Here is your lesson plan" or "I hope this helps".`;
 
 /**
- * Generates content using Google Gemini 1.5 Flash
+ * Generates content using Google Gemini 1.5 Flash with Key Rotation
  */
 async function generateWithGemini(prompt) {
-  if (!GEMINI_API_KEY) throw new Error("Gemini API key is missing");
+  if (GEMINI_API_KEYS.length === 0) throw new Error("Gemini API key is missing");
 
   const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
   let lastError = null;
 
-  for (const model of modelsToTry) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7 }
-        })
-      });
+  for (let i = 0; i < GEMINI_API_KEYS.length; i++) {
+    const currentKey = getGeminiKey();
+    
+    for (const model of modelsToTry) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${currentKey}`;
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.7 }
+          })
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Gemini API Error (${model}): ${response.status} ${errorData.error?.message || ''}`);
-      }
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(`Gemini API Error (${model}): ${response.status} ${errorData.error?.message || ''}`);
+        }
 
-      const data = await response.json();
-      if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-        return data.candidates[0].content.parts[0].text;
+        const data = await response.json();
+        if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+          return data.candidates[0].content.parts[0].text;
+        }
+        throw new Error(`Invalid response format from Gemini (${model})`);
+      } catch (err) {
+        console.warn(`Gemini model ${model} with key ${currentKey?.substring(0,5)}... failed:`, err.message);
+        lastError = err;
+        
+        // If it's a rate limit or quota issue, break inner loop to switch keys
+        if (err.message.includes('429') || err.message.includes('Quota') || err.message.includes('exhausted')) {
+          break; // Switch to the next key
+        }
       }
-      throw new Error(`Invalid response format from Gemini (${model})`);
-    } catch (err) {
-      console.warn(`Gemini model ${model} failed:`, err.message);
-      lastError = err;
     }
   }
 
-  throw lastError || new Error("All Gemini models failed");
+  throw lastError || new Error("All Gemini models and keys failed");
 }
 
 /**
@@ -179,14 +197,56 @@ async function generateWithSarvam(prompt) {
   throw new Error("Invalid response format from Sarvam");
 }
 
+// --- Queue System for High Load Handling ---
+const requestQueue = [];
+let isProcessingQueue = false;
+
+async function processQueue() {
+  if (isProcessingQueue || requestQueue.length === 0) return;
+  isProcessingQueue = true;
+  
+  while (requestQueue.length > 0) {
+    const request = requestQueue[0];
+    try {
+      const result = await request.execute();
+      request.resolve(result);
+      requestQueue.shift(); // Remove successful request
+    } catch (err) {
+      const isRateLimit = err.message.includes('429') || err.message.includes('Quota') || err.message.includes('load') || err.message.includes('exhausted');
+      
+      if (isRateLimit && request.retries < 3) {
+        console.warn(`API Rate limited/Overloaded. Retrying in 5 seconds... (Retry ${request.retries + 1}/3)`);
+        request.retries++;
+        await new Promise(r => setTimeout(r, 5000));
+        // Keep in queue, do not shift, try again
+      } else {
+        request.reject(err);
+        requestQueue.shift();
+      }
+    }
+  }
+  isProcessingQueue = false;
+}
+
 /**
- * Main generation function with Triple Fallback logic.
- * Tries Gemini -> Falls back to Groq -> Falls back to OpenRouter.
- * 
- * @param {string} prompt - The prompt to send to the AI
- * @returns {Promise<string>} - The generated markdown text
+ * Main generation function wrapped in a queue.
  */
-export async function generateAIContent(prompt) {
+export function generateAIContent(prompt) {
+  return new Promise((resolve, reject) => {
+    requestQueue.push({
+      execute: () => generateAIContentInternal(prompt),
+      resolve,
+      reject,
+      retries: 0
+    });
+    processQueue();
+  });
+}
+
+/**
+ * Internal execution with Triple Fallback logic.
+ */
+async function generateAIContentInternal(prompt) {
   try {
     console.log("Attempting generation with Gemini...");
     const result = await generateWithGemini(prompt);
@@ -214,7 +274,7 @@ export async function generateAIContent(prompt) {
           return result;
         } catch (sarvamError) {
           console.error("Sarvam generation also failed:", sarvamError.message);
-          throw new Error("All AI providers unfortunately failed. Please contact support or try again later.");
+          throw new Error("All AI providers unfortunately failed. " + geminiError.message);
         }
       }
     }
@@ -222,54 +282,12 @@ export async function generateAIContent(prompt) {
 }
 
 /**
- * Generates content using Google Gemini 1.5 Flash with Vision/File capabilities
- * Used by the Smart Exam Maker tool.
- * @param {string} prompt - The text prompt
- * @param {string} base64Data - Base64 encoded file data (without data URI prefix)
- * @param {string} mimeType - e.g. 'image/jpeg', 'application/pdf'
- * @returns {Promise<string>} - Generated markdown text
+ * Note: generateWithGeminiVision has been deprecated in favor of local extraction using fileExtractor.js.
+ * This is kept to prevent breaking imports temporarily, but routes to standard text generation if used.
  */
 export async function generateWithGeminiVision(prompt, base64Data, mimeType) {
-  if (!GEMINI_API_KEY) throw new Error("Gemini API key is missing");
-
-  const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
-  let lastError = null;
-
-  const fullPrompt = SYSTEM_PROMPT + "\n\n" + prompt;
-  
-  const parts = [{ text: fullPrompt }];
-  if (base64Data && mimeType) {
-    parts.push({ inlineData: { mimeType, data: base64Data } });
-  }
-
-  for (const model of modelsToTry) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: { temperature: 0.7 }
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Gemini API Error (${model}): ${response.status} ${errorData.error?.message || ''}`);
-      }
-
-      const data = await response.json();
-      if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-        return data.candidates[0].content.parts[0].text;
-      }
-      throw new Error(`Invalid response format from Gemini API (${model})`);
-    } catch (err) {
-      console.warn(`Gemini model ${model} failed:`, err.message);
-      lastError = err;
-    }
-  }
-
-  throw lastError || new Error("All Gemini models failed");
+  console.warn("generateWithGeminiVision is deprecated. Please use local extraction and generateAIContent.");
+  // Instead of failing, we just try to fulfill it via the text API to gracefully degrade
+  return generateAIContent(prompt);
 }
+
