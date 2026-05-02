@@ -9,6 +9,8 @@ import remarkGfm from 'remark-gfm'
 import { saveAs } from 'file-saver'
 import { asBlob } from 'html-docx-js-typescript'
 import html2pdf from 'html2pdf.js'
+import { db } from '../utils/firebase'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 
 const boardList = ['CBSE', 'ICSE', 'IB Diploma', 'Cambridge IGCSE', 'State Board', 'General']
 const gradeList = ['All Classes', 'Kindergarten', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12']
@@ -162,6 +164,22 @@ ${formattingInstruction}
       
       setResult(content)
       setCopied(false)
+      
+      // Save to Firebase generation history
+      if (currentUser) {
+        try {
+          await addDoc(collection(db, 'users', currentUser.uid, 'generations'), {
+            toolId: 'syllabus-pro',
+            toolTitle: 'Syllabus Bifurcation Pro',
+            toolColor: 'from-cyan-500 to-blue-600',
+            content: content,
+            formData: form,
+            createdAt: serverTimestamp()
+          })
+        } catch (saveErr) {
+          console.warn('Could not save generation history:', saveErr)
+        }
+      }
     } catch (err) {
       console.error(err)
       setError(err.message || 'Failed to generate syllabus. Please try again.')
