@@ -177,7 +177,7 @@ ${formattingInstruction}
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleWordExport = async (orientation = 'portrait') => {
+  const handleWordExport = async (orientation = 'portrait', isMobile = false) => {
     if (!result) return
     try {
       const htmlString = `
@@ -188,15 +188,17 @@ ${formattingInstruction}
           <style>
             body { font-family: 'Calibri', 'Arial', sans-serif; padding: 20px; color: #1a1a1a; }
             .header-block { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-            .school-name { font-size: 26pt; font-weight: bold; margin: 0; color: #1e3a8a; text-transform: uppercase; }
+            .school-name { font-size: 26pt; font-weight: bold; margin: 0; color: #1e3a8a; text-transform: uppercase; page-break-before: auto; }
             .session-info { font-size: 14pt; margin: 5px 0; color: #4b5563; font-style: italic; }
             .meta-info { display: flex; justify-content: space-between; font-size: 12pt; margin-top: 15px; font-weight: bold; }
-            h1, h2, h3 { color: #1e3a8a; margin-top: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-            th, td { border: 1px solid #4b5563; padding: 10px; text-align: left; }
+            h1 { color: #1e3a8a; font-size: 22pt; margin-top: 30pt; margin-bottom: 15pt; page-break-before: always; }
+            h2 { color: #1e3a8a; font-size: 16pt; margin-top: 20pt; }
+            h3 { color: #1e3a8a; font-size: 14pt; margin-top: 15pt; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 20px; border: 1px solid #4b5563; }
+            th, td { border: 1px solid #4b5563; padding: 10px; text-align: left; vertical-align: top; }
             th { background-color: #f3f4f6; font-weight: bold; color: #1f2937; }
             ul, ol { margin-top: 5px; margin-bottom: 5px; padding-left: 20px; }
-            li { margin-bottom: 3px; }
+            li { margin-bottom: 5px; }
           </style>
         </head>
         <body>
@@ -216,8 +218,6 @@ ${formattingInstruction}
             </div>
           `}
           <div class="content-body">
-            <!-- DO NOT CONVERT TO HTML MANUALLY, LET asBlob HANDLE MARKDOWN IF POSSIBLE OR JUST KEEP SIMPLE. 
-                 Wait, asBlob expects HTML. So we must parse Markdown to HTML. -->
           </div>
         </body>
         </html>
@@ -228,23 +228,13 @@ ${formattingInstruction}
       
       let parsedContent = proseElement.innerHTML
       
-      // Inject inline styles for Word compatibility
-      parsedContent = parsedContent
-        .replace(/<table/g, '<table style="width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 20px; border: 1px solid #4b5563;"')
-        .replace(/<th/g, '<th style="background-color: #f3f4f6; font-weight: bold; color: #1f2937; border: 1px solid #4b5563; padding: 10px; text-align: left;"')
-        .replace(/<td/g, '<td style="border: 1px solid #4b5563; padding: 10px; text-align: left; vertical-align: top;"')
-        .replace(/<h1/g, '<h1 style="color: #1e3a8a; font-size: 22pt; margin-top: 30px; margin-bottom: 15px; page-break-before: always;"')
-        .replace(/<h2/g, '<h2 style="color: #1e3a8a; font-size: 16pt; margin-top: 20px;"')
-        .replace(/<h3/g, '<h3 style="color: #1e3a8a; font-size: 14pt; margin-top: 15px;"')
-        .replace(/<ul/g, '<ul style="margin-top: 5px; margin-bottom: 5px; padding-left: 20px;"')
-        .replace(/<li/g, '<li style="margin-bottom: 5px;"')
-      
       // Prevent the very first H1 from breaking to a new page immediately
-      parsedContent = parsedContent.replace('page-break-before: always;', 'page-break-before: auto;')
+      parsedContent = parsedContent.replace(/<h1/, '<h1 style="page-break-before: auto;"')
       const finalHtml = htmlString.replace('<div class="content-body">', `<div class="content-body">${parsedContent}`)
       
       const converted = await asBlob(finalHtml, { orientation: orientation })
-      saveAs(converted, `${form.subject}_${form.grade}_Syllabus_${orientation}.docx`)
+      const ext = isMobile ? 'doc' : 'docx'
+      saveAs(converted, `${form.subject}_${form.grade}_Syllabus_${orientation}.${ext}`)
     } catch (err) {
       console.error(err)
       setError('Export failed.')
@@ -255,6 +245,12 @@ ${formattingInstruction}
     const element = document.getElementById('syllabus-print-area')
     if (!element) return
 
+    // Explicitly mark headings for page breaks to prevent orphan titles
+    const headings = element.querySelectorAll('.prose h1')
+    headings.forEach((h, i) => {
+      if (i > 0) h.classList.add('pdf-page-break-before')
+    })
+
     // Hide any UI elements that shouldn't be in the PDF
     const opt = {
       margin:       10,
@@ -262,20 +258,27 @@ ${formattingInstruction}
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: orientation },
-      pagebreak:    { mode: ['css', 'legacy'] }
+      pagebreak:    { mode: 'css', before: '.pdf-page-break-before', avoid: 'tr' }
     }
     
     // Temporarily make print styles visible for the PDF generation
     const printHeaders = element.querySelectorAll('.print\\:block, .print\\:flex')
-    printHeaders.forEach(el => {
+    printHeaders.forEach(el => el.classList.remove('hidden'))
+    
+    const printFooters = element.querySelectorAll('.print-footer-flex')
+    printFooters.forEach(el => {
       el.classList.remove('hidden')
+      el.classList.add('flex')
     })
     
     html2pdf().set(opt).from(element).save().then(() => {
       // Revert visibility after generation
-      printHeaders.forEach(el => {
+      printHeaders.forEach(el => el.classList.add('hidden'))
+      printFooters.forEach(el => {
         el.classList.add('hidden')
+        el.classList.remove('flex')
       })
+      headings.forEach(h => h.classList.remove('pdf-page-break-before'))
     })
   }
 
@@ -484,8 +487,11 @@ ${formattingInstruction}
                     <button onClick={() => handleWordExport('portrait')} className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-all border-r border-blue-500">
                       <FileText className="w-4 h-4" /> DOCX (P)
                     </button>
-                    <button onClick={() => handleWordExport('landscape')} className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-all">
+                    <button onClick={() => handleWordExport('landscape')} className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-all border-r border-blue-500">
                       DOCX (L)
+                    </button>
+                    <button onClick={() => handleWordExport('portrait', true)} className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-all">
+                      Mobile DOC
                     </button>
                   </div>
                   <div className="flex bg-surface-900 rounded-lg overflow-hidden shadow-sm">
@@ -535,12 +541,15 @@ ${formattingInstruction}
                 </article>
 
                 {/* Print Footer */}
-                <div className="hidden print:flex justify-between items-end mt-16 pt-8 border-t border-surface-200">
-                  <div className="text-center">
-                    <p className="border-t border-surface-400 w-48 pt-2 text-sm font-bold">Subject Teacher Signature</p>
+                <div className="hidden print-footer-flex w-full justify-between items-end mt-16 pt-8">
+                  <div className="text-center w-[28%]">
+                    <p className="border-t-2 border-surface-600 pt-2 text-sm font-bold uppercase">Coordinator</p>
                   </div>
-                  <div className="text-center">
-                    <p className="border-t border-surface-400 w-48 pt-2 text-sm font-bold">Principal Signature</p>
+                  <div className="text-center w-[28%]">
+                    <p className="border-t-2 border-surface-600 pt-2 text-sm font-bold uppercase">Vice Principal</p>
+                  </div>
+                  <div className="text-center w-[28%]">
+                    <p className="border-t-2 border-surface-600 pt-2 text-sm font-bold uppercase">Principal</p>
                   </div>
                 </div>
 
