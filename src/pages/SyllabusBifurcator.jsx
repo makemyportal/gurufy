@@ -121,6 +121,12 @@ export default function SyllabusBifurcator() {
         formattingInstruction = `- Output ONLY the Markdown syllabus plan table (start with a beautiful Markdown heading like "# 📘 ${form.subject} Syllabus Plan - ${form.grade}").`
       }
 
+      let subjectSpecificPacing = ''
+      const lowerSub = form.subject.toLowerCase()
+      if (lowerSub.includes('computer') || lowerSub.includes('it ') || lowerSub.includes('information tech') || lowerSub.includes('artificial intel')) {
+        subjectSpecificPacing = `\n   *SPECIAL RULE FOR COMPUTER/IT*: This subject has fewer chapters and heavy practicals. If the timeline includes these months, strictly allocate ONLY 2 chapters total across March, April, and May. Allocate ONLY 3 chapters total across July and August. Distribute any remaining chapters across the rest of the available time.`
+      }
+
       const prompt = `Act as an expert International Curriculum Planner and Principal for ${form.board}.
 You have been given a raw syllabus/index document. This document might contain syllabus data for MULTIPLE classes or subjects mixed together.
 
@@ -136,7 +142,7 @@ ${extractedIndex}
 """
 
 CRITICAL REQUIREMENTS FOR THE PLAN:
-1. Logical Pacing: Distribute the chapters evenly based on difficulty. Give more time to complex concepts.
+1. Progressive Pacing (Start Slow): DO NOT distribute chapters evenly. Start with a lighter load (e.g., 1 chapter in the first 1-2 months) to allow students to settle in and school management to see proper structured progress. Gradually increase the pace in the middle months, and leave ample time for revision at the end.${subjectSpecificPacing}
 2. Structure: Use a highly professional and beautifully formatted Markdown Table. The columns MUST BE: | ${form.granularity === 'Week-by-Week' ? 'Week/Date' : 'Month'} | Unit & Chapters | Key Learning Outcomes | ${form.includeRevision ? 'Assessments/Activities' : 'Notes'} |
 3. ${form.includeRevision ? 'Automatically reserve the last 15% of the timeline purely for "Revision & Remedial" and add Mid-Term/Final exam periods where logical.' : ''}
 4. ${form.includeExams ? (form.examScheduleDetails ? `Explicitly add exams in these specific months/weeks: ${form.examScheduleDetails}` : 'Explicitly insert "Formative Assessment" or "Term Exam" rows in the table at logical checkpoints.') : ''}
@@ -151,8 +157,8 @@ ${formattingInstruction}
 
       let content = await generateAIContent(prompt)
       
-      // Permanently remove any <br> tags the AI might generate despite constraints
-      content = content.replace(/<br\s*\/?>/gi, ', ')
+      // Permanently remove any <br> tags (including escaped &lt;br&gt; variants)
+      content = content.replace(/(?:<|&lt;)br\s*\/?(?:>|&gt;)/gi, ', ')
       
       setResult(content)
       setCopied(false)
@@ -171,7 +177,7 @@ ${formattingInstruction}
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleWordExport = async () => {
+  const handleWordExport = async (orientation = 'portrait') => {
     if (!result) return
     try {
       const htmlString = `
@@ -217,47 +223,46 @@ ${formattingInstruction}
         </html>
       `
       
-      // Simple Markdown to HTML parser for tables and basic formatting
-      const parseMdToHtml = (md) => {
-        return md
-          .replace(/\n/g, '<br/>')
-          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\*(.*?)\*/g, '<em>$1</em>')
-          .replace(/### (.*?)\n/g, '<h3>$1</h3>')
-          .replace(/## (.*?)\n/g, '<h2>$1</h2>')
-          .replace(/# (.*?)\n/g, '<h1>$1</h1>')
-          // Basic table processing
-          .replace(/\|(.+?)\|\n/g, (match) => {
-            if (match.includes('---')) return '' // skip separator
-            const cells = match.split('|').filter(c => c.trim() !== '')
-            const isHeader = false // would need more complex logic, but simplify for now
-            return '<tr>' + cells.map(c => `<td style="border: 1px solid #4b5563; padding: 8px;">${c.trim()}</td>`).join('') + '</tr>\n'
-          })
-          .replace(/(<tr>.*<\/tr>\n)+/g, '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">$&</table>')
-      }
+      const proseElement = document.querySelector('#syllabus-print-area .prose')
+      if (!proseElement) throw new Error("Could not find syllabus content.")
       
-      const parsedContent = parseMdToHtml(result)
+      let parsedContent = proseElement.innerHTML
+      
+      // Inject inline styles for Word compatibility
+      parsedContent = parsedContent
+        .replace(/<table/g, '<table style="width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 20px; border: 1px solid #4b5563;"')
+        .replace(/<th/g, '<th style="background-color: #f3f4f6; font-weight: bold; color: #1f2937; border: 1px solid #4b5563; padding: 10px; text-align: left;"')
+        .replace(/<td/g, '<td style="border: 1px solid #4b5563; padding: 10px; text-align: left; vertical-align: top;"')
+        .replace(/<h1/g, '<h1 style="color: #1e3a8a; font-size: 22pt; margin-top: 30px; margin-bottom: 15px; page-break-before: always;"')
+        .replace(/<h2/g, '<h2 style="color: #1e3a8a; font-size: 16pt; margin-top: 20px;"')
+        .replace(/<h3/g, '<h3 style="color: #1e3a8a; font-size: 14pt; margin-top: 15px;"')
+        .replace(/<ul/g, '<ul style="margin-top: 5px; margin-bottom: 5px; padding-left: 20px;"')
+        .replace(/<li/g, '<li style="margin-bottom: 5px;"')
+      
+      // Prevent the very first H1 from breaking to a new page immediately
+      parsedContent = parsedContent.replace('page-break-before: always;', 'page-break-before: auto;')
       const finalHtml = htmlString.replace('<div class="content-body">', `<div class="content-body">${parsedContent}`)
       
-      const converted = await asBlob(finalHtml, { orientation: 'portrait' })
-      saveAs(converted, `${form.subject}_${form.grade}_Syllabus.docx`)
+      const converted = await asBlob(finalHtml, { orientation: orientation })
+      saveAs(converted, `${form.subject}_${form.grade}_Syllabus_${orientation}.docx`)
     } catch (err) {
       console.error(err)
       setError('Export failed.')
     }
   }
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = (orientation = 'portrait') => {
     const element = document.getElementById('syllabus-print-area')
     if (!element) return
 
     // Hide any UI elements that shouldn't be in the PDF
     const opt = {
       margin:       10,
-      filename:     `${form.subject}_${form.grade}_Syllabus.pdf`,
+      filename:     `${form.subject}_${form.grade}_Syllabus_${orientation}.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: orientation },
+      pagebreak:    { mode: ['css', 'legacy'] }
     }
     
     // Temporarily make print styles visible for the PDF generation
@@ -475,12 +480,22 @@ ${formattingInstruction}
                   <button onClick={handleCopy} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${copied ? 'bg-emerald-100 text-emerald-700' : 'bg-white border border-surface-200 text-surface-700 hover:bg-surface-100'}`}>
                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} {copied ? 'Copied' : 'Copy'}
                   </button>
-                  <button onClick={handleWordExport} className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-sm">
-                    <FileText className="w-4 h-4" /> Export DOCX
-                  </button>
-                  <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-surface-900 text-white hover:bg-black transition-all shadow-sm">
-                    <Download className="w-4 h-4" /> Download PDF
-                  </button>
+                  <div className="flex bg-blue-600 rounded-lg overflow-hidden shadow-sm">
+                    <button onClick={() => handleWordExport('portrait')} className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-all border-r border-blue-500">
+                      <FileText className="w-4 h-4" /> DOCX (P)
+                    </button>
+                    <button onClick={() => handleWordExport('landscape')} className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-all">
+                      DOCX (L)
+                    </button>
+                  </div>
+                  <div className="flex bg-surface-900 rounded-lg overflow-hidden shadow-sm">
+                    <button onClick={() => handleDownloadPDF('portrait')} className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white hover:bg-black transition-all border-r border-surface-700">
+                      <Download className="w-4 h-4" /> PDF (P)
+                    </button>
+                    <button onClick={() => handleDownloadPDF('landscape')} className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-white hover:bg-black transition-all">
+                      PDF (L)
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -544,6 +559,11 @@ ${formattingInstruction}
           .printable-wrapper { position: absolute; left: 0; top: 0; width: 100%; border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
           .hide-on-print { display: none !important; }
           @page { margin: 15mm; }
+          .prose h1 { page-break-before: always; break-before: page; margin-top: 40px !important; }
+          .prose h1:first-child { page-break-before: avoid; break-before: auto; margin-top: 0 !important; }
+          .prose h1, .prose h2, .prose h3 { page-break-after: avoid; break-after: avoid; }
+          .prose table { page-break-inside: auto; break-inside: auto; }
+          .prose tr { page-break-inside: avoid; page-break-after: auto; }
         }
       `}} />
     </div>
