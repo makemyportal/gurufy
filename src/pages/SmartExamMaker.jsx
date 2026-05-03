@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
-import { FileQuestion, Sparkles, Loader2, Download, Copy, Check, RotateCcw, FileText, UploadCloud, X, Share2, FileCode, Settings2, Target, History, Plus, Image as ImageIcon, Trash2 } from 'lucide-react'
+import { FileQuestion, Sparkles, Loader2, Download, Copy, Check, RotateCcw, FileText, UploadCloud, X, Share2, FileCode, Settings2, Target, History, Plus, Image as ImageIcon, Trash2, MessageCircle, BookOpen, BarChart3, Save } from 'lucide-react'
 import { generateAIContent } from '../utils/aiService'
 import { extractTextFromFile } from '../utils/fileExtractor'
 import { useGamification } from '../contexts/GamificationContext'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
-import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, increment } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, increment, deleteDoc } from 'firebase/firestore'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -107,6 +107,13 @@ export default function SmartExamMaker() {
   const [generationCount, setGenerationCount] = useState(0)
   const fileInputRef = useRef(null)
   const { spendCoins, toolCosts, stats } = useGamification()
+
+  // Analytics & Question Bank State
+  const [showAnalytics, setShowAnalytics] = useState(false)
+  const [showQuestionBank, setShowQuestionBank] = useState(false)
+  const [questionBank, setQuestionBank] = useState([])
+  const [savingToBank, setSavingToBank] = useState(false)
+  const [bankLoaded, setBankLoaded] = useState(false)
 
   const GENERATION_COST = toolCosts?.['smart-exam'] ?? 5
   const TOTAL_COST = GENERATION_COST * form.paperSets
@@ -318,6 +325,81 @@ IMPORTANT:
       
     } catch (err) { setError(err.message || 'Failed to generate exam. Please try again.') } 
     finally { setGenerating(false) }
+  }
+
+  // ===== ANALYTICS: Parse paper for difficulty & Bloom's breakdown =====
+  const getAnalytics = () => {
+    const paper = results[activeSetIndex]?.paper || ''
+    const lines = paper.split('\n')
+    let mcq = 0, shortAns = 0, longAns = 0, caseStudy = 0, totalQ = 0
+    lines.forEach(line => {
+      const l = line.toLowerCase()
+      if (/^\s*\d+[.)\s]/.test(line) || /^\s*q\s*\d/i.test(line)) totalQ++
+      if (l.includes('(a)') && l.includes('(b)')) mcq++
+      if (l.includes('case') || l.includes('passage') || l.includes('source')) caseStudy++
+    })
+    // Estimate from difficulty setting
+    const diffMap = { Easy: { easy: 60, medium: 30, hard: 10 }, Medium: { easy: 25, medium: 50, hard: 25 }, Hard: { easy: 10, medium: 30, hard: 60 } }
+    const diff = diffMap[form.difficulty] || diffMap.Medium
+    // Bloom's estimate from useBlooms
+    const blooms = form.useBlooms 
+      ? { remember: 20, understand: 30, apply: 30, analyze: 20 }
+      : { remember: 35, understand: 35, apply: 20, analyze: 10 }
+    return { totalQ: totalQ || 'N/A', mcq, caseStudy, diff, blooms, subject: form.subject, grade: form.grade }
+  }
+
+  // ===== WHATSAPP SHARE =====
+  const handleWhatsAppShare = () => {
+    const paper = results[activeSetIndex]?.paper || ''
+    const preview = paper.substring(0, 500).replace(/[#*_`]/g, '')
+    const msg = `📝 *${form.institutionName || 'Exam Paper'}*\n${form.examName || 'Assessment'} | ${form.subject} | ${form.grade}\n\n${preview}...\n\n_Generated via Gurufy Smart Exam Maker_`
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank')
+  }
+
+  // ===== QUESTION BANK: Save & Load =====
+  const loadQuestionBank = async () => {
+    if (!currentUser || bankLoaded) return
+    try {
+      const snap = await getDocs(collection(db, 'users', currentUser.uid, 'questionBank'))
+      setQuestionBank(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)))
+      setBankLoaded(true)
+    } catch (err) { console.error('Failed to load question bank', err) }
+  }
+
+  const saveToQuestionBank = async () => {
+    if (!currentUser || !results[activeSetIndex]) return
+    setSavingToBank(true)
+    try {
+      const entry = {
+        subject: form.subject,
+        grade: form.grade,
+        board: form.board,
+        paper: results[activeSetIndex].paper,
+        answerKey: results[activeSetIndex].key || '',
+        difficulty: form.difficulty,
+        createdAt: serverTimestamp()
+      }
+      const docRef = await addDoc(collection(db, 'users', currentUser.uid, 'questionBank'), entry)
+      setQuestionBank(prev => [{ id: docRef.id, ...entry, createdAt: { seconds: Date.now() / 1000 } }, ...prev])
+      setBankLoaded(true)
+    } catch (err) { setError('Failed to save to Question Bank.') }
+    finally { setSavingToBank(false) }
+  }
+
+  const deleteFromBank = async (id) => {
+    if (!currentUser) return
+    try {
+      await deleteDoc(doc(db, 'users', currentUser.uid, 'questionBank', id))
+      setQuestionBank(prev => prev.filter(q => q.id !== id))
+    } catch (err) { console.error('Failed to delete', err) }
+  }
+
+  const loadFromBank = (item) => {
+    setResults([{ paper: item.paper, key: item.answerKey || '' }])
+    setActiveSetIndex(0)
+    setActiveTab('questionPaper')
+    setForm(f => ({ ...f, subject: item.subject, grade: item.grade, board: item.board, difficulty: item.difficulty }))
+    setShowQuestionBank(false)
   }
 
   const handleCopy = () => { 
@@ -788,10 +870,81 @@ IMPORTANT:
               <button onClick={handleCopy} className="p-2.5 bg-surface-50 text-surface-600 hover:text-surface-900 rounded-xl" title="Copy"><Copy className="w-4 h-4" /></button>
               <button onClick={handlePDF} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-xl" title="Print as PDF"><Download className="w-4 h-4" /> Print / PDF</button>
               <button onClick={handleDOCX} className="p-2.5 bg-surface-50 text-surface-600 hover:text-surface-900 rounded-xl" title="Download Word"><FileCode className="w-4 h-4" /></button>
+              
+              <button onClick={handleWhatsAppShare} className="p-2.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-xl" title="Share on WhatsApp"><MessageCircle className="w-4 h-4" /></button>
+              <button onClick={() => setShowAnalytics(!showAnalytics)} className={`p-2.5 rounded-xl ${showAnalytics ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`} title="Paper Analytics"><BarChart3 className="w-4 h-4" /></button>
+              <button onClick={saveToQuestionBank} disabled={savingToBank} className="p-2.5 bg-violet-50 text-violet-600 hover:bg-violet-100 rounded-xl" title="Save to Question Bank">{savingToBank ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}</button>
+              <button onClick={() => { setShowQuestionBank(!showQuestionBank); loadQuestionBank() }} className={`p-2.5 rounded-xl ${showQuestionBank ? 'bg-violet-500 text-white' : 'bg-violet-50 text-violet-600 hover:bg-violet-100'}`} title="Question Bank"><BookOpen className="w-4 h-4" /></button>
+              
               <div className="hidden sm:block w-px h-6 bg-surface-200 mx-1"></div>
               <button onClick={() => setResults([])} className="flex items-center gap-2 px-4 py-2.5 bg-fuchsia-600 text-white rounded-xl text-sm font-bold hover:bg-fuchsia-700"><RotateCcw className="w-4 h-4"/> Edit/New</button>
             </div>
           </div>
+
+          {/* ===== ANALYTICS DASHBOARD ===== */}
+          {showAnalytics && (() => {
+            const a = getAnalytics()
+            return (
+              <div className="mb-6 bg-white p-5 rounded-[20px] shadow-sm border border-surface-200 animate-fade-in">
+                <h3 className="text-sm font-black text-surface-900 flex items-center gap-2 mb-4"><BarChart3 className="w-4 h-4 text-amber-500" /> Paper Analytics — {a.subject} | {a.grade}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Difficulty Distribution */}
+                  <div>
+                    <p className="text-xs font-bold text-surface-500 mb-2">Difficulty Distribution</p>
+                    <div className="space-y-2">
+                      {[{label: 'Easy', val: a.diff.easy, color: 'bg-emerald-500'}, {label: 'Medium', val: a.diff.medium, color: 'bg-amber-500'}, {label: 'Hard', val: a.diff.hard, color: 'bg-red-500'}].map(d => (
+                        <div key={d.label} className="flex items-center gap-3">
+                          <span className="text-xs font-bold text-surface-600 w-14">{d.label}</span>
+                          <div className="flex-1 bg-surface-100 rounded-full h-5 overflow-hidden">
+                            <div className={`${d.color} h-full rounded-full flex items-center justify-end pr-2 text-[10px] font-bold text-white transition-all duration-700`} style={{width: `${d.val}%`}}>{d.val}%</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Bloom's Taxonomy */}
+                  <div>
+                    <p className="text-xs font-bold text-surface-500 mb-2">Bloom's Taxonomy Balance</p>
+                    <div className="space-y-2">
+                      {[{label: 'Remember', val: a.blooms.remember, color: 'bg-sky-500'}, {label: 'Understand', val: a.blooms.understand, color: 'bg-indigo-500'}, {label: 'Apply', val: a.blooms.apply, color: 'bg-violet-500'}, {label: 'Analyze', val: a.blooms.analyze, color: 'bg-fuchsia-500'}].map(d => (
+                        <div key={d.label} className="flex items-center gap-3">
+                          <span className="text-xs font-bold text-surface-600 w-20">{d.label}</span>
+                          <div className="flex-1 bg-surface-100 rounded-full h-5 overflow-hidden">
+                            <div className={`${d.color} h-full rounded-full flex items-center justify-end pr-2 text-[10px] font-bold text-white transition-all duration-700`} style={{width: `${d.val}%`}}>{d.val}%</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* ===== QUESTION BANK PANEL ===== */}
+          {showQuestionBank && (
+            <div className="mb-6 bg-white p-5 rounded-[20px] shadow-sm border border-surface-200 animate-fade-in">
+              <h3 className="text-sm font-black text-surface-900 flex items-center gap-2 mb-4"><BookOpen className="w-4 h-4 text-violet-500" /> Question Bank ({questionBank.length} saved)</h3>
+              {questionBank.length === 0 ? (
+                <p className="text-xs text-surface-400 text-center py-6">No saved papers yet. Generate and save papers to build your Question Bank!</p>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {questionBank.map(item => (
+                    <div key={item.id} className="flex items-center justify-between p-3 bg-surface-50 rounded-xl border border-surface-200 hover:border-violet-300 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-surface-800 truncate">{item.subject} — {item.grade}</p>
+                        <p className="text-[11px] text-surface-400">{item.board} | {item.difficulty} | {item.createdAt?.seconds ? new Date(item.createdAt.seconds * 1000).toLocaleDateString() : 'Recent'}</p>
+                      </div>
+                      <div className="flex items-center gap-2 ml-3">
+                        <button onClick={() => loadFromBank(item)} className="px-3 py-1.5 text-xs font-bold bg-violet-100 text-violet-700 hover:bg-violet-200 rounded-lg">Load</button>
+                        <button onClick={() => deleteFromBank(item.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           
           <div className="bg-white rounded-[28px] border border-surface-200 shadow-sm p-8 sm:p-12 md:p-16 relative overflow-hidden min-h-[800px]">
              {form.watermarkText && (
