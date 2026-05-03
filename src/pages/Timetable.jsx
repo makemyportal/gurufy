@@ -18,10 +18,9 @@ const getGroupForClass = (cName) => {
   const classMatch = name.match(/(?:class|grade)\s*(\d+)/);
   if (classMatch) {
     const num = parseInt(classMatch[1]);
-    if (num >= 1 && num <= 3) return 2;
-    if (num >= 4 && num <= 5) return 3;
-    if (num >= 6 && num <= 8) return 4;
-    if (num >= 9 && num <= 12) return 5;
+    if (num >= 1 && num <= 5) return 2;
+    if (num >= 6 && num <= 8) return 3;
+    if (num >= 9 && num <= 12) return 4;
   }
   return 0;
 }
@@ -51,6 +50,8 @@ export default function Timetable() {
   const { spendCoins, toolCosts, stats } = useGamification()
   
   const GENERATION_COST = toolCosts?.['timetable'] ?? 10
+  const VISION_TAX = toolCosts?.['vision_pdf'] ?? 5
+  const visionUses = stats?.aiUsages || 0
   
   // grid[day][period] = { subject, teacher, substitute, room, isLocked }
   const [gridHistory, setGridHistory] = useState(() => {
@@ -958,25 +959,130 @@ export default function Timetable() {
     setIsSaving(true);
     try {
       const demoClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
-      const demoSubjects = ['Mathematics', 'Science', 'English', 'Hindi', 'Social Studies'];
-      const demoTeachers = ['Mr. Sharma', 'Ms. Gupta', 'Mr. Patel', 'Ms. Singh', 'Mr. Kumar'];
       
+      const teacherNames = [
+        'Mr. Sharma', 'Ms. Gupta', 'Mr. Patel', 'Ms. Singh', 'Mr. Kumar',
+        'Ms. Joshi', 'Mr. Verma', 'Ms. Rao', 'Mr. Khan', 'Ms. Mehta',
+        'Mr. Reddy', 'Ms. Nair', 'Mr. Das', 'Ms. Bose', 'Mr. Iyer',
+        'Ms. Menon', 'Mr. Kapoor', 'Ms. Sen', 'Mr. Chawla', 'Ms. Dixit',
+        'Mr. Yadav', 'Ms. Jain', 'Mr. Ahuja', 'Ms. Bhatia', 'Mr. Chopra',
+        'Mr. Bansal', 'Ms. Agarwal', 'Mr. Kadam', 'Ms. Desai', 'Mr. Ghosh'
+      ];
+
+      const teachersByLevel = {
+        'Nursery': teacherNames.slice(0, 6),
+        'Primary': teacherNames.slice(6, 16),
+        'Middle': teacherNames.slice(16, 24),
+        'Senior': teacherNames.slice(24, 30)
+      };
+
+      const coreSubjectsByLevel = {
+        'Nursery': ['Rhymes', 'Play', 'Story Time', 'Number Work'],
+        'Primary': ['Mathematics', 'English', 'Hindi', 'EVS', 'Moral Science'],
+        'Middle':  ['Mathematics', 'Science', 'English', 'Hindi', 'Social Studies', 'Computer'],
+        'Senior':  ['Mathematics', 'Physics', 'Chemistry', 'English', 'Biology']
+      };
+
+      const minorSubjectsByLevel = {
+        'Nursery': [{s1: 'Art & Craft', s2: 'Games'}],
+        'Primary': [{s1: 'Computer', s2: 'Art'}, {s1: 'Games', s2: 'Library'}],
+        'Middle':  [{s1: 'Sanskrit', s2: 'Art'}, {s1: 'P.E.', s2: 'Library'}],
+        'Senior':  [{s1: 'Computer Science', s2: 'P.E.'}, {s1: 'Library', s2: 'Revision'}]
+      };
+
+      const teacherSchedule = {};
+      ALL_DAYS.forEach(d => {
+        teacherSchedule[d] = {};
+        PERIODS.forEach(p => {
+          teacherSchedule[d][p] = new Set();
+        });
+      });
+
+      let teacherCursor = { 'Nursery': 0, 'Primary': 0, 'Middle': 0, 'Senior': 0 };
+
       for (const cls of demoClasses) {
+        let level = 'Primary';
+        if (['Nursery', 'LKG', 'UKG'].includes(cls)) level = 'Nursery';
+        else if (['Class 6', 'Class 7', 'Class 8'].includes(cls)) level = 'Middle';
+        else if (['Class 9', 'Class 10', 'Class 11', 'Class 12'].includes(cls)) level = 'Senior';
+
+        const cores = [...coreSubjectsByLevel[level]];
+        const minors = [...minorSubjectsByLevel[level]];
+        const levelTeachers = teachersByLevel[level];
+        
+        const classTemplate = []; 
+        let availablePeriods = [0, 1, 2, 3, 5, 6, 7, 8]; 
+        if (level === 'Nursery') availablePeriods = [0, 1, 2, 3, 5]; 
+
+        cores.forEach(subj => {
+           if(availablePeriods.length > 0) {
+             classTemplate[availablePeriods.shift()] = { type: 'core', subj };
+           }
+        });
+
+        minors.forEach(pair => {
+           if(availablePeriods.length > 0) {
+             classTemplate[availablePeriods.shift()] = { type: 'split', s1: pair.s1, s2: pair.s2 };
+           }
+        });
+
+        availablePeriods.forEach(pIdx => {
+           classTemplate[pIdx] = { type: 'core', subj: 'Library' };
+        });
+
         const demoGrid = {};
-        ALL_DAYS.forEach(d => {
-          demoGrid[d] = {};
-          PERIODS.forEach((p, idx) => {
-            if (p === 'Lunch') {
-              demoGrid[d][p] = { subject: 'Lunch', teacher: '', substitute: '', room: '' };
-            } else if (idx < 5) {
-              // Basic random assignment for demo
-              const subj = demoSubjects[(idx + demoClasses.indexOf(cls)) % demoSubjects.length];
-              const tchr = demoTeachers[(idx + demoClasses.indexOf(cls)) % demoTeachers.length];
-              demoGrid[d][p] = { subject: subj, teacher: tchr, substitute: '', room: 'Room ' + (100 + demoClasses.indexOf(cls)) };
-            } else {
-              demoGrid[d][p] = { subject: 'Free Period', teacher: '', substitute: '', room: '' };
-            }
-          });
+        ALL_DAYS.forEach(d => { demoGrid[d] = {}; });
+        
+        PERIODS.forEach((p, pIdx) => {
+          if (p === 'Lunch') {
+             ALL_DAYS.forEach(d => { demoGrid[d][p] = { subject: 'Lunch', teacher: '', substitute: '', room: '' }; });
+             return;
+          }
+          
+          if (!classTemplate[pIdx]) {
+             ALL_DAYS.forEach(d => { demoGrid[d][p] = { subject: 'Free Period', teacher: '', substitute: '', room: '' }; });
+             return;
+          }
+          
+          const slot = classTemplate[pIdx];
+          const roomName = 'Room ' + (101 + demoClasses.indexOf(cls));
+
+          if (slot.type === 'core') {
+             let assignedT = '';
+             for(let i=0; i<levelTeachers.length; i++) {
+                const t = levelTeachers[(teacherCursor[level] + i) % levelTeachers.length];
+                if (ALL_DAYS.every(d => !teacherSchedule[d][p].has(t))) {
+                   assignedT = t;
+                   ALL_DAYS.forEach(d => teacherSchedule[d][p].add(t));
+                   teacherCursor[level] = (teacherCursor[level] + i + 1) % levelTeachers.length;
+                   break;
+                }
+             }
+             ALL_DAYS.forEach(d => {
+               demoGrid[d][p] = { subject: slot.subj, teacher: assignedT || levelTeachers[0], substitute: '', room: roomName };
+             });
+             
+          } else if (slot.type === 'split') {
+             const days1 = ALL_DAYS.slice(0, 3);
+             const days2 = ALL_DAYS.slice(3, 6);
+             let t1 = '', t2 = '';
+             
+             for(let i=0; i<levelTeachers.length; i++) {
+                const t = levelTeachers[(teacherCursor[level] + i) % levelTeachers.length];
+                if (!t1 && days1.every(d => !teacherSchedule[d][p].has(t))) {
+                   t1 = t; days1.forEach(d => teacherSchedule[d][p].add(t));
+                } else if (t1 && !t2 && days2.every(d => !teacherSchedule[d][p].has(t))) {
+                   t2 = t; days2.forEach(d => teacherSchedule[d][p].add(t));
+                }
+                if(t1 && t2) {
+                   teacherCursor[level] = (teacherCursor[level] + i + 1) % levelTeachers.length;
+                   break;
+                }
+             }
+
+             days1.forEach(d => { demoGrid[d][p] = { subject: slot.s1, teacher: t1 || levelTeachers[0], substitute: '', room: roomName }; });
+             days2.forEach(d => { demoGrid[d][p] = { subject: slot.s2, teacher: t2 || levelTeachers[1] || levelTeachers[0], substitute: '', room: roomName }; });
+          }
         });
         
         const timetableData = {
@@ -985,11 +1091,11 @@ export default function Timetable() {
           className: cls,
           details: 'Demo timetable generated automatically',
           grid: demoGrid,
-          teachers: DEFAULT_TEACHERS,
+          teachers: teacherNames,
           absentTeachers: {},
           onBreak: [],
-          subjects: DEFAULT_SUBJECTS,
-          rooms: ['Chemistry Lab', 'Computer Lab', 'Library', 'AV Room', 'Room 100', 'Room 101', 'Room 102'],
+          subjects: Array.from(new Set([...DEFAULT_SUBJECTS, 'Rhymes', 'Play', 'Art & Craft', 'Story Time', 'Number Work', 'Moral Science', 'Revision'])),
+          rooms: ['Chemistry Lab', 'Computer Lab', 'Library', 'AV Room', ...demoClasses.map((_, i) => 'Room ' + (101 + i))],
           subjectColors: {},
           activeDays: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
           teacherSubjects: {},
