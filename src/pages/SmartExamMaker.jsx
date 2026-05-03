@@ -336,41 +336,35 @@ IMPORTANT:
     let headerHTML = ''
     if (activeTab === 'questionPaper') {
       headerHTML = `
-        <div style="font-family: 'Times New Roman', Times, serif; color: #000; margin-bottom: 20px;">
-          <table style="width: 100%; border: none; margin-bottom: 10px;">
-            <tr>
-              <td style="width: 18%; text-align: left; vertical-align: middle;">
-                ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 75px; max-width: 90px; object-fit: contain;" />` : ''}
-              </td>
-              <td style="width: 64%; text-align: center; vertical-align: middle;">
-                <h1 style="margin: 0 0 5px 0; font-size: 26px; font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px;">${form.institutionName || 'EXAMINATION'}</h1>
-                <h2 style="margin: 0 0 4px 0; font-size: 15px; font-weight: normal; text-transform: uppercase; letter-spacing: 3px;">${form.examName || 'Assessment'}</h2>
-                ${form.session ? `<div style="font-size: 12px; font-style: italic; color: #444;">Academic Session: ${form.session}</div>` : ''}
-              </td>
-              <td style="width: 18%;"></td>
-            </tr>
-          </table>
-          
-          <div style="border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 6px 0; margin-bottom: 15px;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 14px; font-weight: bold;">
-              <tr>
-                <td style="padding: 4px 8px; width: 50%; text-align: left;">Subject: <span style="font-weight: normal; margin-left: 5px;">${form.subject}</span></td>
-                <td style="padding: 4px 8px; width: 50%; text-align: right;">Class: <span style="font-weight: normal; margin-left: 5px;">${form.grade}</span></td>
-              </tr>
-              <tr>
-                <td style="padding: 4px 8px; text-align: left;">Time Allowed: <span style="font-weight: normal; margin-left: 5px;">${form.duration}</span></td>
-                <td style="padding: 4px 8px; text-align: right;">Max Marks: <span style="font-weight: normal; margin-left: 5px;">${form.useAutoPattern ? '........' : calculatedTotalMarks}</span></td>
-              </tr>
-            </table>
-          </div>
+        <div style="font-family: 'Times New Roman', Times, serif; color: #1a2a40; margin-bottom: 18px; border: 2.5px solid #1a2a40; padding: 3px;">
+          <div style="border: 1px solid #1a2a40; padding: 14px 18px;">
+            
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              ${schoolLogo ? `<img src="${schoolLogo}" style="height: 58px; width: auto; margin-right: 14px;" />` : ''}
+              <div style="flex: 1; text-align: center;">
+                <div style="font-size: 24px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; line-height: 1.2;">${form.institutionName || 'SCHOOL EXAM'}</div>
+                <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px;">${form.examName || 'Assessment'}${form.session ? ` | Session: ${form.session}` : ''}</div>
+              </div>
+            </div>
+            
+            <div style="border-top: 1.5px solid #1a2a40; margin: 6px 0;"></div>
 
-          <table style="width: 100%; border: none; font-size: 13px; margin-bottom: 25px;">
-            <tr>
-              <td style="width: 45%; padding: 4px 0;"><strong>Candidate Name:</strong> ................................................................</td>
-              <td style="width: 25%; padding: 4px 0;"><strong>Roll No:</strong> ............................</td>
-              <td style="width: 30%; padding: 4px 0; text-align: right;"><strong>Date:</strong> ......./......./20....</td>
-            </tr>
-          </table>
+            <div style="display: flex; font-size: 13px; line-height: 2;">
+              <div style="flex: 1;"><b>Name :</b> ______________________________</div>
+              <div style="flex: 1; text-align: right;"><b>Subject :</b> <u>${form.subject}</u></div>
+            </div>
+            <div style="display: flex; font-size: 13px; line-height: 2;">
+              <div style="flex: 1;"><b>Class :</b> <u>${form.grade}</u></div>
+              <div style="flex: 1; text-align: right;"><b>Date :</b> ____/____/20____</div>
+            </div>
+            <div style="display: flex; font-size: 13px; line-height: 2;">
+              <div style="flex: 1;"><b>Roll No. :</b> ___________________</div>
+              <div style="flex: 1; text-align: right;"><b>Time :</b> <u>${form.duration}</u> &nbsp; | &nbsp; <b>Max Marks :</b> <u>${form.useAutoPattern ? '______' : calculatedTotalMarks}</u></div>
+            </div>
+
+            <div style="border-top: 1.5px solid #1a2a40; margin: 6px 0;"></div>
+
+          </div>
         </div>
       `
     } else {
@@ -414,41 +408,42 @@ IMPORTANT:
     let headerHTML = ''
     if (activeTab === 'questionPaper') {
       headerHTML = `
-        <div style="font-family: 'Times New Roman', Times, serif; color: #000; margin-bottom: 20px;">
-          <table style="width: 100%; border: none; margin-bottom: 10px;">
-            <tr>
-              <td style="width: 18%; text-align: left; vertical-align: middle;">
-                ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 75px; max-width: 90px; object-fit: contain;" />` : ''}
-              </td>
-              <td style="width: 64%; text-align: center; vertical-align: middle;">
-                <h1 style="margin: 0 0 5px 0; font-size: 26px; font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px;">${form.institutionName || 'EXAMINATION'}</h1>
-                <h2 style="margin: 0 0 4px 0; font-size: 15px; font-weight: normal; text-transform: uppercase; letter-spacing: 3px;">${form.examName || 'Assessment'}</h2>
-                ${form.session ? `<div style="font-size: 12px; font-style: italic; color: #444;">Academic Session: ${form.session}</div>` : ''}
-              </td>
-              <td style="width: 18%;"></td>
-            </tr>
-          </table>
-          
-          <div style="border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 6px 0; margin-bottom: 15px;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 14px; font-weight: bold;">
+        <div style="font-family: 'Times New Roman', Times, serif; color: #1a2a40; margin-bottom: 18px; border: 2.5px solid #1a2a40; padding: 3px;">
+          <div style="border: 1px solid #1a2a40; padding: 14px 18px;">
+            
+            <table style="width: 100%; border: none; border-collapse: collapse; margin-bottom: 8px;">
               <tr>
-                <td style="padding: 4px 8px; width: 50%; text-align: left;">Subject: <span style="font-weight: normal; margin-left: 5px;">${form.subject}</span></td>
-                <td style="padding: 4px 8px; width: 50%; text-align: right;">Class: <span style="font-weight: normal; margin-left: 5px;">${form.grade}</span></td>
-              </tr>
-              <tr>
-                <td style="padding: 4px 8px; text-align: left;">Time Allowed: <span style="font-weight: normal; margin-left: 5px;">${form.duration}</span></td>
-                <td style="padding: 4px 8px; text-align: right;">Max Marks: <span style="font-weight: normal; margin-left: 5px;">${form.useAutoPattern ? '........' : calculatedTotalMarks}</span></td>
+                <td style="width: 15%; vertical-align: middle; border: none; padding: 0;">
+                  ${schoolLogo ? `<img src="${schoolLogo}" style="height: 58px; width: auto;" />` : ''}
+                </td>
+                <td style="text-align: center; vertical-align: middle; border: none; padding: 0;">
+                  <div style="font-size: 24px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; line-height: 1.2;">${form.institutionName || 'SCHOOL EXAM'}</div>
+                  <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px;">${form.examName || 'Assessment'}${form.session ? ` | Session: ${form.session}` : ''}</div>
+                </td>
+                <td style="width: 15%; border: none; padding: 0;"></td>
               </tr>
             </table>
-          </div>
 
-          <table style="width: 100%; border: none; font-size: 13px; margin-bottom: 25px;">
-            <tr>
-              <td style="width: 45%; padding: 4px 0;"><strong>Candidate Name:</strong> ................................................................</td>
-              <td style="width: 25%; padding: 4px 0;"><strong>Roll No:</strong> ............................</td>
-              <td style="width: 30%; padding: 4px 0; text-align: right;"><strong>Date:</strong> ......./......./20....</td>
-            </tr>
-          </table>
+            <div style="border-top: 1.5px solid #1a2a40; margin: 6px 0;"></div>
+
+            <table style="width: 100%; border: none; border-collapse: collapse; font-size: 13px;">
+              <tr>
+                <td style="border: none; padding: 3px 0;"><b>Name :</b> ______________________________</td>
+                <td style="border: none; padding: 3px 0; text-align: right;"><b>Subject :</b> <u>${form.subject}</u></td>
+              </tr>
+              <tr>
+                <td style="border: none; padding: 3px 0;"><b>Class :</b> <u>${form.grade}</u></td>
+                <td style="border: none; padding: 3px 0; text-align: right;"><b>Date :</b> ____/____/20____</td>
+              </tr>
+              <tr>
+                <td style="border: none; padding: 3px 0;"><b>Roll No. :</b> ___________________</td>
+                <td style="border: none; padding: 3px 0; text-align: right;"><b>Time :</b> <u>${form.duration}</u> &nbsp;|&nbsp; <b>Max Marks :</b> <u>${form.useAutoPattern ? '______' : calculatedTotalMarks}</u></td>
+              </tr>
+            </table>
+
+            <div style="border-top: 1.5px solid #1a2a40; margin: 6px 0;"></div>
+
+          </div>
         </div>
       `
     } else {
