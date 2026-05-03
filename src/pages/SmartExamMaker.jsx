@@ -23,10 +23,19 @@ const subjectList = ['Mathematics', 'Science', 'Physics', 'Chemistry', 'Biology'
 export default function SmartExamMaker() {
   const { currentUser } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ 
-    board: 'CBSE', subject: '', grade: '', duration: '3 Hours', 
-    includeAnswerKey: true, institutionName: '', examName: '', session: '',
-    difficulty: 'Medium', language: 'English', paperSets: 1, watermarkText: '', useBlooms: true, includePYQ: false, useAutoPattern: false
+  const [form, setForm] = useState(() => {
+    const saved = localStorage.getItem('smartExamSchoolInfo')
+    const parsed = saved ? JSON.parse(saved) : {}
+    return {
+      board: 'CBSE', subject: '', grade: '', duration: '3 Hours', 
+      includeAnswerKey: true, 
+      institutionName: parsed.institutionName || '', 
+      examName: parsed.examName || '', 
+      session: parsed.session || '',
+      difficulty: 'Medium', language: 'English', paperSets: 1, 
+      watermarkText: parsed.watermarkText || '', 
+      useBlooms: true, includePYQ: false, useAutoPattern: false, strictSource: true
+    }
   })
   
   const [vaultItems, setVaultItems] = useState([])
@@ -55,11 +64,24 @@ export default function SmartExamMaker() {
     { id: 5, type: 'Case-Based / Source-Based', count: 1, marksPerQuestion: 4 }
   ])
   
-  const [schoolLogo, setSchoolLogo] = useState(null)
+  const [schoolLogo, setSchoolLogo] = useState(() => {
+    return localStorage.getItem('smartExamSchoolLogo') || null
+  })
   const logoInputRef = useRef(null)
 
   const calculatedTotalMarks = blueprint.reduce((acc, curr) => acc + (curr.count * curr.marksPerQuestion), 0)
   const totalMarksDisplay = form.useAutoPattern ? 'Auto (Official)' : calculatedTotalMarks
+
+  // Save school info to localStorage
+  useEffect(() => {
+    const schoolInfo = {
+      institutionName: form.institutionName,
+      examName: form.examName,
+      session: form.session,
+      watermarkText: form.watermarkText
+    }
+    localStorage.setItem('smartExamSchoolInfo', JSON.stringify(schoolInfo))
+  }, [form.institutionName, form.examName, form.session, form.watermarkText])
 
 
   const [inputMode, setInputMode] = useState('upload') 
@@ -75,6 +97,11 @@ export default function SmartExamMaker() {
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
+  
+  // Live Editor State
+  const [isEditing, setIsEditing] = useState(false)
+  const [editText, setEditText] = useState('')
+  
   const [suggestedChapters, setSuggestedChapters] = useState([])
   const [fetchingChapters, setFetchingChapters] = useState(false)
   const [generationCount, setGenerationCount] = useState(0)
@@ -87,18 +114,31 @@ export default function SmartExamMaker() {
   const canGenerate = form.subject && form.grade && (inputMode === 'upload' ? file : topic.trim().length > 3)
 
   const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0]
-    if (!selectedFile) return
-    if (!selectedFile.type.startsWith('image/') && selectedFile.type !== 'application/pdf') {
-      setError('Please upload a valid Image (JPG, PNG) or PDF file.')
-      return
+    try {
+      const selectedFile = e.target.files[0]
+      if (!selectedFile) return
+      
+      const fileName = selectedFile.name || ''
+      const isImage = selectedFile.type.startsWith('image/')
+      const isPDF = selectedFile.type === 'application/pdf'
+      const isDocx = fileName.toLowerCase().endsWith('.docx') || selectedFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
+      if (!isImage && !isPDF && !isDocx) {
+        setError('Please upload a valid Image, PDF, or DOCX file. Selected type: ' + (selectedFile.type || 'unknown'))
+        return
+      }
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        setError('File size must be less than 5MB.')
+        return
+      }
+      setFile(selectedFile)
+      setError('')
+      const reader = new FileReader()
+      reader.onload = () => setFilePreview(reader.result)
+      reader.readAsDataURL(selectedFile)
+    } catch (err) {
+      setError('Failed to select file: ' + err.message)
     }
-    if (selectedFile.size > 5 * 1024 * 1024) return setError('File size must be less than 5MB.')
-    setFile(selectedFile)
-    setError('')
-    const reader = new FileReader()
-    reader.onload = () => setFilePreview(reader.result)
-    reader.readAsDataURL(selectedFile)
   }
 
   const handleLogoUpload = (e) => {
@@ -106,7 +146,10 @@ export default function SmartExamMaker() {
     if (file) {
       if (file.size > 1 * 1024 * 1024) return alert('Logo size must be under 1MB')
       const reader = new FileReader()
-      reader.onload = () => setSchoolLogo(reader.result)
+      reader.onload = () => {
+        setSchoolLogo(reader.result)
+        localStorage.setItem('smartExamSchoolLogo', reader.result)
+      }
       reader.readAsDataURL(file)
     }
   }
@@ -144,7 +187,7 @@ export default function SmartExamMaker() {
       return setError(`Not enough coins! You need ${TOTAL_COST} 🪙. Current: ${stats?.coins || 0}`)
     }
     
-    setGenerating(true); setError(''); setResults([])
+    setGenerating(true); setError(''); setResults([]); setIsEditing(false)
     
     const success = await spendCoins(TOTAL_COST, 'Smart Exam Maker')
     if (!success) {
@@ -156,9 +199,11 @@ export default function SmartExamMaker() {
       let base64Data = null, mimeType = null, promptPrefix = ''
 
       if (inputMode === 'upload') {
-        if (!filePreview) throw new Error("File not loaded properly.")
+        if (!filePreview && !file.name.toLowerCase().endsWith('.docx')) throw new Error("File not loaded properly.")
         const extractedText = await extractTextFromFile(file, filePreview)
-        promptPrefix = `Based ONLY on the following extracted document text: "${extractedText}"\n\n`
+        promptPrefix = form.strictSource 
+          ? `CRITICAL INSTRUCTION: You MUST base all questions ABSOLUTELY ONLY on the following extracted document text. Do NOT use outside knowledge. If the document doesn't have enough content, state 'Insufficient content in document'.\n\nDocument Text:\n"${extractedText}"\n\n`
+          : `Use the following extracted document text as your primary source, but you may use general curriculum knowledge to supplement if needed to fulfill the blueprint:\n"${extractedText}"\n\n`
         
         // Save to Firebase Vault directly
         if (currentUser) {
@@ -175,7 +220,9 @@ export default function SmartExamMaker() {
         }
       } else if (inputMode === 'vault') {
         if (!selectedVaultItem) throw new Error("Please select a document from the vault.")
-        promptPrefix = `Based on the following extracted document text: "${selectedVaultItem.textData}"\n\n`
+        promptPrefix = form.strictSource 
+          ? `CRITICAL INSTRUCTION: You MUST base all questions ABSOLUTELY ONLY on the following extracted document text. Do NOT use outside knowledge. If the document doesn't have enough content, state 'Insufficient content in document'.\n\nDocument Text:\n"${selectedVaultItem.textData}"\n\n`
+          : `Use the following extracted document text as your primary source, but you may use general curriculum knowledge to supplement if needed:\n"${selectedVaultItem.textData}"\n\n`
       } else {
         promptPrefix = `Based on the official syllabus for topic: "${topic}"\n\n`
       }
@@ -197,6 +244,17 @@ CRITICAL NEP 2020 & CBSE COMPLIANCE:
 - Use LaTeX formatting for all math equations, fractions, and symbols using $ inline and $$ block markers. Ensure proper spacing.
 ${form.useBlooms ? "- Follow Bloom's Taxonomy: Mix of Remembering (20%), Understanding (30%), Applying (30%), Analyzing/Evaluating (20%)." : ""}
 ${form.includePYQ ? "- STRICTLY prioritize and adapt ACTUAL Previous Year Board Questions (PYQs) from the past 10 years. If a question is a PYQ, append the year in brackets at the end of the question e.g. '(CBSE 2019)'." : ""}
+
+CRITICAL FORMATTING & NO-ANSWER RULES:
+- DO NOT INCLUDE ANY ANSWERS, HINTS, OR BOLDED OPTIONS IN THE QUESTION PAPER SECTION.
+- All answers MUST ONLY appear in the Answer Key block.
+- For MCQs, format options strictly on separate lines like this:
+(A) Option 1
+(B) Option 2
+(C) Option 3
+(D) Option 4
+- For Fill-in-the-blanks, use "__________" for the blank space.
+- For True/False, state the question clearly and add "[True/False]" at the end.
 
 Configuration:
 - Board: ${form.board} | Subject: ${form.subject} | Grade: ${form.grade}
@@ -278,30 +336,42 @@ IMPORTANT:
     let headerHTML = ''
     if (activeTab === 'questionPaper') {
       headerHTML = `
-        <div style="text-align: center; margin-bottom: 20px; position: relative;">
-          ${schoolLogo ? `<img src="${schoolLogo}" style="position: absolute; left: 0; top: 0; max-height: 80px; max-width: 80px; object-fit: contain;" />` : ''}
-          <h1 style="margin: 0; font-size: 26px; text-transform: uppercase;">${form.institutionName || 'EXAMINATION'}</h1>
-          <h2 style="margin: 5px 0; font-size: 18px;">${form.examName || ''}</h2>
-          ${form.session ? `<p style="margin: 0; font-size: 14px; font-weight: bold;">Session: ${form.session}</p>` : ''}
+        <div style="font-family: 'Times New Roman', Times, serif; color: #000; margin-bottom: 20px;">
+          <table style="width: 100%; border: none; margin-bottom: 10px;">
+            <tr>
+              <td style="width: 18%; text-align: left; vertical-align: middle;">
+                ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 75px; max-width: 90px; object-fit: contain;" />` : ''}
+              </td>
+              <td style="width: 64%; text-align: center; vertical-align: middle;">
+                <h1 style="margin: 0 0 5px 0; font-size: 26px; font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px;">${form.institutionName || 'EXAMINATION'}</h1>
+                <h2 style="margin: 0 0 4px 0; font-size: 15px; font-weight: normal; text-transform: uppercase; letter-spacing: 3px;">${form.examName || 'Assessment'}</h2>
+                ${form.session ? `<div style="font-size: 12px; font-style: italic; color: #444;">Academic Session: ${form.session}</div>` : ''}
+              </td>
+              <td style="width: 18%;"></td>
+            </tr>
+          </table>
+          
+          <div style="border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 6px 0; margin-bottom: 15px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px; font-weight: bold;">
+              <tr>
+                <td style="padding: 4px 8px; width: 50%; text-align: left;">Subject: <span style="font-weight: normal; margin-left: 5px;">${form.subject}</span></td>
+                <td style="padding: 4px 8px; width: 50%; text-align: right;">Class: <span style="font-weight: normal; margin-left: 5px;">${form.grade}</span></td>
+              </tr>
+              <tr>
+                <td style="padding: 4px 8px; text-align: left;">Time Allowed: <span style="font-weight: normal; margin-left: 5px;">${form.duration}</span></td>
+                <td style="padding: 4px 8px; text-align: right;">Max Marks: <span style="font-weight: normal; margin-left: 5px;">${form.useAutoPattern ? '........' : calculatedTotalMarks}</span></td>
+              </tr>
+            </table>
+          </div>
+
+          <table style="width: 100%; border: none; font-size: 13px; margin-bottom: 25px;">
+            <tr>
+              <td style="width: 45%; padding: 4px 0;"><strong>Candidate Name:</strong> ................................................................</td>
+              <td style="width: 25%; padding: 4px 0;"><strong>Roll No:</strong> ............................</td>
+              <td style="width: 30%; padding: 4px 0; text-align: right;"><strong>Date:</strong> ......./......./20....</td>
+            </tr>
+          </table>
         </div>
-        <table style="width: 100%; border: 2px solid #000; border-collapse: collapse; margin-bottom: 15px; font-weight: bold; font-size: 14px;">
-          <tr>
-            <td style="border: 1px solid #000; padding: 8px; width: 50%;">Subject: ${form.subject}</td>
-            <td style="border: 1px solid #000; padding: 8px; width: 50%;">Class: ${form.grade}</td>
-          </tr>
-          <tr>
-            <td style="border: 1px solid #000; padding: 8px;">Time Allowed: ${form.duration}</td>
-            <td style="border: 1px solid #000; padding: 8px;">Maximum Marks: ${form.useAutoPattern ? '........' : calculatedTotalMarks}</td>
-          </tr>
-        </table>
-        <table style="width: 100%; border: none; margin-bottom: 20px; font-size: 14px;">
-          <tr>
-            <td style="padding: 5px 0;"><strong>Student Name:</strong> ..............................................................</td>
-            <td style="padding: 5px 0;"><strong>Roll No:</strong> ..........................</td>
-            <td style="padding: 5px 0; text-align: right;"><strong>Date:</strong> ....../....../20....</td>
-          </tr>
-        </table>
-        <hr style="border-top: 2px solid #000; margin-bottom: 20px;" />
       `
     } else {
       headerHTML = `<h1 style="text-align:center;">${form.subject} - Answer Key</h1><hr style="margin-bottom: 20px;" />`
@@ -344,30 +414,42 @@ IMPORTANT:
     let headerHTML = ''
     if (activeTab === 'questionPaper') {
       headerHTML = `
-        <div style="text-align: center; margin-bottom: 20px;">
-          ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 80px; max-width: 80px; margin-bottom: 10px;" />` : ''}
-          <h1 style="margin: 0; font-size: 22px; text-transform: uppercase; font-family: Arial, sans-serif;">${form.institutionName || 'EXAMINATION'}</h1>
-          <h2 style="margin: 5px 0; font-size: 16px; font-family: Arial, sans-serif;">${form.examName || ''}</h2>
-          ${form.session ? `<p style="margin: 0; font-size: 12px; font-weight: bold; font-family: Arial, sans-serif;">Session: ${form.session}</p>` : ''}
+        <div style="font-family: 'Times New Roman', Times, serif; color: #000; margin-bottom: 20px;">
+          <table style="width: 100%; border: none; margin-bottom: 10px;">
+            <tr>
+              <td style="width: 18%; text-align: left; vertical-align: middle;">
+                ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 75px; max-width: 90px; object-fit: contain;" />` : ''}
+              </td>
+              <td style="width: 64%; text-align: center; vertical-align: middle;">
+                <h1 style="margin: 0 0 5px 0; font-size: 26px; font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px;">${form.institutionName || 'EXAMINATION'}</h1>
+                <h2 style="margin: 0 0 4px 0; font-size: 15px; font-weight: normal; text-transform: uppercase; letter-spacing: 3px;">${form.examName || 'Assessment'}</h2>
+                ${form.session ? `<div style="font-size: 12px; font-style: italic; color: #444;">Academic Session: ${form.session}</div>` : ''}
+              </td>
+              <td style="width: 18%;"></td>
+            </tr>
+          </table>
+          
+          <div style="border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 6px 0; margin-bottom: 15px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px; font-weight: bold;">
+              <tr>
+                <td style="padding: 4px 8px; width: 50%; text-align: left;">Subject: <span style="font-weight: normal; margin-left: 5px;">${form.subject}</span></td>
+                <td style="padding: 4px 8px; width: 50%; text-align: right;">Class: <span style="font-weight: normal; margin-left: 5px;">${form.grade}</span></td>
+              </tr>
+              <tr>
+                <td style="padding: 4px 8px; text-align: left;">Time Allowed: <span style="font-weight: normal; margin-left: 5px;">${form.duration}</span></td>
+                <td style="padding: 4px 8px; text-align: right;">Max Marks: <span style="font-weight: normal; margin-left: 5px;">${form.useAutoPattern ? '........' : calculatedTotalMarks}</span></td>
+              </tr>
+            </table>
+          </div>
+
+          <table style="width: 100%; border: none; font-size: 13px; margin-bottom: 25px;">
+            <tr>
+              <td style="width: 45%; padding: 4px 0;"><strong>Candidate Name:</strong> ................................................................</td>
+              <td style="width: 25%; padding: 4px 0;"><strong>Roll No:</strong> ............................</td>
+              <td style="width: 30%; padding: 4px 0; text-align: right;"><strong>Date:</strong> ......./......./20....</td>
+            </tr>
+          </table>
         </div>
-        <table style="width: 100%; border: 1px solid #000; border-collapse: collapse; margin-bottom: 15px; font-weight: bold; font-size: 12px; font-family: Arial, sans-serif;">
-          <tr>
-            <td style="border: 1px solid #000; padding: 6px; width: 50%;">Subject: ${form.subject}</td>
-            <td style="border: 1px solid #000; padding: 6px; width: 50%;">Class: ${form.grade}</td>
-          </tr>
-          <tr>
-            <td style="border: 1px solid #000; padding: 6px;">Time Allowed: ${form.duration}</td>
-            <td style="border: 1px solid #000; padding: 6px;">Maximum Marks: ${form.useAutoPattern ? '........' : calculatedTotalMarks}</td>
-          </tr>
-        </table>
-        <table style="width: 100%; border: none; margin-bottom: 20px; font-size: 12px; font-family: Arial, sans-serif;">
-          <tr>
-            <td style="padding: 5px 0;"><strong>Student Name:</strong> ........................................................</td>
-            <td style="padding: 5px 0;"><strong>Roll No:</strong> .....................</td>
-            <td style="padding: 5px 0; text-align: right;"><strong>Date:</strong> ....../....../20....</td>
-          </tr>
-        </table>
-        <hr style="border-top: 2px solid #000; margin-bottom: 20px;" />
       `
     } else {
       headerHTML = `<h1 style="text-align:center; font-family: Arial, sans-serif;">${form.subject} - Answer Key</h1><hr style="margin-bottom: 20px;" />`
@@ -421,11 +503,13 @@ IMPORTANT:
               {inputMode === 'upload' ? (
                 <div>
                   <div onClick={() => !file && fileInputRef.current?.click()} className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${file ? 'border-fuchsia-400 bg-fuchsia-50/50' : 'border-surface-300 bg-surface-50 hover:bg-surface-100 cursor-pointer'}`}>
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/jpeg, image/png, application/pdf" className="hidden" />
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".jpg,.jpeg,.png,.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" />
                     {file ? (
                       <div className="relative animate-fade-in">
                         {file.type.startsWith('image/') ? (
                           <div className="aspect-[3/4] max-h-[200px] mx-auto rounded-xl overflow-hidden shadow-sm mb-3 border border-surface-200"><img src={filePreview} alt="Preview" className="w-full h-full object-cover" /></div>
+                        ) : (file?.name || '').toLowerCase().endsWith('.docx') ? (
+                          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3"><FileText className="w-8 h-8" /></div>
                         ) : (
                           <div className="w-16 h-16 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mx-auto mb-3"><FileText className="w-8 h-8" /></div>
                         )}
@@ -436,14 +520,25 @@ IMPORTANT:
                       <div className="py-8">
                         <div className="w-16 h-16 bg-white border border-surface-200 shadow-sm rounded-full flex items-center justify-center mx-auto mb-4"><UploadCloud className="w-8 h-8 text-fuchsia-500" /></div>
                         <p className="text-base font-bold text-surface-800">Click to Upload</p>
-                        <p className="text-xs font-medium text-surface-500 mt-1">Supports JPG, PNG, or PDF (Max 5MB)</p>
+                        <p className="text-xs font-medium text-surface-500 mt-1">Supports JPG, PNG, PDF, or DOCX (Max 5MB)</p>
                       </div>
                     )}
                   </div>
                   <div className="mt-3 bg-surface-50 p-3 rounded-xl border border-surface-200 flex justify-between items-center">
                     <div>
-                      <p className="text-xs font-bold text-surface-800">Local OCR Processing</p>
-                      <p className="text-[10px] text-surface-500 font-medium">Text will be extracted securely and free on your device.</p>
+                      <p className="text-xs font-bold text-surface-800">Local Text Extraction</p>
+                      <p className="text-[10px] text-surface-500 font-medium">Text will be extracted securely on your device.</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 bg-fuchsia-50 p-3 rounded-xl border border-fuchsia-200 flex justify-between items-center cursor-pointer" onClick={() => setForm(f => ({...f, strictSource: !f.strictSource}))}>
+                    <div>
+                      <p className="text-xs font-bold text-fuchsia-800">Strict Document Source</p>
+                      <p className="text-[10px] text-fuchsia-600 font-medium max-w-[200px] leading-tight">
+                        {form.strictSource ? "AI will ONLY use this document to create questions." : "AI can mix document content with general syllabus knowledge."}
+                      </p>
+                    </div>
+                    <div className={`w-10 h-5 rounded-full flex items-center px-0.5 transition-colors ${form.strictSource ? 'bg-fuchsia-600' : 'bg-surface-300'}`}>
+                      <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${form.strictSource ? 'translate-x-5' : 'translate-x-0'}`}></div>
                     </div>
                   </div>
                 </div>
@@ -474,6 +569,19 @@ IMPORTANT:
                           </div>
                         )
                       })}
+                    </div>
+                  )}
+                  {selectedVaultItem && (
+                    <div className="mt-2 bg-fuchsia-50 p-3 rounded-xl border border-fuchsia-200 flex justify-between items-center cursor-pointer animate-fade-in" onClick={() => setForm(f => ({...f, strictSource: !f.strictSource}))}>
+                      <div>
+                        <p className="text-xs font-bold text-fuchsia-800">Strict Document Source</p>
+                        <p className="text-[10px] text-fuchsia-600 font-medium max-w-[200px] leading-tight">
+                          {form.strictSource ? "AI will ONLY use this document to create questions." : "AI can mix document content with general syllabus knowledge."}
+                        </p>
+                      </div>
+                      <div className={`w-10 h-5 rounded-full flex items-center px-0.5 transition-colors ${form.strictSource ? 'bg-fuchsia-600' : 'bg-surface-300'}`}>
+                        <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${form.strictSource ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -660,17 +768,32 @@ IMPORTANT:
             {/* Tab Selector */}
             {form.includeAnswerKey && results[activeSetIndex]?.key && (
               <div className="flex gap-2">
-                <button onClick={() => setActiveTab('questionPaper')} className={`px-5 py-2 text-sm font-bold rounded-xl transition-all ${activeTab === 'questionPaper' ? 'bg-fuchsia-100 text-fuchsia-700' : 'bg-surface-50 text-surface-600 hover:bg-surface-100'}`}>Question Paper</button>
-                <button onClick={() => setActiveTab('answerKey')} className={`px-5 py-2 text-sm font-bold rounded-xl transition-all ${activeTab === 'answerKey' ? 'bg-indigo-100 text-indigo-700' : 'bg-surface-50 text-surface-600 hover:bg-surface-100'}`}>Answer Key</button>
+                <button onClick={() => { setActiveTab('questionPaper'); setIsEditing(false); }} className={`px-5 py-2 text-sm font-bold rounded-xl transition-all ${activeTab === 'questionPaper' ? 'bg-fuchsia-100 text-fuchsia-700' : 'bg-surface-50 text-surface-600 hover:bg-surface-100'}`}>Question Paper</button>
+                <button onClick={() => { setActiveTab('answerKey'); setIsEditing(false); }} className={`px-5 py-2 text-sm font-bold rounded-xl transition-all ${activeTab === 'answerKey' ? 'bg-indigo-100 text-indigo-700' : 'bg-surface-50 text-surface-600 hover:bg-surface-100'}`}>Answer Key</button>
               </div>
             )}
 
             {/* Actions */}
-            <div className="flex items-center gap-2 sm:ml-auto">
+            <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+              <button onClick={() => {
+                if (!isEditing) {
+                  setEditText(activeTab === 'questionPaper' ? results[activeSetIndex]?.paper : results[activeSetIndex]?.key)
+                  setIsEditing(true)
+                } else {
+                  const newResults = [...results]
+                  if (activeTab === 'questionPaper') newResults[activeSetIndex].paper = editText
+                  else newResults[activeSetIndex].key = editText
+                  setResults(newResults)
+                  setIsEditing(false)
+                }
+              }} className={`px-4 py-2.5 text-sm font-bold rounded-xl transition-colors ${isEditing ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}>
+                {isEditing ? 'Save Edits' : 'Edit Live'}
+              </button>
+              
               <button onClick={handleCopy} className="p-2.5 bg-surface-50 text-surface-600 hover:text-surface-900 rounded-xl" title="Copy"><Copy className="w-4 h-4" /></button>
               <button onClick={handlePDF} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-xl" title="Print as PDF"><Download className="w-4 h-4" /> Print / PDF</button>
               <button onClick={handleDOCX} className="p-2.5 bg-surface-50 text-surface-600 hover:text-surface-900 rounded-xl" title="Download Word"><FileCode className="w-4 h-4" /></button>
-              <div className="w-px h-6 bg-surface-200 mx-1"></div>
+              <div className="hidden sm:block w-px h-6 bg-surface-200 mx-1"></div>
               <button onClick={() => setResults([])} className="flex items-center gap-2 px-4 py-2.5 bg-fuchsia-600 text-white rounded-xl text-sm font-bold hover:bg-fuchsia-700"><RotateCcw className="w-4 h-4"/> Edit/New</button>
             </div>
           </div>
@@ -686,9 +809,18 @@ IMPORTANT:
               {/* This inline style ensures ReactMarkdown renders math properly within prose */}
               <style>{`.katex-display { margin: 1em 0; } .katex { font-size: 1.1em; }`}</style>
               
-              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                {activeTab === 'questionPaper' ? results[activeSetIndex]?.paper : results[activeSetIndex]?.key}
-              </ReactMarkdown>
+              {isEditing ? (
+                <textarea 
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  className="w-full min-h-[600px] p-6 bg-surface-50 border-2 border-emerald-400 rounded-xl font-mono text-sm focus:outline-none focus:ring-4 focus:ring-emerald-100 resize-y"
+                  placeholder="Edit your markdown here..."
+                />
+              ) : (
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                  {activeTab === 'questionPaper' ? results[activeSetIndex]?.paper : results[activeSetIndex]?.key}
+                </ReactMarkdown>
+              )}
             </div>
           </div>
         </div>

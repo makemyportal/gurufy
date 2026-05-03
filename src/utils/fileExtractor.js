@@ -1,5 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import Tesseract from 'tesseract.js';
+import mammoth from 'mammoth';
 
 // Setup pdf.js worker using unpkg CDN to avoid Vite build configuration issues
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
@@ -27,7 +28,28 @@ export async function extractTextFromFile(file, previewUrl = null) {
       }
       
       if (!fullText.trim()) {
-        throw new Error("No text could be extracted from this PDF. It might be a scanned image.");
+        console.warn("No text found natively. Attempting OCR on PDF pages...");
+        let ocrText = '';
+        // Fallback to OCR for scanned PDFs
+        for (let i = 1; i <= Math.min(pdf.numPages, 5); i++) { // Limit to 5 pages to prevent browser crash
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.5 }); // 1.5x scale for better OCR
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          
+          await page.render({ canvasContext: context, viewport: viewport }).promise;
+          const dataUrl = canvas.toDataURL('image/png');
+          
+          const result = await Tesseract.recognize(dataUrl, 'eng');
+          ocrText += result.data.text + '\n';
+        }
+        
+        if (!ocrText.trim()) {
+          throw new Error("No text could be extracted from this PDF. Ensure it contains readable content.");
+        }
+        return ocrText;
       }
       return fullText;
     } else if (file.type.startsWith('image/')) {
@@ -45,8 +67,15 @@ export async function extractTextFromFile(file, previewUrl = null) {
         throw new Error("No text found in the image.");
       }
       return result.data.text;
+    } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.toLowerCase().endsWith('.docx')) {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      if (!result.value.trim()) {
+        throw new Error("No text found in the DOCX file.");
+      }
+      return result.value;
     } else {
-      throw new Error('Unsupported file format. Please upload a PDF or an Image.');
+      throw new Error('Unsupported file format. Please upload a PDF, DOCX, or Image.');
     }
   } catch (error) {
     console.error('Local text extraction failed:', error);
