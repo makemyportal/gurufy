@@ -233,6 +233,7 @@ export default function AdminDashboard() {
   const [reports, setReports] = useState([])
   const [gamificationData, setGamificationData] = useState([])
   const [paymentRequests, setPaymentRequests] = useState([])
+  const [adminNotifs, setAdminNotifs] = useState([])
   const [platformSettings, setPlatformSettings] = useState({ maintenanceMode: false, registrationDisabled: false })
   const [announcementText, setAnnouncementText] = useState('')
   const [rejectingId, setRejectingId] = useState(null)
@@ -247,18 +248,20 @@ export default function AdminDashboard() {
   async function loadAllData() {
     setLoading(true)
     try {
-      const [usersSnap, resourcesSnap, reportsSnap, gamSnap, paymentsSnap] = await Promise.all([
+      const [usersSnap, resourcesSnap, reportsSnap, gamSnap, paymentsSnap, notifsSnap] = await Promise.all([
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'resources')).catch(() => ({ docs: [] })),
         getDocs(collection(db, 'reports')).catch(() => ({ docs: [] })),
         getDocs(collection(db, 'gamification')).catch(() => ({ docs: [] })),
-        getDocs(query(collection(db, 'paymentRequests'), orderBy('createdAt', 'desc'))).catch(() => ({ docs: [] }))
+        getDocs(query(collection(db, 'paymentRequests'), orderBy('createdAt', 'desc'))).catch(() => ({ docs: [] })),
+        getDocs(query(collection(db, 'adminNotifications'), orderBy('createdAt', 'desc'), limit(50))).catch(() => ({ docs: [] }))
       ])
       setUsers(usersSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setResources(resourcesSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setReports(reportsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setGamificationData(gamSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setPaymentRequests(paymentsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setAdminNotifs(notifsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
 
       // Load platform settings
       const settingsDoc = await getDoc(doc(db, 'platformSettings', 'global')).catch(() => null)
@@ -591,6 +594,11 @@ export default function AdminDashboard() {
           <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-bold text-emerald-700 flex items-center gap-2">
             <Activity className="w-4 h-4 text-emerald-500" /> All Systems Operational
           </div>
+          {adminNotifs.filter(n => !n.read).length > 0 && (
+            <div className="px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-bold text-amber-700 flex items-center gap-2 animate-pulse-soft">
+              🔔 {adminNotifs.filter(n => !n.read).length} New Notifications
+            </div>
+          )}
         </div>
       </div>
 

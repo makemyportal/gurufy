@@ -186,5 +186,34 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // Payment requests - any logged-in user can create, admin can read/update
+    match /paymentRequests/{requestId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if isAuthenticated();
+    }
+
+    // Admin notifications - any logged-in user can create, admin can read/update
+    match /adminNotifications/{notifId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Tool usage tracking
+    match /tool_usage/{usageId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // User vault (document storage for Smart Exam Maker)
+    match /users/{userId}/vault/{vaultId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // User question bank
+    match /users/{userId}/questionBank/{qbId} {
+      allow read, write: if isOwner(userId);
+    }
   }
 }
