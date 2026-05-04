@@ -86,8 +86,7 @@ export default function SmartExamMaker() {
 
   const [inputMode, setInputMode] = useState('upload') 
   const [topic, setTopic] = useState('')
-  const [file, setFile] = useState(null)
-  const [filePreview, setFilePreview] = useState(null)
+  const [uploadedFiles, setUploadedFiles] = useState([])
   const [generating, setGenerating] = useState(false)
   
   const [results, setResults] = useState([])
@@ -118,31 +117,41 @@ export default function SmartExamMaker() {
   const GENERATION_COST = toolCosts?.['smart-exam'] ?? 5
   const TOTAL_COST = GENERATION_COST * form.paperSets
 
-  const canGenerate = form.subject && form.grade && (inputMode === 'upload' ? file : topic.trim().length > 3)
+  const canGenerate = form.subject && form.grade && (inputMode === 'upload' ? uploadedFiles.length > 0 : topic.trim().length > 3)
 
   const handleFileChange = (e) => {
     try {
-      const selectedFile = e.target.files[0]
-      if (!selectedFile) return
+      const selectedFiles = Array.from(e.target.files)
+      if (!selectedFiles.length) return
       
-      const fileName = selectedFile.name || ''
-      const isImage = selectedFile.type.startsWith('image/')
-      const isPDF = selectedFile.type === 'application/pdf'
-      const isDocx = fileName.toLowerCase().endsWith('.docx') || selectedFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      let hasError = false
+      selectedFiles.forEach(selectedFile => {
+        const fileName = selectedFile.name || ''
+        const isImage = selectedFile.type.startsWith('image/')
+        const isPDF = selectedFile.type === 'application/pdf'
+        const isDocx = fileName.toLowerCase().endsWith('.docx') || selectedFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
-      if (!isImage && !isPDF && !isDocx) {
-        setError('Please upload a valid Image, PDF, or DOCX file. Selected type: ' + (selectedFile.type || 'unknown'))
-        return
-      }
-      if (selectedFile.size > 5 * 1024 * 1024) {
-        setError('File size must be less than 5MB.')
-        return
-      }
-      setFile(selectedFile)
-      setError('')
-      const reader = new FileReader()
-      reader.onload = () => setFilePreview(reader.result)
-      reader.readAsDataURL(selectedFile)
+        if (!isImage && !isPDF && !isDocx) {
+          setError('Please upload valid Image, PDF, or DOCX files.')
+          hasError = true
+          return
+        }
+        if (selectedFile.size > 5 * 1024 * 1024) {
+          setError('File size must be less than 5MB per file.')
+          hasError = true
+          return
+        }
+        
+        const reader = new FileReader()
+        reader.onload = () => {
+          setUploadedFiles(prev => [...prev, { file: selectedFile, preview: reader.result }])
+        }
+        reader.readAsDataURL(selectedFile)
+      })
+      if (!hasError) setError('')
+      
+      // Reset input value so same files can be selected again if needed
+      if (e.target) e.target.value = ''
     } catch (err) {
       setError('Failed to select file: ' + err.message)
     }
@@ -206,17 +215,25 @@ export default function SmartExamMaker() {
       let base64Data = null, mimeType = null, promptPrefix = ''
 
       if (inputMode === 'upload') {
-        if (!filePreview && !file.name.toLowerCase().endsWith('.docx')) throw new Error("File not loaded properly.")
-        const extractedText = await extractTextFromFile(file, filePreview)
+        if (uploadedFiles.length === 0) throw new Error("No files uploaded.")
+        
+        let extractedText = ""
+        for (let i = 0; i < uploadedFiles.length; i++) {
+          const { file, preview } = uploadedFiles[i]
+          if (!preview && !file.name.toLowerCase().endsWith('.docx')) continue
+          const text = await extractTextFromFile(file, preview)
+          extractedText += `\n--- Document ${i + 1}: ${file.name} ---\n${text}\n`
+        }
+
         promptPrefix = form.strictSource 
-          ? `CRITICAL INSTRUCTION: You MUST base all questions ABSOLUTELY ONLY on the following extracted document text. Do NOT use outside knowledge. If the document doesn't have enough content, state 'Insufficient content in document'.\n\nDocument Text:\n"${extractedText}"\n\n`
+          ? `CRITICAL INSTRUCTION: Your primary goal is to EXTRACT AND USE THE EXACT SAME QUESTIONS, EXACT SAME WORDING, and EXACT SAME OPTIONS as they appear in the provided document text. Do NOT rephrase or modify the questions. Do NOT generate new questions unless absolutely required to fulfill the blueprint count. If the text contains multiple-choice options, use those exact options verbatim.\n\nDocument Text:\n"${extractedText}"\n\n`
           : `Use the following extracted document text as your primary source, but you may use general curriculum knowledge to supplement if needed to fulfill the blueprint:\n"${extractedText}"\n\n`
         
         // Save to Firebase Vault directly
         if (currentUser) {
           try {
             const vaultDoc = {
-              fileName: file?.name || 'Extracted Document',
+              fileName: uploadedFiles.length > 1 ? `Multiple Documents (${uploadedFiles.length})` : uploadedFiles[0].file.name,
               textData: extractedText,
               expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
               createdAt: Date.now()
@@ -228,7 +245,7 @@ export default function SmartExamMaker() {
       } else if (inputMode === 'vault') {
         if (!selectedVaultItem) throw new Error("Please select a document from the vault.")
         promptPrefix = form.strictSource 
-          ? `CRITICAL INSTRUCTION: You MUST base all questions ABSOLUTELY ONLY on the following extracted document text. Do NOT use outside knowledge. If the document doesn't have enough content, state 'Insufficient content in document'.\n\nDocument Text:\n"${selectedVaultItem.textData}"\n\n`
+          ? `CRITICAL INSTRUCTION: Your primary goal is to EXTRACT AND USE THE EXACT SAME QUESTIONS, EXACT SAME WORDING, and EXACT SAME OPTIONS as they appear in the provided document text. Do NOT rephrase or modify the questions. Do NOT generate new questions unless absolutely required to fulfill the blueprint count. If the text contains multiple-choice options, use those exact options verbatim.\n\nDocument Text:\n"${selectedVaultItem.textData}"\n\n`
           : `Use the following extracted document text as your primary source, but you may use general curriculum knowledge to supplement if needed:\n"${selectedVaultItem.textData}"\n\n`
       } else {
         promptPrefix = `Based on the official syllabus for topic: "${topic}"\n\n`
@@ -254,14 +271,14 @@ ${form.includePYQ ? "- STRICTLY prioritize and adapt ACTUAL Previous Year Board 
 
 CRITICAL FORMATTING & NO-ANSWER RULES:
 - DO NOT INCLUDE ANY ANSWERS, HINTS, OR BOLDED OPTIONS IN THE QUESTION PAPER SECTION.
-- All answers MUST ONLY appear in the Answer Key block.
-- For MCQs, format options strictly on separate lines like this:
-(A) Option 1
-(B) Option 2
-(C) Option 3
-(D) Option 4
-- For Fill-in-the-blanks, use "__________" for the blank space.
-- For True/False, state the question clearly and add "[True/False]" at the end.
+${form.includeAnswerKey ? "- All answers MUST ONLY appear in the Answer Key block." : "- DO NOT GENERATE AN ANSWER KEY AT ALL. ONLY GENERATE THE QUESTION PAPER. THIS IS STRICT."}
+- For Section Headings, include the marks on the right side in brackets: e.g., "1. Choose the correct answer. [ 10 x 1 ]"
+- For Sub-questions within a section, always number them using lowercase roman numerals like i), ii), iii), iv).
+- For MCQs, YOU MUST format the options in a 2-column layout using plain text. Do NOT use markdown tables. Use multiple spaces to push the columns apart, exactly like this:
+(A) Option 1           (B) Option 2
+(C) Option 3           (D) Option 4
+- For Fill-in-the-blanks, use "----------" for the blank space.
+- For True/False, state the question clearly and add "[True / False]" at the end.
 
 Configuration:
 - Board: ${form.board} | Subject: ${form.subject} | Grade: ${form.grade}
@@ -295,27 +312,65 @@ IMPORTANT:
       let content = await generateAIContent(prompt)
 
       const sets = []
-      // Use strict regex to find blocks between SET_START and SET_END
-      const setMatches = content.match(/SET_START: Set [A-Z][\s\S]*?SET_END/g)
+      // Use split instead of strict match to handle missing SET_ENDs
+      const rawSets = content.split(/SET_START:\s*Set\s*[A-Z]?/i).filter(s => s.trim().length > 50)
       
-      if (setMatches && setMatches.length > 0) {
-        setMatches.forEach(block => {
-          let cleanBlock = block.replace(/SET_START:\s*Set [A-Z]/, '').replace(/SET_END$/, '').trim()
+      if (rawSets.length > 0) {
+        rawSets.forEach(block => {
+          let cleanBlock = block.replace(/SET_END$/i, '').trim()
           let paper = cleanBlock
           let key = ''
-          if (form.includeAnswerKey && cleanBlock.includes('ANSWER_KEY_SEPARATOR')) {
-            const parts = cleanBlock.split('ANSWER_KEY_SEPARATOR')
-            paper = parts[0].trim()
-            key = parts[1] ? parts[1].trim() : ''
+          
+          if (form.includeAnswerKey) {
+            if (cleanBlock.includes('ANSWER_KEY_SEPARATOR')) {
+              const parts = cleanBlock.split('ANSWER_KEY_SEPARATOR')
+              paper = parts[0].trim()
+              key = parts[1] ? parts[1].trim() : ''
+            } else {
+               // Fallback: AI forgot separator but might have printed 'Answer Key'
+               const rogueKeyMatch = cleanBlock.match(/(#*\s*Answer Key|#*\s*Answers|#*\s*Solution)/i);
+               if (rogueKeyMatch) {
+                 paper = cleanBlock.substring(0, rogueKeyMatch.index).trim();
+                 key = cleanBlock.substring(rogueKeyMatch.index).trim();
+               } else {
+                 key = "Answer key was not clearly separated by AI.";
+               }
+            }
+          } else {
+            // User did NOT request Answer Key. Strip if AI disobeyed.
+            const rogueKeyMatch = paper.match(/(#*\s*Answer Key|#*\s*Answers|#*\s*Solution)/i);
+            if (rogueKeyMatch) {
+              paper = paper.substring(0, rogueKeyMatch.index).trim();
+            }
           }
           sets.push({ paper, key })
         })
       } else {
-        // Fallback
-        if (form.includeAnswerKey && content.includes('ANSWER_KEY_SEPARATOR')) {
-          const parts = content.split('ANSWER_KEY_SEPARATOR')
-          sets.push({ paper: parts[0].trim(), key: parts[1] ? parts[1].replace(/SET_END$/, '').trim() : '' })
-        } else sets.push({ paper: content.replace(/SET_END$/, '').trim(), key: '' })
+        // Absolute Fallback if even SET_START was missing
+        let paper = content.replace(/SET_END$/i, '').trim()
+        let key = ''
+        
+        if (form.includeAnswerKey) {
+          if (paper.includes('ANSWER_KEY_SEPARATOR')) {
+            const parts = paper.split('ANSWER_KEY_SEPARATOR')
+            paper = parts[0].trim()
+            key = parts[1] ? parts[1].trim() : ''
+          } else {
+             const rogueKeyMatch = paper.match(/(#*\s*Answer Key|#*\s*Answers|#*\s*Solution)/i);
+             if (rogueKeyMatch) {
+               key = paper.substring(rogueKeyMatch.index).trim();
+               paper = paper.substring(0, rogueKeyMatch.index).trim();
+             } else {
+               key = "Answer key was not clearly separated by AI.";
+             }
+          }
+        } else {
+          const rogueKeyMatch = paper.match(/(#*\s*Answer Key|#*\s*Answers|#*\s*Solution)/i);
+          if (rogueKeyMatch) {
+            paper = paper.substring(0, rogueKeyMatch.index).trim();
+          }
+        }
+        sets.push({ paper, key })
       }
 
       setResults(sets)
@@ -417,36 +472,34 @@ IMPORTANT:
     // Header logic for proper printable document
     let headerHTML = ''
     if (activeTab === 'questionPaper') {
+      const currentSet = activeSetIndex === 0 ? 'A' : activeSetIndex === 1 ? 'B' : activeSetIndex === 2 ? 'C' : 'A'
       headerHTML = `
-        <div style="font-family: 'Times New Roman', Times, serif; color: #1a2a40; margin-bottom: 18px; border: 2.5px solid #1a2a40; padding: 3px;">
-          <div style="border: 1px solid #1a2a40; padding: 14px 18px;">
-            
-            <div style="display: flex; align-items: center; margin-bottom: 8px;">
-              ${schoolLogo ? `<img src="${schoolLogo}" style="height: 58px; width: auto; margin-right: 14px;" />` : ''}
-              <div style="flex: 1; text-align: center;">
-                <div style="font-size: 24px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; line-height: 1.2;">${form.institutionName || 'SCHOOL EXAM'}</div>
-                <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px;">${form.examName || 'Assessment'}${form.session ? ` | Session: ${form.session}` : ''}</div>
-              </div>
-            </div>
-            
-            <div style="border-top: 1.5px solid #1a2a40; margin: 6px 0;"></div>
+        <div style="font-family: 'Times New Roman', Times, serif; color: #000; margin-bottom: 15px; border: 1px solid #000; padding: 10px;">
+          <table style="width: 100%; border: none; margin-bottom: 5px; border-collapse: collapse;">
+            <tr>
+              <td style="width: 60px; border: none; text-align: left; vertical-align: middle; padding: 0;">
+                ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 55px; width: auto;" />` : ''}
+              </td>
+              <td style="border: none; text-align: center; vertical-align: middle; padding: 0;">
+                <div style="font-size: 26px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; line-height: 1.1;">${form.institutionName || 'SCHOOL EXAM'}</div>
+                <div style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin-top: 5px;">${form.examName || 'Assessment'} ${form.session ? `(${form.session})` : ''}</div>
+              </td>
+              <td style="width: 60px; border: none; text-align: right; vertical-align: middle; padding: 0;">
+                ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 55px; width: auto;" />` : ''}
+              </td>
+            </tr>
+          </table>
 
-            <div style="display: flex; font-size: 13px; line-height: 2;">
-              <div style="flex: 1;"><b>Name :</b> ______________________________</div>
-              <div style="flex: 1; text-align: right;"><b>Subject :</b> <u>${form.subject}</u></div>
-            </div>
-            <div style="display: flex; font-size: 13px; line-height: 2;">
-              <div style="flex: 1;"><b>Class :</b> <u>${form.grade}</u></div>
-              <div style="flex: 1; text-align: right;"><b>Date :</b> ____/____/20____</div>
-            </div>
-            <div style="display: flex; font-size: 13px; line-height: 2;">
-              <div style="flex: 1;"><b>Roll No. :</b> ___________________</div>
-              <div style="flex: 1; text-align: right;"><b>Time :</b> <u>${form.duration}</u> &nbsp; | &nbsp; <b>Max Marks :</b> <u>${form.useAutoPattern ? '______' : calculatedTotalMarks}</u></div>
-            </div>
-
-            <div style="border-top: 1.5px solid #1a2a40; margin: 6px 0;"></div>
-
-          </div>
+          <table style="width: 100%; border: none; font-size: 12px; font-weight: bold; text-transform: uppercase; margin-top: 8px; border-collapse: collapse;">
+            <tr>
+              <td style="border: none; padding: 0;">NAME: _______________</td>
+              <td style="border: none; padding: 0; text-align: center;">CLASS: ${form.grade.replace(/class\s*/i, '').trim()}</td>
+              <td style="border: none; padding: 0; text-align: center;">SUB: ${form.subject}</td>
+              <td style="border: none; padding: 0; text-align: center;">SET: ${currentSet}</td>
+              <td style="border: none; padding: 0; text-align: center;">MM: ${form.useAutoPattern ? '__' : calculatedTotalMarks}</td>
+              <td style="border: none; padding: 0; text-align: right;">TIME: ${form.duration}</td>
+            </tr>
+          </table>
         </div>
       `
     } else {
@@ -459,14 +512,14 @@ IMPORTANT:
           <title>SmartExam_${form.subject}_${docName}</title>
           <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" integrity="sha384-GvrOXuhMATgEsSwCs4smul74iXGOixntILdUW9XmUC6+HX0sLNAK3q71bZl5Oym" crossorigin="anonymous">
           <style>
-            body { font-family: 'Times New Roman', Times, serif; padding: 40px; color: #000; line-height: 1.6; position: relative; max-width: 900px; margin: 0 auto; }
-            h1, h2, h3 { color: #000; margin-bottom: 15px; }
-            h3 { font-size: 18px; margin-top: 20px; text-decoration: underline; }
-            p { margin: 5px 0; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+            body { font-family: Cambria, Georgia, 'Times New Roman', serif; padding: 30px; color: #000; line-height: 1.4; position: relative; max-width: 900px; margin: 0 auto; }
+            h1, h2, h3 { color: #000; margin-bottom: 10px; }
+            h3 { font-size: 17px; margin-top: 15px; text-decoration: underline; }
+            p { margin: 3px 0; white-space: pre-wrap; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+            th, td { border: 1px solid #000; padding: 6px; text-align: left; }
             .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 8rem; color: rgba(0,0,0,0.04); z-index: -1; font-weight: bold; pointer-events: none; white-space: nowrap;}
-            @media print { @page { margin: 15mm; } body { padding: 0; } }
+            @media print { @page { margin: 0; } body { padding: 15mm; } }
           </style>
         </head>
         <body>
@@ -489,50 +542,41 @@ IMPORTANT:
 
     let headerHTML = ''
     if (activeTab === 'questionPaper') {
+      const currentSet = activeSetIndex === 0 ? 'A' : activeSetIndex === 1 ? 'B' : activeSetIndex === 2 ? 'C' : 'A'
       headerHTML = `
-        <div style="font-family: 'Times New Roman', Times, serif; color: #1a2a40; margin-bottom: 18px; border: 2.5px solid #1a2a40; padding: 3px;">
-          <div style="border: 1px solid #1a2a40; padding: 14px 18px;">
-            
-            <table style="width: 100%; border: none; border-collapse: collapse; margin-bottom: 8px;">
-              <tr>
-                <td style="width: 15%; vertical-align: middle; border: none; padding: 0;">
-                  ${schoolLogo ? `<img src="${schoolLogo}" style="height: 58px; width: auto;" />` : ''}
-                </td>
-                <td style="text-align: center; vertical-align: middle; border: none; padding: 0;">
-                  <div style="font-size: 24px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; line-height: 1.2;">${form.institutionName || 'SCHOOL EXAM'}</div>
-                  <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px;">${form.examName || 'Assessment'}${form.session ? ` | Session: ${form.session}` : ''}</div>
-                </td>
-                <td style="width: 15%; border: none; padding: 0;"></td>
-              </tr>
-            </table>
+        <div style="font-family: 'Times New Roman', Times, serif; color: #000; margin-bottom: 15px; border: 1px solid #000; padding: 10px;">
+          <table style="width: 100%; border: none; margin-bottom: 5px; border-collapse: collapse;">
+            <tr>
+              <td style="width: 60px; border: none; text-align: left; vertical-align: middle; padding: 0;">
+                ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 55px; width: auto;" />` : ''}
+              </td>
+              <td style="border: none; text-align: center; vertical-align: middle; padding: 0;">
+                <div style="font-size: 26px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; line-height: 1.1;">${form.institutionName || 'SCHOOL EXAM'}</div>
+                <div style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin-top: 5px;">${form.examName || 'Assessment'} ${form.session ? `(${form.session})` : ''}</div>
+              </td>
+              <td style="width: 60px; border: none; text-align: right; vertical-align: middle; padding: 0;">
+                ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 55px; width: auto;" />` : ''}
+              </td>
+            </tr>
+          </table>
 
-            <div style="border-top: 1.5px solid #1a2a40; margin: 6px 0;"></div>
-
-            <table style="width: 100%; border: none; border-collapse: collapse; font-size: 13px;">
-              <tr>
-                <td style="border: none; padding: 3px 0;"><b>Name :</b> ______________________________</td>
-                <td style="border: none; padding: 3px 0; text-align: right;"><b>Subject :</b> <u>${form.subject}</u></td>
-              </tr>
-              <tr>
-                <td style="border: none; padding: 3px 0;"><b>Class :</b> <u>${form.grade}</u></td>
-                <td style="border: none; padding: 3px 0; text-align: right;"><b>Date :</b> ____/____/20____</td>
-              </tr>
-              <tr>
-                <td style="border: none; padding: 3px 0;"><b>Roll No. :</b> ___________________</td>
-                <td style="border: none; padding: 3px 0; text-align: right;"><b>Time :</b> <u>${form.duration}</u> &nbsp;|&nbsp; <b>Max Marks :</b> <u>${form.useAutoPattern ? '______' : calculatedTotalMarks}</u></td>
-              </tr>
-            </table>
-
-            <div style="border-top: 1.5px solid #1a2a40; margin: 6px 0;"></div>
-
-          </div>
+          <table style="width: 100%; border: none; font-size: 12px; font-weight: bold; text-transform: uppercase; margin-top: 8px; border-collapse: collapse;">
+            <tr>
+              <td style="border: none; padding: 0;">NAME: _______________</td>
+              <td style="border: none; padding: 0; text-align: center;">CLASS: ${form.grade.replace(/class\s*/i, '').trim()}</td>
+              <td style="border: none; padding: 0; text-align: center;">SUB: ${form.subject}</td>
+              <td style="border: none; padding: 0; text-align: center;">SET: ${currentSet}</td>
+              <td style="border: none; padding: 0; text-align: center;">MM: ${form.useAutoPattern ? '__' : calculatedTotalMarks}</td>
+              <td style="border: none; padding: 0; text-align: right;">TIME: ${form.duration}</td>
+            </tr>
+          </table>
         </div>
       `
     } else {
       headerHTML = `<h1 style="text-align:center; font-family: Arial, sans-serif;">${form.subject} - Answer Key</h1><hr style="margin-bottom: 20px;" />`
     }
 
-    const htmlString = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Exam</title></head><body>${headerHTML}<div>${el.innerHTML}</div></body></html>`
+    const htmlString = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Exam</title><style>body { font-family: Cambria, Georgia, 'Times New Roman', serif; line-height: 1.4; } p { white-space: pre-wrap; margin-top: 3px; margin-bottom: 3px; } h3 { margin-top: 12px; margin-bottom: 8px; }</style></head><body>${headerHTML}<div>${el.innerHTML}</div></body></html>`
     try {
       const blob = await asBlob(htmlString, { orientation: 'portrait', margins: { top: 1440, right: 1440, bottom: 1440, left: 1440 } })
       saveAs(blob, fileName)
@@ -579,25 +623,43 @@ IMPORTANT:
 
               {inputMode === 'upload' ? (
                 <div>
-                  <div onClick={() => !file && fileInputRef.current?.click()} className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${file ? 'border-fuchsia-400 bg-fuchsia-50/50' : 'border-surface-300 bg-surface-50 hover:bg-surface-100 cursor-pointer'}`}>
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".jpg,.jpeg,.png,.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" />
-                    {file ? (
-                      <div className="relative animate-fade-in">
-                        {file.type.startsWith('image/') ? (
-                          <div className="aspect-[3/4] max-h-[200px] mx-auto rounded-xl overflow-hidden shadow-sm mb-3 border border-surface-200"><img src={filePreview} alt="Preview" className="w-full h-full object-cover" /></div>
-                        ) : (file?.name || '').toLowerCase().endsWith('.docx') ? (
-                          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3"><FileText className="w-8 h-8" /></div>
-                        ) : (
-                          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mx-auto mb-3"><FileText className="w-8 h-8" /></div>
-                        )}
-                        <p className="text-sm font-bold text-surface-800 truncate px-4">{file.name}</p>
-                        <button onClick={(e) => { e.stopPropagation(); setFile(null); setFilePreview(null); }} className="absolute -top-3 -right-3 w-8 h-8 bg-white border border-surface-200 text-surface-500 rounded-full flex items-center justify-center shadow-md hover:text-red-500"><X className="w-4 h-4" /></button>
+                  <div onClick={() => fileInputRef.current?.click()} className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${uploadedFiles.length > 0 ? 'border-fuchsia-400 bg-fuchsia-50/50' : 'border-surface-300 bg-surface-50 hover:bg-surface-100 cursor-pointer'}`}>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".jpg,.jpeg,.png,.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple className="hidden" />
+                    {uploadedFiles.length > 0 ? (
+                      <div>
+                        <div className="flex flex-wrap justify-center gap-3 mb-3">
+                          {uploadedFiles.map((f, i) => (
+                            <div key={i} className="relative animate-fade-in w-24 h-32 bg-white border border-surface-200 rounded-xl shadow-sm flex flex-col items-center justify-center group">
+                              <div className="absolute inset-0 overflow-hidden rounded-xl">
+                                {/* Scanning Animation Overlay */}
+                                <div className="absolute z-10 inset-0 pointer-events-none">
+                                  <div className="animate-doc-scan left-0 right-0 h-[3px] bg-fuchsia-500 shadow-[0_0_12px_3px_rgba(217,70,239,0.9)]"></div>
+                                  <div className="absolute inset-0 bg-fuchsia-500/10 mix-blend-overlay animate-pulse"></div>
+                                </div>
+                                
+                                {f.file.type.startsWith('image/') ? (
+                                  <img src={f.preview} alt="Preview" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
+                                ) : (f.file.name || '').toLowerCase().endsWith('.docx') ? (
+                                  <div className="w-full h-full flex flex-col items-center justify-center bg-blue-50 text-blue-500"><FileText className="w-8 h-8 mb-1" /><span className="text-[10px] font-bold px-1 truncate w-full text-center">{f.file.name}</span></div>
+                                ) : (
+                                  <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 text-red-500"><FileText className="w-8 h-8 mb-1" /><span className="text-[10px] font-bold px-1 truncate w-full text-center">{f.file.name}</span></div>
+                                )}
+                              </div>
+                              <button onClick={(e) => { e.stopPropagation(); setUploadedFiles(prev => prev.filter((_, idx) => idx !== i)) }} className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-surface-200 text-surface-500 rounded-full flex items-center justify-center shadow-md hover:text-red-500 z-20"><X className="w-3 h-3" /></button>
+                            </div>
+                          ))}
+                          <div onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }} className="w-24 h-32 border border-dashed border-fuchsia-300 rounded-xl flex flex-col items-center justify-center text-fuchsia-500 hover:bg-fuchsia-100 cursor-pointer transition-colors bg-white/60">
+                             <Plus className="w-6 h-6 mb-1" />
+                             <span className="text-[10px] font-bold">Add File</span>
+                          </div>
+                        </div>
+                        <p className="text-sm font-bold text-surface-800">{uploadedFiles.length} file(s) selected</p>
                       </div>
                     ) : (
                       <div className="py-8">
                         <div className="w-16 h-16 bg-white border border-surface-200 shadow-sm rounded-full flex items-center justify-center mx-auto mb-4"><UploadCloud className="w-8 h-8 text-fuchsia-500" /></div>
-                        <p className="text-base font-bold text-surface-800">Click to Upload</p>
-                        <p className="text-xs font-medium text-surface-500 mt-1">Supports JPG, PNG, PDF, or DOCX (Max 5MB)</p>
+                        <p className="text-base font-bold text-surface-800">Click to Upload Documents</p>
+                        <p className="text-xs font-medium text-surface-500 mt-1">Select multiple photos/files (Max 5MB each)</p>
                       </div>
                     )}
                   </div>
@@ -820,7 +882,7 @@ IMPORTANT:
 
                 {error && <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 text-sm text-red-700 font-bold">{error}</div>}
                 
-                <button onClick={handleGenerate} disabled={generating || (inputMode==='upload'&&!file) || (inputMode==='vault'&&!selectedVaultItem) || (inputMode==='topic'&&topic.trim().length<3)} className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white font-extrabold rounded-xl hover:from-fuchsia-500 hover:to-indigo-500 transition-all disabled:opacity-40 shadow-lg text-lg">
+                <button onClick={handleGenerate} disabled={generating || (inputMode==='upload'&&uploadedFiles.length===0) || (inputMode==='vault'&&!selectedVaultItem) || (inputMode==='topic'&&topic.trim().length<3)} className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white font-extrabold rounded-xl hover:from-fuchsia-500 hover:to-indigo-500 transition-all disabled:opacity-40 shadow-lg text-lg">
                   {generating ? <><Loader2 className="w-5 h-5 animate-spin"/> Crafting CBSE Pattern Exam...</> : <><Sparkles className="w-5 h-5"/> Generate Board Pattern Exam <span className="ml-1 text-sm bg-white/20 px-2 py-1 rounded-md">Cost: {TOTAL_COST} 🪙</span></>}
                 </button>
               </div>
@@ -965,9 +1027,14 @@ IMPORTANT:
                   placeholder="Edit your markdown here..."
                 />
               ) : (
-                <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                  {activeTab === 'questionPaper' ? results[activeSetIndex]?.paper : results[activeSetIndex]?.key}
-                </ReactMarkdown>
+                <div className="text-surface-800 leading-relaxed whitespace-pre-wrap">
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm, remarkMath]} 
+                    rehypePlugins={[rehypeKatex]}
+                  >
+                    {activeTab === 'questionPaper' ? results[activeSetIndex]?.paper : results[activeSetIndex]?.key}
+                  </ReactMarkdown>
+                </div>
               )}
             </div>
           </div>

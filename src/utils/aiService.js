@@ -42,7 +42,7 @@ FORMATTING RULES:
 async function generateWithGemini(prompt) {
   if (GEMINI_API_KEYS.length === 0) throw new Error("Gemini API key is missing");
 
-  const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
+  const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash-exp'];
   let lastError = null;
 
   for (let i = 0; i < GEMINI_API_KEYS.length; i++) {
@@ -58,7 +58,13 @@ async function generateWithGemini(prompt) {
           body: JSON.stringify({
             system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7 }
+            generationConfig: { temperature: 0.7 },
+            safetySettings: [
+              { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+              { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+              { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+              { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+            ]
           })
         });
 
@@ -76,8 +82,8 @@ async function generateWithGemini(prompt) {
         console.warn(`Gemini model ${model} with key ${currentKey?.substring(0,5)}... failed:`, err.message);
         lastError = err;
         
-        // If it's a rate limit or quota issue, break inner loop to switch keys
-        if (err.message.includes('429') || err.message.includes('Quota') || err.message.includes('exhausted')) {
+        // If it's a quota issue, break inner loop to switch keys
+        if (err.message.includes('Quota') || err.message.includes('exhausted') || err.message.includes('API key not valid')) {
           break; // Switch to the next key
         }
       }
@@ -102,13 +108,13 @@ async function generateWithGroq(prompt) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "llama-3.3-70b-versatile",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: prompt }
       ],
       temperature: 0.7,
-      max_tokens: 2048
+      max_tokens: 8000
     })
   });
 
@@ -145,7 +151,7 @@ async function generateWithOpenRouter(prompt) {
         { role: "user", content: prompt }
       ],
       temperature: 0.7,
-      max_tokens: 2048
+      max_tokens: 8000
     })
   });
 

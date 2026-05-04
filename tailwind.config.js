@@ -83,6 +83,7 @@ export default {
         'float': 'float 6s ease-in-out infinite',
         'shimmer': 'shimmer 2s linear infinite',
         'spin-slow': 'spin 3s linear infinite',
+        'scan-line': 'scan 3s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -129,6 +130,10 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(10px) scale(0.9)' },
           '50%': { opacity: '1', transform: 'translateY(-5px) scale(1.05)' },
           '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        scan: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(124px)' },
         },
       },
     },

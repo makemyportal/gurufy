@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { doc, getDoc, setDoc, updateDoc, increment, serverTimestamp, onSnapshot, addDoc, collection } from 'firebase/firestore'
 import { db } from '../utils/firebase'
 import { useAuth } from './AuthContext'
@@ -33,6 +33,7 @@ export function GamificationProvider({ children }) {
   const [coinPopup, setCoinPopup] = useState(null)
   const [coinConfig, setCoinConfig] = useState(DEFAULT_XP_VALUES)
   const [toolCosts, setToolCosts] = useState({})
+  const spendLockRef = useRef(false)
 
   // Load coin config from platformSettings (real-time)
   useEffect(() => {
@@ -176,6 +177,9 @@ export function GamificationProvider({ children }) {
 
   async function spendCoins(amount, reason) {
     if (!currentUser) return false
+    if (spendLockRef.current) return false
+    spendLockRef.current = true
+
     try {
       const ref = doc(db, 'gamification', currentUser.uid)
       const snap = await getDoc(ref)
@@ -208,6 +212,8 @@ export function GamificationProvider({ children }) {
     } catch (err) {
       console.error('Spend coins error:', err)
       return false
+    } finally {
+      spendLockRef.current = false
     }
   }
 

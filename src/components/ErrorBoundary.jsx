@@ -12,6 +12,22 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('App crashed:', error, errorInfo)
+
+    // Automatically reload on chunk load error (e.g. after a deployment)
+    const errorString = error?.toString() || ''
+    const isChunkLoadError = errorString.includes('Failed to fetch dynamically imported module') || 
+                             errorString.includes('ChunkLoadError') || 
+                             errorString.includes('Importing a module script failed')
+
+    if (isChunkLoadError) {
+      const reloaded = sessionStorage.getItem('chunk_load_reloaded')
+      if (!reloaded) {
+        sessionStorage.setItem('chunk_load_reloaded', 'true')
+        window.location.reload()
+        return // Return early so we don't set state
+      }
+    }
+
     this.setState({ errorInfo })
   }
 

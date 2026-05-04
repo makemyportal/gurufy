@@ -10,6 +10,9 @@ import { LanguageProvider } from './contexts/LanguageContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import './index.css'
 
+// Clear any chunk load reload flag on successful initialization
+sessionStorage.removeItem('chunk_load_reloaded')
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>

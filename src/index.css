@@ -631,3 +631,16 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SMART EXAM MAKER - Scanning Animation
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes document-scan {
+  0%, 100% { top: 0%; }
+  50% { top: 96%; }
+}
+
+.animate-doc-scan {
+  animation: document-scan 2.5s ease-in-out infinite;
+  position: absolute;
+}
