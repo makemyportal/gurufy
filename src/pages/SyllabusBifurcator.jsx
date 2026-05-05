@@ -157,7 +157,7 @@ ${formattingInstruction}
 - DO NOT write any introductory or concluding text outside the core output.
 - CRITICAL CONSTRAINT: DO NOT use any HTML tags (like <br>, <b>, <i>, etc.). Use pure Markdown syntax exclusively.`
 
-      let content = await generateAIContent(prompt)
+      let content = await generateAIContent(prompt, { preferGemini: true })
       
       // Permanently remove any <br> tags (including escaped &lt;br&gt; variants)
       content = content.replace(/(?:<|&lt;)br\s*\/?(?:>|&gt;)/gi, ', ')

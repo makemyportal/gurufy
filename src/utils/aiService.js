@@ -58,7 +58,7 @@ async function generateWithGemini(prompt) {
           body: JSON.stringify({
             system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7 },
+            generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
             safetySettings: [
               { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
               { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
@@ -217,6 +217,11 @@ async function processQueue() {
       const result = await request.execute();
       request.resolve(result);
       requestQueue.shift(); // Remove successful request
+      
+      // COOLDOWN to prevent hitting token/RPM limits too fast
+      if (requestQueue.length > 0) {
+        await new Promise(r => setTimeout(r, 2500));
+      }
     } catch (err) {
       const isRateLimit = err.message.includes('429') || err.message.includes('Quota') || err.message.includes('load') || err.message.includes('exhausted');
       
@@ -237,10 +242,10 @@ async function processQueue() {
 /**
  * Main generation function wrapped in a queue.
  */
-export function generateAIContent(prompt) {
+export function generateAIContent(prompt, options = { preferGemini: false }) {
   return new Promise((resolve, reject) => {
     requestQueue.push({
-      execute: () => generateAIContentInternal(prompt),
+      execute: () => generateAIContentInternal(prompt, options),
       resolve,
       reject,
       retries: 0
@@ -252,35 +257,58 @@ export function generateAIContent(prompt) {
 /**
  * Internal execution with Triple Fallback logic.
  */
-async function generateAIContentInternal(prompt) {
-  try {
-    console.log("Attempting generation with Gemini...");
-    const result = await generateWithGemini(prompt);
-    return result;
-  } catch (geminiError) {
-    console.warn("Gemini generation failed, falling back to Groq:", geminiError.message);
-    
+async function generateAIContentInternal(prompt, options) {
+  if (options?.preferGemini) {
+    // Priority: Gemini -> OpenRouter -> Groq -> Sarvam
     try {
-      console.log("Attempting generation with Groq...");
-      const result = await generateWithGroq(prompt);
-      return result;
-    } catch (groqError) {
-      console.warn("Groq generation failed, falling back to OpenRouter:", groqError.message);
-      
+      console.log("Attempting generation with Gemini (Priority)...");
+      return await generateWithGemini(prompt);
+    } catch (geminiError) {
+      console.warn("Gemini generation failed, falling back to OpenRouter:", geminiError.message);
       try {
         console.log("Attempting generation with OpenRouter...");
-        const result = await generateWithOpenRouter(prompt);
-        return result;
+        return await generateWithOpenRouter(prompt);
       } catch (orError) {
-        console.warn("OpenRouter generation failed, falling back to Sarvam:", orError.message);
-        
+        console.warn("OpenRouter generation failed, falling back to Groq:", orError.message);
         try {
-          console.log("Attempting generation with Sarvam...");
-          const result = await generateWithSarvam(prompt);
-          return result;
-        } catch (sarvamError) {
-          console.error("Sarvam generation also failed:", sarvamError.message);
-          throw new Error("All AI providers unfortunately failed. " + geminiError.message);
+          console.log("Attempting generation with Groq...");
+          return await generateWithGroq(prompt);
+        } catch (groqError) {
+          console.warn("Groq generation failed, falling back to Sarvam:", groqError.message);
+          try {
+            console.log("Attempting generation with Sarvam...");
+            return await generateWithSarvam(prompt);
+          } catch (sarvamError) {
+            console.error("Sarvam generation also failed:", sarvamError.message);
+            throw new Error("All AI providers unfortunately failed. " + geminiError.message);
+          }
+        }
+      }
+    }
+  } else {
+    // Priority: OpenRouter -> Groq -> Gemini -> Sarvam
+    try {
+      console.log("Attempting generation with OpenRouter (Priority)...");
+      return await generateWithOpenRouter(prompt);
+    } catch (orError) {
+      console.warn("OpenRouter generation failed, falling back to Groq:", orError.message);
+      try {
+        console.log("Attempting generation with Groq...");
+        return await generateWithGroq(prompt);
+      } catch (groqError) {
+        console.warn("Groq generation failed, falling back to Gemini:", groqError.message);
+        try {
+          console.log("Attempting generation with Gemini...");
+          return await generateWithGemini(prompt);
+        } catch (geminiError) {
+          console.warn("Gemini generation failed, falling back to Sarvam:", geminiError.message);
+          try {
+            console.log("Attempting generation with Sarvam...");
+            return await generateWithSarvam(prompt);
+          } catch (sarvamError) {
+            console.error("Sarvam generation also failed:", sarvamError.message);
+            throw new Error("All AI providers unfortunately failed. " + orError.message);
+          }
         }
       }
     }

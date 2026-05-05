@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { FileQuestion, Sparkles, Loader2, Download, Copy, Check, RotateCcw, FileText, UploadCloud, X, Share2, FileCode, Settings2, Target, History, Plus, Image as ImageIcon, Trash2, MessageCircle, BookOpen, BarChart3, Save } from 'lucide-react'
+import { FileQuestion, Sparkles, Loader2, Download, Copy, Check, RotateCcw, FileText, UploadCloud, X, Share2, FileCode, Settings2, Target, History, Plus, Image as ImageIcon, Trash2, MessageCircle, BookOpen, BarChart3, Save, Printer } from 'lucide-react'
 import { generateAIContent } from '../utils/aiService'
 import { extractTextFromFile } from '../utils/fileExtractor'
 import { useGamification } from '../contexts/GamificationContext'
@@ -13,6 +13,7 @@ import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
 import { saveAs } from 'file-saver'
 import { asBlob } from 'html-docx-js-typescript'
+import html2pdf from 'html2pdf.js'
 import { useNavigate } from 'react-router-dom'
 
 const boardList = ['CBSE', 'ICSE', 'State Board', 'IB', 'Cambridge', 'General']
@@ -34,7 +35,7 @@ export default function SmartExamMaker() {
       session: parsed.session || '',
       difficulty: 'Medium', language: 'English', paperSets: 1, 
       watermarkText: parsed.watermarkText || '', 
-      useBlooms: true, includePYQ: false, useAutoPattern: false, strictSource: true
+      useBlooms: true, includePYQ: false, useAutoPattern: false, strictSource: true, leaveDiagramSpace: false
     }
   })
   
@@ -174,7 +175,7 @@ export default function SmartExamMaker() {
     if (!form.board || !form.grade || !form.subject) return setError('Please select Board, Class, and Subject first.')
     setFetchingChapters(true); setError('')
     try {
-      const response = await generateAIContent(`List official syllabus chapter names for ${form.board} ${form.grade} ${form.subject}. Return ONLY a JSON array of strings. Example: ["Chapter 1", "Chapter 2"]`)
+      const response = await generateAIContent(`List ALL official syllabus chapter names for ${form.board} ${form.grade} ${form.subject} as per the latest NCERT/official textbook. Include EVERY single chapter from Unit 1 to the last unit. Do NOT skip or abbreviate any chapter. Return ONLY a JSON array of strings with complete chapter names. Example format: ["Chapter 1: Chemical Reactions and Equations", "Chapter 2: Acids, Bases and Salts"]. Output ONLY the JSON array, nothing else.`, { preferGemini: true })
       const chapters = JSON.parse(response.replace(/```json/g, '').replace(/```/g, '').trim())
       if (Array.isArray(chapters)) setSuggestedChapters(chapters)
     } catch (err) { setError('Failed to auto-fetch chapters.') } 
@@ -253,7 +254,7 @@ export default function SmartExamMaker() {
 
       let blueprintPrompt = ''
       if (form.useAutoPattern) {
-        blueprintPrompt = `CRITICAL EXAM BLUEPRINT: You MUST strictly format the exam according to the official and latest ${form.board} exam pattern for ${form.subject} ${form.grade}. Include all standard sections (Section A, B, C, D, etc.) with the correct marks weightage and standard question types (e.g. MCQs, Assertion-Reason, Short Answer, Long Answer, Case-Based) as per the actual board exams. IMPORTANT: Do NOT generate a short or abbreviated paper. You MUST generate a FULL-LENGTH paper with the EXACT TOTAL MARKS (e.g. 80 Marks or 100 Marks) as mandated by the official curriculum.`
+        blueprintPrompt = `CRITICAL EXAM BLUEPRINT: You MUST strictly format the exam according to the official and latest ${form.board} exam pattern for ${form.subject} ${form.grade}. Include all standard sections (Section A, B, C, D, etc.) with the correct marks weightage and standard question types (e.g. MCQs, Assertion-Reason, Short Answer, Long Answer, Case-Based) as per the actual board exams. IMPORTANT: Do NOT generate a short or abbreviated paper. You MUST generate a FULL-LENGTH paper with the EXACT TOTAL MARKS (e.g. 80 Marks or 100 Marks) as mandated by the official curriculum. DO NOT summarize, DO NOT skip questions, and DO NOT stop until the entire paper is completely generated.`
       } else {
         const blueprintString = blueprint.map((item, idx) => 
           `Section ${String.fromCharCode(65 + idx)}: ${item.type} - Generate EXACTLY ${item.count} questions worth ${item.marksPerQuestion} mark(s) each.`
@@ -261,7 +262,7 @@ export default function SmartExamMaker() {
         blueprintPrompt = `CRITICAL EXAM BLUEPRINT (YOU MUST STRICTLY FOLLOW THIS EXACT COUNT AND MARKS):\n${blueprintString}`
       }
 
-      const prompt = `Act as an expert ${form.board} examiner. ${promptPrefix}, generate ${form.paperSets} distinct set(s) of an exam paper.
+      const prompt = `Act as an expert ${form.board} examiner. ${promptPrefix}, generate ${form.useAutoPattern ? 1 : form.paperSets} distinct set(s) of an exam paper.
       
 CRITICAL NEP 2020 & CBSE COMPLIANCE:
 - Integrate Competency-Based Education (CBE) principles.
@@ -272,13 +273,19 @@ ${form.includePYQ ? "- STRICTLY prioritize and adapt ACTUAL Previous Year Board 
 CRITICAL FORMATTING & NO-ANSWER RULES:
 - DO NOT INCLUDE ANY ANSWERS, HINTS, OR BOLDED OPTIONS IN THE QUESTION PAPER SECTION.
 ${form.includeAnswerKey ? "- All answers MUST ONLY appear in the Answer Key block." : "- DO NOT GENERATE AN ANSWER KEY AT ALL. ONLY GENERATE THE QUESTION PAPER. THIS IS STRICT."}
-- For Section Headings, include the marks on the right side in brackets: e.g., "1. Choose the correct answer. [ 10 x 1 ]"
-- For Sub-questions within a section, always number them using lowercase roman numerals like i), ii), iii), iv).
-- For MCQs, YOU MUST format the options in a 2-column layout using plain text. Do NOT use markdown tables. Use multiple spaces to push the columns apart, exactly like this:
+- DO NOT BOLD THE ENTIRE QUESTION TEXT. Only bold the question number (e.g. "**Q.1** What is..."). The rest of the question MUST be normal unbolded text.
+- NEVER use markdown headings (#, ##, ###, ####, etc.) for individual questions. Questions MUST be plain text.
+- ALWAYS use proper Markdown headings (###) for Sections (e.g., "### SECTION A").
+- For Section Headings, include the marks on the right side: e.g., "### SECTION A: Objective Type Questions [ 10 x 1 = 10 Marks ]"
+- ALWAYS format Question Numbers clearly with a bold Q (e.g., "**Q.1**", "**Q.2**").
+- For Internal Choices, leave a blank line, type EXACTLY '--- OR ---' on its own line, and leave another blank line before the alternative question.
+- For Sub-questions within a section, always number them using lowercase roman numerals like (i), (ii), (iii), (iv).
+- For MCQs, YOU MUST format the options in a 2-column layout using plain text. Do NOT use markdown tables. Use exactly this format:
 (A) Option 1           (B) Option 2
 (C) Option 3           (D) Option 4
 - For Fill-in-the-blanks, use "----------" for the blank space.
 - For True/False, state the question clearly and add "[True / False]" at the end.
+${form.leaveDiagramSpace ? "- DIAGRAM RULE: If a question requires a diagram, circuit, or graph, DO NOT draw it with symbols. Instead, add EXACTLY this placeholder on a new line: '[ SPACE FOR DIAGRAM: Teacher please insert image here ]'." : ""}
 
 Configuration:
 - Board: ${form.board} | Subject: ${form.subject} | Grade: ${form.grade}
@@ -291,11 +298,16 @@ ${blueprintPrompt}
 For EACH set (Set A, Set B, etc.), use the following exact structure:
 
 SET_START: Set [A/B/C]
-*General Instructions:*
-*- All questions are compulsory.*
-*- Marks are indicated against each question.*
+
+**General Instructions:**
+*(i) This question paper comprises multiple sections. Read the instructions carefully.*
+*(ii) All questions are compulsory. However, internal choices have been provided in some questions. A student has to attempt only one of the alternatives in such questions.*
+*(iii) Marks are indicated against each question or section heading.*
+*(iv) Please write down the serial number of the question before attempting it.*
+*(v) 15 minutes time has been allotted to read this question paper.*
 ---
-[Generate the Questions following the exact Blueprint Sections]
+
+[Generate the Questions following the exact Blueprint Sections, maintaining CBSE formatting]
 
 ${form.includeAnswerKey ? `
 ANSWER_KEY_SEPARATOR
@@ -305,11 +317,11 @@ ANSWER_KEY_SEPARATOR
 SET_END
 
 IMPORTANT: 
-- Generate exactly ${form.paperSets} set(s).
+- Generate exactly ${form.useAutoPattern ? 1 : form.paperSets} set(s).
 - Separate sets using SET_START and SET_END.
 - Format beautifully using Markdown.`
 
-      let content = await generateAIContent(prompt)
+      let content = await generateAIContent(prompt, { preferGemini: true })
 
       const sets = []
       // Use split instead of strict match to handle missing SET_ENDs
@@ -531,6 +543,76 @@ IMPORTANT:
       </html>
     `)
     printWindow.document.close()
+  }
+
+  const handleMobilePDF = () => {
+    const el = document.getElementById('exam-output')
+    if (!el) return
+    const docName = activeTab === 'questionPaper' ? 'Question_Paper' : 'Answer_Key'
+    
+    let headerHTML = ''
+    if (activeTab === 'questionPaper') {
+      const currentSet = activeSetIndex === 0 ? 'A' : activeSetIndex === 1 ? 'B' : activeSetIndex === 2 ? 'C' : 'A'
+      headerHTML = `
+        <div style="font-family: 'Times New Roman', Times, serif; color: #000; margin-bottom: 15px; border: 1px solid #000; padding: 10px;">
+          <table style="width: 100%; border: none; margin-bottom: 5px; border-collapse: collapse;">
+            <tr>
+              <td style="width: 60px; border: none; text-align: left; vertical-align: middle; padding: 0;">
+                ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 55px; width: auto;" />` : ''}
+              </td>
+              <td style="border: none; text-align: center; vertical-align: middle; padding: 0;">
+                <div style="font-size: 26px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; line-height: 1.1;">${form.institutionName || 'SCHOOL EXAM'}</div>
+                <div style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin-top: 5px;">${form.examName || 'Assessment'} ${form.session ? `(${form.session})` : ''}</div>
+              </td>
+              <td style="width: 60px; border: none; text-align: right; vertical-align: middle; padding: 0;">
+                ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 55px; width: auto;" />` : ''}
+              </td>
+            </tr>
+          </table>
+
+          <table style="width: 100%; border: none; font-size: 12px; font-weight: bold; text-transform: uppercase; margin-top: 8px; border-collapse: collapse;">
+            <tr>
+              <td style="border: none; padding: 0;">NAME: _______________</td>
+              <td style="border: none; padding: 0; text-align: center;">CLASS: ${form.grade.replace(/class\s*/i, '').trim()}</td>
+              <td style="border: none; padding: 0; text-align: center;">SUB: ${form.subject}</td>
+              <td style="border: none; padding: 0; text-align: center;">SET: ${currentSet}</td>
+              <td style="border: none; padding: 0; text-align: center;">MM: ${form.useAutoPattern ? '__' : calculatedTotalMarks}</td>
+              <td style="border: none; padding: 0; text-align: right;">TIME: ${form.duration}</td>
+            </tr>
+          </table>
+        </div>
+      `
+    } else {
+      headerHTML = `<h1 style="text-align:center;">${form.subject} - Answer Key</h1><hr style="margin-bottom: 20px;" />`
+    }
+
+    const wrapper = document.createElement('div')
+    wrapper.innerHTML = `
+      <style>
+        body { font-family: Cambria, Georgia, 'Times New Roman', serif; padding: 20px; color: #000; line-height: 1.4; }
+        h1, h2, h3 { color: #000; margin-bottom: 10px; }
+        h3 { font-size: 17px; margin-top: 15px; text-decoration: underline; }
+        p { margin: 3px 0; white-space: pre-wrap; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        th, td { border: 1px solid #000; padding: 6px; text-align: left; }
+        .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 8rem; color: rgba(0,0,0,0.04); z-index: -1; font-weight: bold; pointer-events: none; white-space: nowrap;}
+      </style>
+      <div style="font-family: Cambria, Georgia, 'Times New Roman', serif; color: #000; line-height: 1.4; padding: 10px;">
+        ${form.watermarkText ? `<div class="watermark">${form.watermarkText}</div>` : ''}
+        ${headerHTML}
+        <div style="font-size: 15px;">${el.innerHTML}</div>
+      </div>
+    `
+    
+    const opt = {
+      margin:       10,
+      filename:     `SmartExam_${form.subject}_${docName}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }
+    
+    html2pdf().set(opt).from(wrapper).save()
   }
 
   const handleDOCX = async () => {
@@ -838,9 +920,10 @@ IMPORTANT:
                         </div>
                         <div className="flex-1">
                           <label className="block text-[11px] font-bold text-surface-500 mb-1">Paper Sets</label>
-                          <select value={form.paperSets} onChange={e=>setForm(f=>({...f,paperSets:parseInt(e.target.value)}))} className="w-full px-3 py-2 bg-surface-50 border border-surface-200 rounded-lg text-xs font-bold focus:border-fuchsia-400">
+                          <select value={form.useAutoPattern ? 1 : form.paperSets} disabled={form.useAutoPattern} onChange={e=>setForm(f=>({...f,paperSets:parseInt(e.target.value)}))} className={`w-full px-3 py-2 bg-surface-50 border border-surface-200 rounded-lg text-xs font-bold focus:border-fuchsia-400 ${form.useAutoPattern ? 'opacity-50 cursor-not-allowed' : ''}`}>
                             <option value={1}>1 Set (Set A)</option><option value={2}>2 Sets (A, B)</option><option value={3}>3 Sets (A, B, C)</option>
                           </select>
+                          {form.useAutoPattern && <p className="text-[9px] text-fuchsia-600 mt-1">Full exams are locked to 1 set per generation.</p>}
                         </div>
                       </div>
                       <div>
@@ -858,6 +941,10 @@ IMPORTANT:
                       <label className="flex items-center gap-2 cursor-pointer bg-amber-50 p-2 rounded-lg border border-amber-100">
                         <input type="checkbox" checked={form.includePYQ} onChange={e=>setForm(f=>({...f,includePYQ:e.target.checked}))} className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500" />
                         <span className="text-[11px] font-bold text-surface-800">🎯 Prioritize Previous Year Questions (PYQs)</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer bg-blue-50 p-2 rounded-lg border border-blue-100 mt-2">
+                        <input type="checkbox" checked={form.leaveDiagramSpace} onChange={e=>setForm(f=>({...f,leaveDiagramSpace:e.target.checked}))} className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500" />
+                        <span className="text-[11px] font-bold text-surface-800">📝 Add Diagram Placeholders (For Teachers to insert images)</span>
                       </label>
                     </div>
                   </div>
@@ -930,7 +1017,8 @@ IMPORTANT:
               </button>
               
               <button onClick={handleCopy} className="p-2.5 bg-surface-50 text-surface-600 hover:text-surface-900 rounded-xl" title="Copy"><Copy className="w-4 h-4" /></button>
-              <button onClick={handlePDF} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-xl" title="Print as PDF"><Download className="w-4 h-4" /> Print / PDF</button>
+              <button onClick={handlePDF} className="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-xl" title="Print for Desktop"><Printer className="w-4 h-4" /> Print</button>
+              <button onClick={handleMobilePDF} className="flex items-center gap-2 px-4 py-2.5 bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100 font-bold rounded-xl" title="Download PDF"><Download className="w-4 h-4" /> PDF</button>
               <button onClick={handleDOCX} className="p-2.5 bg-surface-50 text-surface-600 hover:text-surface-900 rounded-xl" title="Download Word"><FileCode className="w-4 h-4" /></button>
               
               <button onClick={handleWhatsAppShare} className="p-2.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-xl" title="Share on WhatsApp"><MessageCircle className="w-4 h-4" /></button>
@@ -1015,9 +1103,168 @@ IMPORTANT:
               </div>
             )}
             
-            <div id="exam-output" className="relative z-10 w-full max-w-4xl mx-auto prose prose-slate max-w-none prose-headings:font-display">
-              {/* This inline style ensures ReactMarkdown renders math properly within prose */}
-              <style>{`.katex-display { margin: 1em 0; } .katex { font-size: 1.1em; }`}</style>
+            <div id="exam-output" className="relative z-10 w-full max-w-4xl mx-auto">
+              <style>{`
+                .katex-display { margin: 0.8em 0; } 
+                .katex { font-size: 1.1em; }
+
+                /* ===== CBSE EXAM PAPER STYLESHEET ===== */
+                #exam-output {
+                  font-family: 'Times New Roman', Times, serif;
+                  color: #1a1a1a;
+                  font-size: 15px;
+                  line-height: 1.7;
+                }
+
+                /* --- General Instructions Block --- */
+                #exam-output .general-instructions {
+                  border: 1.5px solid #333;
+                  padding: 16px 20px;
+                  margin-bottom: 28px;
+                  background: #fafafa;
+                }
+                #exam-output .general-instructions p {
+                  margin: 0 0 4px 0;
+                  font-size: 13px;
+                  font-style: italic;
+                  color: #333;
+                }
+                #exam-output .general-instructions strong {
+                  font-style: normal;
+                  font-size: 14px;
+                }
+
+                /* --- Section Headings --- */
+                #exam-output h2 {
+                  text-align: center;
+                  text-transform: uppercase;
+                  font-size: 15px;
+                  font-weight: 700;
+                  letter-spacing: 1.5px;
+                  margin: 36px 0 6px 0;
+                  padding: 0;
+                  font-family: 'Times New Roman', Times, serif;
+                }
+                #exam-output h3 {
+                  text-align: center;
+                  text-transform: uppercase;
+                  font-size: 14px;
+                  font-weight: 700;
+                  letter-spacing: 1px;
+                  margin: 32px 0 6px 0;
+                  padding: 0;
+                  font-family: 'Times New Roman', Times, serif;
+                }
+                #exam-output .section-divider {
+                  width: 100%;
+                  height: 1.5px;
+                  background: #333;
+                  margin: 4px 0 20px 0;
+                }
+
+                /* --- Questions --- */
+                #exam-output p {
+                  font-weight: 400 !important;
+                  margin: 0 0 16px 0;
+                  line-height: 1.7;
+                  font-size: 15px;
+                }
+                #exam-output strong {
+                  font-weight: 700 !important;
+                }
+
+                /* --- OR Divider --- */
+                #exam-output .or-divider {
+                  text-align: center;
+                  font-weight: 700;
+                  font-size: 14px;
+                  letter-spacing: 2px;
+                  margin: 20px 0;
+                  padding: 6px 0;
+                  color: #333;
+                }
+
+                /* --- Lists (sub-questions) --- */
+                #exam-output ul, #exam-output ol {
+                  margin: 4px 0 16px 24px;
+                  padding: 0;
+                }
+                #exam-output li {
+                  font-weight: 400 !important;
+                  margin-bottom: 6px;
+                  line-height: 1.6;
+                  font-size: 15px;
+                }
+
+                /* --- Horizontal Rule (section breaks) --- */
+                #exam-output hr {
+                  border: none;
+                  border-top: 1.5px solid #333;
+                  margin: 28px 0;
+                }
+
+                /* --- Tables --- */
+                #exam-output table {
+                  border-collapse: collapse;
+                  width: 100%;
+                  margin: 12px 0;
+                  font-size: 14px;
+                }
+                #exam-output th, #exam-output td {
+                  border: 1px solid #555;
+                  padding: 6px 10px;
+                  text-align: left;
+                }
+                #exam-output th {
+                  background: #eee;
+                  font-weight: 700;
+                }
+
+                /* --- Blockquotes (for General Instructions, tips) --- */
+                #exam-output blockquote {
+                  border-left: 3px solid #555;
+                  margin: 12px 0;
+                  padding: 8px 16px;
+                  background: #f9f9f9;
+                  font-style: italic;
+                  color: #444;
+                }
+
+                /* --- Fallback headings (h4, h5, h6) look like normal text --- */
+                #exam-output h4, #exam-output h5, #exam-output h6 {
+                  font-family: 'Times New Roman', Times, serif !important;
+                  font-size: 15px !important;
+                  font-weight: 400 !important;
+                  margin: 0 0 16px 0;
+                  line-height: 1.7;
+                }
+                #exam-output h4 strong, #exam-output h5 strong, #exam-output h6 strong {
+                  font-weight: 700 !important;
+                }
+
+                /* --- Diagram Placeholder --- */
+                #exam-output p:has(> em) {
+                  font-style: italic;
+                }
+
+                /* --- Code blocks (inline code for keywords) --- */
+                #exam-output code {
+                  font-family: 'Courier New', monospace;
+                  background: #f0f0f0;
+                  padding: 1px 5px;
+                  border-radius: 3px;
+                  font-size: 14px;
+                }
+                #exam-output pre {
+                  background: #f5f5f5;
+                  border: 1px solid #ddd;
+                  padding: 12px;
+                  border-radius: 4px;
+                  overflow-x: auto;
+                  font-size: 13px;
+                  margin: 12px 0;
+                }
+              `}</style>
               
               {isEditing ? (
                 <textarea 
@@ -1027,10 +1274,36 @@ IMPORTANT:
                   placeholder="Edit your markdown here..."
                 />
               ) : (
-                <div className="text-surface-800 leading-relaxed whitespace-pre-wrap">
+                <div style={{ color: '#1a1a1a' }}>
                   <ReactMarkdown 
                     remarkPlugins={[remarkGfm, remarkMath]} 
                     rehypePlugins={[rehypeKatex]}
+                    components={{
+                      p: ({node, children}) => {
+                        const text = typeof children === 'string' ? children : (Array.isArray(children) ? children.map(c => typeof c === 'string' ? c : '').join('') : '');
+                        if (text.includes('--- OR ---') || text.includes('---OR---') || text === 'OR') {
+                          return <div className="or-divider">— OR —</div>
+                        }
+                        // General Instructions block
+                        if (text.includes('General Instructions')) {
+                          return <div className="general-instructions"><strong>{children}</strong></div>
+                        }
+                        return <p>{children}</p>
+                      },
+                      h2: ({children}) => (
+                        <>
+                          <h2>{children}</h2>
+                          <div className="section-divider"></div>
+                        </>
+                      ),
+                      h3: ({children}) => (
+                        <>
+                          <h3>{children}</h3>
+                          <div className="section-divider"></div>
+                        </>
+                      ),
+                      hr: () => <hr />,
+                    }}
                   >
                     {activeTab === 'questionPaper' ? results[activeSetIndex]?.paper : results[activeSetIndex]?.key}
                   </ReactMarkdown>

@@ -144,7 +144,7 @@ export default function Timetable() {
       const extractedText = await extractTextFromFile(file)
       const prompt = `Extract the list of teachers, their associated subjects, and designations from this document. Return ONLY a valid JSON array of objects, where each object has 'name' (string), 'subjects' (array of strings, try to map to standard school subjects like Mathematics, Science, English, etc.), and 'designation' (string). If no subjects or designations are found, leave them empty. DO NOT wrap in markdown block. Just raw JSON array starting with [ and ending with ].\n\nDocument Text:\n"${extractedText}"`
       
-      const responseText = await generateAIContent(prompt)
+      const responseText = await generateAIContent(prompt, { preferGemini: true })
           
           let parsed = []
           try {
