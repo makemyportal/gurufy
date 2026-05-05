@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { FileQuestion, Sparkles, Loader2, Download, Copy, Check, RotateCcw, FileText, UploadCloud, X, Share2, FileCode, Settings2, Target, History, Plus, Image as ImageIcon, Trash2, MessageCircle, BookOpen, BarChart3, Save, Printer } from 'lucide-react'
+import { FileQuestion, Sparkles, Loader2, Download, Copy, Check, RotateCcw, FileText, UploadCloud, X, Share2, FileCode, Settings2, Target, History, Plus, Image as ImageIcon, Trash2, MessageCircle, BookOpen, BarChart3, Save, Printer, RefreshCw, FolderOpen } from 'lucide-react'
 import { generateAIContent } from '../utils/aiService'
 import { extractTextFromFile } from '../utils/fileExtractor'
 import { useGamification } from '../contexts/GamificationContext'
@@ -115,6 +115,18 @@ export default function SmartExamMaker() {
   const [savingToBank, setSavingToBank] = useState(false)
   const [bankLoaded, setBankLoaded] = useState(false)
 
+  // Blueprint Templates State
+  const [savedTemplates, setSavedTemplates] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('examBlueprintTemplates') || '[]')
+    } catch { return [] }
+  })
+  const [templateName, setTemplateName] = useState('')
+  const [showTemplates, setShowTemplates] = useState(false)
+
+  // Regenerate Single Question State
+  const [regeneratingQ, setRegeneratingQ] = useState(null)
+
   const GENERATION_COST = toolCosts?.['smart-exam'] ?? 5
   const TOTAL_COST = GENERATION_COST * form.paperSets
 
@@ -197,6 +209,69 @@ export default function SmartExamMaker() {
   const removeBlueprintItem = (id) => setBlueprint(prev => prev.filter(item => item.id !== id))
   const addBlueprintItem = () => setBlueprint(prev => [...prev, { id: Date.now(), type: 'New Section', count: 1, marksPerQuestion: 1 }])
 
+  // ===== BLUEPRINT TEMPLATE FUNCTIONS =====
+  const saveTemplate = () => {
+    if (!templateName.trim()) return setError('Please enter a template name.')
+    const newTemplate = {
+      id: Date.now(),
+      name: templateName.trim(),
+      board: form.board,
+      subject: form.subject,
+      grade: form.grade,
+      sections: blueprint.map(b => ({ ...b }))
+    }
+    const updated = [...savedTemplates, newTemplate]
+    setSavedTemplates(updated)
+    localStorage.setItem('examBlueprintTemplates', JSON.stringify(updated))
+    setTemplateName('')
+    setError('')
+  }
+  const loadTemplate = (tpl) => {
+    setBlueprint(tpl.sections.map((s, i) => ({ ...s, id: Date.now() + i })))
+    setForm(f => ({ ...f, board: tpl.board || f.board, subject: tpl.subject || f.subject, grade: tpl.grade || f.grade, useAutoPattern: false }))
+    setShowTemplates(false)
+  }
+  const deleteTemplate = (id) => {
+    const updated = savedTemplates.filter(t => t.id !== id)
+    setSavedTemplates(updated)
+    localStorage.setItem('examBlueprintTemplates', JSON.stringify(updated))
+  }
+
+  // ===== REGENERATE SINGLE QUESTION =====
+  const handleRegenerateQuestion = async (qNum) => {
+    setRegeneratingQ(qNum)
+    try {
+      const paper = results[activeSetIndex]?.paper || ''
+      const prompt = `You are a ${form.board} exam expert for ${form.subject} ${form.grade}.
+I have a question paper. I need you to REPLACE question number ${qNum} with a NEW, DIFFERENT question of the SAME type, difficulty, and marks.
+
+Here is the current question paper:
+---
+${paper}
+---
+
+IMPORTANT RULES:
+- Output the ENTIRE question paper again with ONLY Q.${qNum} replaced by a brand new question.
+- Keep ALL other questions EXACTLY the same, character for character.
+- The new question must be of the same type (MCQ stays MCQ, Long Answer stays Long Answer, etc.).
+- DO NOT change section headings, numbering, or any other question.
+- DO NOT add answers or explanations.
+- Use the same formatting style as the original paper.`
+      const newContent = await generateAIContent(prompt, { preferGemini: true })
+      if (newContent && newContent.length > 100) {
+        const newResults = [...results]
+        newResults[activeSetIndex] = { ...newResults[activeSetIndex], paper: newContent }
+        setResults(newResults)
+      } else {
+        setError('Failed to regenerate question. Please try again.')
+      }
+    } catch (err) {
+      setError('Regeneration failed: ' + (err.message || 'Unknown error'))
+    } finally {
+      setRegeneratingQ(null)
+    }
+  }
+
   // Firebase history saving has been disabled per new economic policy
 
   const handleGenerate = async () => {
@@ -271,6 +346,7 @@ ${form.useBlooms ? "- Follow Bloom's Taxonomy: Mix of Remembering (20%), Underst
 ${form.includePYQ ? "- STRICTLY prioritize and adapt ACTUAL Previous Year Board Questions (PYQs) from the past 10 years. If a question is a PYQ, append the year in brackets at the end of the question e.g. '(CBSE 2019)'." : ""}
 
 CRITICAL FORMATTING & NO-ANSWER RULES:
+- EXTREMELY IMPORTANT: DO NOT USE MARKDOWN TABLES FOR ANYTHING! The entire paper MUST be generated as plain text paragraphs. Never wrap questions or sections inside a table.
 - DO NOT INCLUDE ANY ANSWERS, HINTS, OR BOLDED OPTIONS IN THE QUESTION PAPER SECTION.
 ${form.includeAnswerKey ? "- All answers MUST ONLY appear in the Answer Key block." : "- DO NOT GENERATE AN ANSWER KEY AT ALL. ONLY GENERATE THE QUESTION PAPER. THIS IS STRICT."}
 - DO NOT BOLD THE ENTIRE QUESTION TEXT. Only bold the question number (e.g. "**Q.1** What is..."). The rest of the question MUST be normal unbolded text.
@@ -280,7 +356,7 @@ ${form.includeAnswerKey ? "- All answers MUST ONLY appear in the Answer Key bloc
 - ALWAYS format Question Numbers clearly with a bold Q (e.g., "**Q.1**", "**Q.2**").
 - For Internal Choices, leave a blank line, type EXACTLY '--- OR ---' on its own line, and leave another blank line before the alternative question.
 - For Sub-questions within a section, always number them using lowercase roman numerals like (i), (ii), (iii), (iv).
-- For MCQs, YOU MUST format the options in a 2-column layout using plain text. Do NOT use markdown tables. Use exactly this format:
+- For MCQs, YOU MUST format the options in a 2-column layout using plain text. Use exactly this format:
 (A) Option 1           (B) Option 2
 (C) Option 3           (D) Option 4
 - For Fill-in-the-blanks, use "----------" for the blank space.
@@ -474,35 +550,34 @@ IMPORTANT:
     navigator.clipboard.writeText(activeTab === 'questionPaper' ? results[activeSetIndex].paper : results[activeSetIndex].key)
     setCopied(true); setTimeout(() => setCopied(false), 2000) 
   }
-  
+
   const handlePDF = () => {
     const el = document.getElementById('exam-output')
     if (!el) return
     const docName = activeTab === 'questionPaper' ? 'Question_Paper' : 'Answer_Key'
     const printWindow = window.open('', '_blank')
     
-    // Header logic for proper printable document
+    // Header logic
     let headerHTML = ''
     if (activeTab === 'questionPaper') {
       const currentSet = activeSetIndex === 0 ? 'A' : activeSetIndex === 1 ? 'B' : activeSetIndex === 2 ? 'C' : 'A'
       headerHTML = `
-        <div style="font-family: 'Times New Roman', Times, serif; color: #000; margin-bottom: 15px; border: 1px solid #000; padding: 10px;">
-          <table style="width: 100%; border: none; margin-bottom: 5px; border-collapse: collapse;">
+        <div style="margin-bottom: 12px; border: 1.5px solid #000; padding: 8px 10px;">
+          <table style="width: 100%; border: none; border-collapse: collapse;">
             <tr>
-              <td style="width: 60px; border: none; text-align: left; vertical-align: middle; padding: 0;">
-                ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 55px; width: auto;" />` : ''}
+              <td style="width: 55px; border: none; padding: 0; vertical-align: middle;">
+                ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 50px; width: auto;" />` : ''}
               </td>
               <td style="border: none; text-align: center; vertical-align: middle; padding: 0;">
-                <div style="font-size: 26px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; line-height: 1.1;">${form.institutionName || 'SCHOOL EXAM'}</div>
-                <div style="font-size: 15px; font-weight: bold; text-transform: uppercase; margin-top: 5px;">${form.examName || 'Assessment'} ${form.session ? `(${form.session})` : ''}</div>
+                <div style="font-size: 22px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">${form.institutionName || 'SCHOOL EXAM'}</div>
+                <div style="font-size: 13px; font-weight: bold; text-transform: uppercase; margin-top: 3px;">${form.examName || 'Assessment'} ${form.session ? `(${form.session})` : ''}</div>
               </td>
-              <td style="width: 60px; border: none; text-align: right; vertical-align: middle; padding: 0;">
-                ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 55px; width: auto;" />` : ''}
+              <td style="width: 55px; border: none; text-align: right; vertical-align: middle; padding: 0;">
+                ${schoolLogo ? `<img src="${schoolLogo}" style="max-height: 50px; width: auto;" />` : ''}
               </td>
             </tr>
           </table>
-
-          <table style="width: 100%; border: none; font-size: 12px; font-weight: bold; text-transform: uppercase; margin-top: 8px; border-collapse: collapse;">
+          <table style="width: 100%; border: none; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-top: 6px; border-collapse: collapse;">
             <tr>
               <td style="border: none; padding: 0;">NAME: _______________</td>
               <td style="border: none; padding: 0; text-align: center;">CLASS: ${form.grade.replace(/class\s*/i, '').trim()}</td>
@@ -515,30 +590,65 @@ IMPORTANT:
         </div>
       `
     } else {
-      headerHTML = `<h1 style="text-align:center;">${form.subject} - Answer Key</h1><hr style="margin-bottom: 20px;" />`
+      headerHTML = `<h1 style="text-align:center; font-size: 18px; margin-bottom: 10px;">${form.subject} - Answer Key</h1><hr style="margin-bottom: 15px;" />`
     }
+
+    // CRITICAL: Strip out the inner <style> tag from exam-output to avoid CSS conflicts
+    let contentHTML = el.innerHTML
+    contentHTML = contentHTML.replace(/<style[\s\S]*?<\/style>/gi, '')
+    contentHTML = contentHTML.replace(/<div class="section-divider"><\/div>/gi, '')
 
     printWindow.document.write(`
       <html>
         <head>
           <title>SmartExam_${form.subject}_${docName}</title>
-          <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" integrity="sha384-GvrOXuhMATgEsSwCs4smul74iXGOixntILdUW9XmUC6+HX0sLNAK3q71bZl5Oym" crossorigin="anonymous">
+          <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" crossorigin="anonymous">
           <style>
-            body { font-family: Cambria, Georgia, 'Times New Roman', serif; padding: 30px; color: #000; line-height: 1.4; position: relative; max-width: 900px; margin: 0 auto; }
-            h1, h2, h3 { color: #000; margin-bottom: 10px; }
-            h3 { font-size: 17px; margin-top: 15px; text-decoration: underline; }
-            p { margin: 3px 0; white-space: pre-wrap; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-            th, td { border: 1px solid #000; padding: 6px; text-align: left; }
-            .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 8rem; color: rgba(0,0,0,0.04); z-index: -1; font-weight: bold; pointer-events: none; white-space: nowrap;}
-            @media print { @page { margin: 0; } body { padding: 15mm; } }
+            * { box-sizing: border-box; }
+            body {
+              font-family: 'Times New Roman', Times, serif;
+              color: #000;
+              font-size: 13px;
+              line-height: 1.6;
+              padding: 5mm 8mm;
+              margin: 0;
+              word-wrap: break-word;
+              overflow-wrap: break-word;
+            }
+            h1 { font-size: 18px; text-align: center; margin: 0 0 10px 0; }
+            h2 { text-align: center; text-transform: uppercase; font-size: 12.5px; font-weight: 700; letter-spacing: 1px; border-bottom: 1px solid #000; padding-bottom: 2px; margin: 18px 0 8px 0; }
+            h3 { text-align: center; text-transform: uppercase; font-size: 12px; font-weight: 700; letter-spacing: 1px; border-bottom: 1px solid #000; padding-bottom: 2px; margin: 16px 0 8px 0; }
+            p { margin: 0 0 8px 0; line-height: 1.6; word-wrap: break-word; overflow-wrap: break-word; }
+            strong { font-weight: 700; }
+            table { border-collapse: collapse; width: 100%; margin: 6px 0; }
+            td, th { padding: 3px 5px; text-align: left; word-wrap: break-word; font-size: 12.5px; vertical-align: top; }
+            ul, ol { margin: 3px 0 8px 16px; padding: 0; }
+            li { margin-bottom: 2px; line-height: 1.5; }
+            blockquote { border-left: 2px solid #555; padding: 3px 8px; margin: 6px 0; font-style: italic; }
+            code { font-family: 'Courier New', monospace; font-size: 12px; }
+            pre { white-space: pre-wrap; word-wrap: break-word; font-size: 11px; margin: 4px 0; }
+            h4, h5, h6 { font-size: 13px !important; font-weight: 400 !important; margin: 0 0 8px 0; line-height: 1.6; }
+            h4 strong, h5 strong, h6 strong { font-weight: 700 !important; }
+            hr { border: none; border-top: 1px solid #000; margin: 12px 0; }
+            img { max-width: 100%; height: auto; }
+            .or-divider { text-align: center; font-weight: 700; margin: 10px 0; font-size: 12px; }
+            .general-instructions { border: 1px solid #000; padding: 6px 10px; margin-bottom: 14px; font-style: italic; font-size: 11.5px; line-height: 1.5; }
+            .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 5rem; color: rgba(0,0,0,0.04); z-index: -1; font-weight: bold; pointer-events: none; white-space: nowrap; }
+            @media print {
+              @page { size: A4 portrait; margin: 8mm; }
+              body { padding: 0; }
+              p { page-break-inside: avoid; }
+              h2, h3 { page-break-after: avoid; page-break-inside: avoid; }
+              table { page-break-inside: avoid; }
+              .general-instructions { page-break-inside: avoid; }
+            }
           </style>
         </head>
         <body>
           ${form.watermarkText ? `<div class="watermark">${form.watermarkText}</div>` : ''}
           ${headerHTML}
-          <div style="font-size: 15px;">${el.innerHTML}</div>
-          <script>setTimeout(() => { window.print(); window.close(); }, 800);</script>
+          <div>${contentHTML}</div>
+          <script>setTimeout(function(){ window.print(); window.close(); }, 800);<\/script>
         </body>
       </html>
     `)
@@ -589,15 +699,21 @@ IMPORTANT:
     const wrapper = document.createElement('div')
     wrapper.innerHTML = `
       <style>
-        body { font-family: Cambria, Georgia, 'Times New Roman', serif; padding: 20px; color: #000; line-height: 1.4; }
-        h1, h2, h3 { color: #000; margin-bottom: 10px; }
-        h3 { font-size: 17px; margin-top: 15px; text-decoration: underline; }
-        p { margin: 3px 0; white-space: pre-wrap; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        * { font-family: 'Times New Roman', Times, serif; color: #000; }
+        p { margin: 0 0 14px 0; white-space: pre-wrap; line-height: 1.7; font-size: 15px; page-break-inside: avoid; }
+        strong { font-weight: 700; }
+        h2 { text-align: center; text-transform: uppercase; font-size: 15px; letter-spacing: 1.5px; border-bottom: 1.5px solid #333; padding-bottom: 4px; margin-top: 28px; page-break-after: avoid; }
+        h3 { text-align: center; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; border-bottom: 1.5px solid #333; padding-bottom: 4px; margin-top: 24px; page-break-after: avoid; }
+        h4, h5, h6 { font-size: 15px !important; font-weight: 400 !important; margin: 0 0 14px 0; line-height: 1.7; }
+        h4 strong, h5 strong, h6 strong { font-weight: 700 !important; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; page-break-inside: avoid; }
         th, td { border: 1px solid #000; padding: 6px; text-align: left; }
+        blockquote { border-left: 3px solid #555; padding: 8px 16px; margin: 12px 0; font-style: italic; page-break-inside: avoid; }
+        code { font-family: 'Courier New', monospace; background: #f0f0f0; padding: 1px 4px; font-size: 14px; }
+        pre { background: #f5f5f5; border: 1px solid #ddd; padding: 10px; font-size: 13px; page-break-inside: avoid; }
         .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 8rem; color: rgba(0,0,0,0.04); z-index: -1; font-weight: bold; pointer-events: none; white-space: nowrap;}
       </style>
-      <div style="font-family: Cambria, Georgia, 'Times New Roman', serif; color: #000; line-height: 1.4; padding: 10px;">
+      <div style="font-family: 'Times New Roman', Times, serif; color: #000; line-height: 1.7; padding: 10px;">
         ${form.watermarkText ? `<div class="watermark">${form.watermarkText}</div>` : ''}
         ${headerHTML}
         <div style="font-size: 15px;">${el.innerHTML}</div>
@@ -860,25 +976,58 @@ IMPORTANT:
               {!form.useAutoPattern && (
                 <div className="mb-6 p-4 bg-surface-50 rounded-2xl border border-surface-200">
                   <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-sm font-extrabold text-surface-800">📋 Exact Paper Blueprint</h3>
-                  <button onClick={addBlueprintItem} className="text-[11px] font-bold text-fuchsia-600 bg-fuchsia-50 hover:bg-fuchsia-100 px-2 py-1 rounded-lg flex items-center gap-1"><Plus className="w-3 h-3" /> Add Section</button>
-                </div>
-                <div className="space-y-2">
-                  {blueprint.map((item, idx) => (
-                    <div key={item.id} className="flex flex-col md:flex-row items-center gap-2 bg-white p-2 border border-surface-200 rounded-xl">
-                      <span className="text-xs font-bold text-surface-400 w-6">Sec {String.fromCharCode(65+idx)}</span>
-                      <input type="text" value={item.type} onChange={e=>updateBlueprint(item.id, 'type', e.target.value)} className="flex-1 px-3 py-1.5 bg-surface-50 border border-surface-200 rounded-lg text-xs font-bold w-full" placeholder="Type (e.g. MCQ)" />
-                      <div className="flex items-center gap-2 w-full md:w-auto">
-                        <input type="number" min="1" value={item.count} onChange={e=>updateBlueprint(item.id, 'count', parseInt(e.target.value))} className="w-16 px-2 py-1.5 bg-surface-50 border border-surface-200 rounded-lg text-xs font-bold text-center" />
-                        <span className="text-[10px] font-bold text-surface-500">Qs ×</span>
-                        <input type="number" min="1" value={item.marksPerQuestion} onChange={e=>updateBlueprint(item.id, 'marksPerQuestion', parseInt(e.target.value))} className="w-16 px-2 py-1.5 bg-surface-50 border border-surface-200 rounded-lg text-xs font-bold text-center" />
-                        <span className="text-[10px] font-bold text-surface-500">Marks</span>
-                        <button onClick={()=>removeBlueprintItem(item.id)} className="p-1.5 text-surface-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-auto"><Trash2 className="w-4 h-4" /></button>
+                    <h3 className="text-sm font-extrabold text-surface-800">📋 Exact Paper Blueprint</h3>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setShowTemplates(!showTemplates)} className="text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-lg flex items-center gap-1"><FolderOpen className="w-3 h-3" /> Templates</button>
+                      <button onClick={addBlueprintItem} className="text-[11px] font-bold text-fuchsia-600 bg-fuchsia-50 hover:bg-fuchsia-100 px-2 py-1 rounded-lg flex items-center gap-1"><Plus className="w-3 h-3" /> Add Section</button>
+                    </div>
+                  </div>
+
+                  {/* Save/Load Templates Panel */}
+                  {showTemplates && (
+                    <div className="mb-4 p-3 bg-white rounded-xl border border-indigo-200 animate-fade-in">
+                      <p className="text-[11px] font-bold text-indigo-800 mb-2">💾 Saved Blueprint Templates</p>
+                      {savedTemplates.length === 0 ? (
+                        <p className="text-[10px] text-surface-400 text-center py-3">No saved templates yet. Create your blueprint below and save it.</p>
+                      ) : (
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto mb-3">
+                          {savedTemplates.map(tpl => (
+                            <div key={tpl.id} className="flex items-center justify-between p-2 bg-indigo-50/50 rounded-lg border border-indigo-100 hover:border-indigo-300 transition-colors">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-surface-800 truncate">{tpl.name}</p>
+                                <p className="text-[10px] text-surface-400">{tpl.board} | {tpl.subject} | {tpl.grade} | {tpl.sections.length} Sections</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 ml-2">
+                                <button onClick={() => loadTemplate(tpl)} className="px-2 py-1 text-[10px] font-bold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-md">Load</button>
+                                <button onClick={() => deleteTemplate(tpl.id)} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-md"><Trash2 className="w-3 h-3" /></button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 pt-2 border-t border-indigo-100">
+                        <input type="text" value={templateName} onChange={e => setTemplateName(e.target.value)} placeholder="Template name (e.g. 10th Science 80M)" className="flex-1 px-3 py-1.5 bg-surface-50 border border-surface-200 rounded-lg text-xs font-bold" />
+                        <button onClick={saveTemplate} className="px-3 py-1.5 text-[11px] font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 whitespace-nowrap">Save Current</button>
                       </div>
                     </div>
-                  ))}
+                  )}
+
+                  <div className="space-y-2">
+                    {blueprint.map((item, idx) => (
+                      <div key={item.id} className="flex flex-col md:flex-row items-center gap-2 bg-white p-2 border border-surface-200 rounded-xl">
+                        <span className="text-xs font-bold text-surface-400 w-6">Sec {String.fromCharCode(65+idx)}</span>
+                        <input type="text" value={item.type} onChange={e=>updateBlueprint(item.id, 'type', e.target.value)} className="flex-1 px-3 py-1.5 bg-surface-50 border border-surface-200 rounded-lg text-xs font-bold w-full" placeholder="Type (e.g. MCQ)" />
+                        <div className="flex items-center gap-2 w-full md:w-auto">
+                          <input type="number" min="1" value={item.count} onChange={e=>updateBlueprint(item.id, 'count', parseInt(e.target.value))} className="w-16 px-2 py-1.5 bg-surface-50 border border-surface-200 rounded-lg text-xs font-bold text-center" />
+                          <span className="text-[10px] font-bold text-surface-500">Qs ×</span>
+                          <input type="number" min="1" value={item.marksPerQuestion} onChange={e=>updateBlueprint(item.id, 'marksPerQuestion', parseInt(e.target.value))} className="w-16 px-2 py-1.5 bg-surface-50 border border-surface-200 rounded-lg text-xs font-bold text-center" />
+                          <span className="text-[10px] font-bold text-surface-500">Marks</span>
+                          <button onClick={()=>removeBlueprintItem(item.id)} className="p-1.5 text-surface-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-auto"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
               )}
 
               {/* Advanced Controls Toggle */}
@@ -1029,6 +1178,34 @@ IMPORTANT:
               <div className="hidden sm:block w-px h-6 bg-surface-200 mx-1"></div>
               <button onClick={() => setResults([])} className="flex items-center gap-2 px-4 py-2.5 bg-fuchsia-600 text-white rounded-xl text-sm font-bold hover:bg-fuchsia-700"><RotateCcw className="w-4 h-4"/> Edit/New</button>
             </div>
+
+            {/* ===== REGENERATE SINGLE QUESTION ===== */}
+            {activeTab === 'questionPaper' && !isEditing && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <RefreshCw className="w-4 h-4 text-amber-600 shrink-0" />
+                <span className="text-xs font-bold text-amber-800">Replace a question:</span>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Q No."
+                  className="w-20 px-2 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-center focus:outline-none focus:border-amber-500"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && e.target.value) handleRegenerateQuestion(parseInt(e.target.value))
+                  }}
+                  id="regen-q-input"
+                />
+                <button
+                  disabled={!!regeneratingQ}
+                  onClick={() => {
+                    const val = document.getElementById('regen-q-input')?.value
+                    if (val) handleRegenerateQuestion(parseInt(val))
+                  }}
+                  className="px-3 py-1.5 text-xs font-bold bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 flex items-center gap-1"
+                >
+                  {regeneratingQ ? <><Loader2 className="w-3 h-3 animate-spin" /> Replacing Q.{regeneratingQ}...</> : 'Replace Question'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* ===== ANALYTICS DASHBOARD ===== */}
