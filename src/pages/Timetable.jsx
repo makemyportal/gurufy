@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles, Send, Mail, Link as LinkIcon, Edit2, Upload, Download, Trash2, Database, Clock, ArrowRight, Lock, Unlock } from 'lucide-react'
+import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles, Send, Mail, Link as LinkIcon, Edit2, Upload, Download, Trash2, Database, Clock, ArrowRight, Lock, Unlock, Camera, FileText } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
 import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { generateAIContent } from '../utils/aiService'
 import { extractTextFromFile } from '../utils/fileExtractor'
 import { useGamification } from '../contexts/GamificationContext'
+import { uploadToCloudinary } from '../utils/cloudinary'
 import TokenShopModal from '../components/TokenShopModal'
 
 const ALL_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
@@ -45,6 +46,129 @@ const SC = {
   'Free Period':'bg-gray-100 text-gray-500 border-gray-200',
 }
 const gc = s => SC[s] || 'bg-indigo-100 text-indigo-800 border-indigo-200'
+
+const SchoolSetupModal = ({ onClose, onSave, currentUser, setActiveSchool }) => {
+  const [name, setName] = useState('')
+  const [address, setAddress] = useState('')
+  const [phone, setPhone] = useState('')
+  const [principalName, setPrincipalName] = useState('')
+  const [session, setSession] = useState('2026-2027')
+  const [logoFile, setLogoFile] = useState(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [logoPreview, setLogoPreview] = useState('')
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setLogoFile(file)
+      setLogoPreview(URL.createObjectURL(file))
+    }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!name.trim()) return alert('School Name is required')
+    setIsSubmitting(true)
+    try {
+      let logoUrl = ''
+      if (logoFile) {
+        const uploadResult = await uploadToCloudinary(logoFile)
+        logoUrl = uploadResult.secure_url
+      }
+      
+      const schoolData = {
+        userId: currentUser.uid,
+        name: name.trim(),
+        address: address.trim(),
+        phone: phone.trim(),
+        principalName: principalName.trim(),
+        session: session.trim(),
+        logoUrl,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }
+      
+      const docRef = await addDoc(collection(db, 'schools'), schoolData)
+      alert('School created successfully!')
+      
+      const newSchool = { id: docRef.id, ...schoolData }
+      
+      // Auto-select the newly created school
+      if (setActiveSchool) {
+        setActiveSchool(newSchool)
+        localStorage.setItem('ldms_active_school', JSON.stringify(newSchool))
+      }
+      
+      onSave()
+      onClose()
+    } catch (err) {
+      console.error('Failed to create school:', err)
+      alert('Failed to create school: ' + err.message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+      <div className="bg-white rounded-[32px] shadow-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-3xl font-black font-display text-surface-900">Create New School</h2>
+          <button onClick={onClose} className="p-2 hover:bg-surface-100 rounded-xl transition-colors"><X className="w-6 h-6 text-surface-500" /></button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="flex flex-col sm:flex-row gap-6 items-start">
+            {/* Logo Upload */}
+            <div className="flex flex-col items-center gap-3">
+              <label className="text-sm font-bold text-surface-700">School Logo</label>
+              <div className="w-32 h-32 rounded-3xl border-2 border-dashed border-surface-300 flex items-center justify-center bg-surface-50 relative overflow-hidden group cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Logo Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <Camera className="w-8 h-8 text-surface-400 group-hover:text-indigo-500" />
+                )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">Change</span>
+                </div>
+                <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+              </div>
+            </div>
+            
+            <div className="flex-1 space-y-4 w-full">
+              <div>
+                <label className="text-xs font-black text-surface-500 uppercase tracking-widest mb-1.5 block">School Name *</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="e.g. Springfield High School" className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 text-sm font-bold text-surface-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" />
+              </div>
+              <div>
+                <label className="text-xs font-black text-surface-500 uppercase tracking-widest mb-1.5 block">Address</label>
+                <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Full address" className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 text-sm font-bold text-surface-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-black text-surface-500 uppercase tracking-widest mb-1.5 block">Principal Name</label>
+              <input type="text" value={principalName} onChange={e => setPrincipalName(e.target.value)} placeholder="e.g. Dr. A. Gupta" className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 text-sm font-bold text-surface-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" />
+            </div>
+            <div>
+              <label className="text-xs font-black text-surface-500 uppercase tracking-widest mb-1.5 block">Academic Session</label>
+              <input type="text" value={session} onChange={e => setSession(e.target.value)} placeholder="e.g. 2026-2027" className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 text-sm font-bold text-surface-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" />
+            </div>
+          </div>
+          
+          <div className="pt-6 border-t border-surface-100 flex justify-end gap-3">
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="px-6 py-3 rounded-xl font-bold text-surface-600 hover:bg-surface-100 transition-colors">Cancel</button>
+            <button type="submit" disabled={isSubmitting} className="flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all shadow-md disabled:opacity-70 disabled:cursor-not-allowed">
+              {isSubmitting ? 'Creating...' : 'Create School'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
 
 export default function Timetable() {
   const { currentUser } = useAuth()
@@ -251,7 +375,16 @@ export default function Timetable() {
   })
   const [editing, setEditing] = useState(null)
   const [className, setClassName] = useState(() => localStorage.getItem('ldms_timetable_class') || 'Class 8-A')
-  const [schoolName, setSchoolName] = useState(() => localStorage.getItem('ldms_timetable_school') || '')
+  
+  // School-First Architecture State
+  const [schools, setSchools] = useState([])
+  const [activeSchool, setActiveSchool] = useState(() => {
+    const s = localStorage.getItem('ldms_active_school')
+    return s ? JSON.parse(s) : null
+  })
+  const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false)
+  const [isLoadingSchools, setIsLoadingSchools] = useState(true)
+
   const [details, setDetails] = useState(() => localStorage.getItem('ldms_timetable_details') || '')
   const [currentTimetableId, setCurrentTimetableId] = useState(() => localStorage.getItem('ldms_timetable_id') || null)
   const [cloudTimetables, setCloudTimetables] = useState([])
@@ -264,6 +397,7 @@ export default function Timetable() {
   const [reportSelectedDays, setReportSelectedDays] = useState([])
   const [isSaving, setIsSaving] = useState(false)
   const [showShop, setShowShop] = useState(false)
+  const [schoolName, setSchoolName] = useState(() => localStorage.getItem('ldms_timetable_school') || '')
   const [session, setSession] = useState(() => localStorage.getItem('ldms_timetable_session') || '')
   const [classTeacher, setClassTeacher] = useState(() => localStorage.getItem('ldms_timetable_teacher') || '')
   const [principalName, setPrincipalName] = useState(() => localStorage.getItem('ldms_timetable_principal') || '')
@@ -412,9 +546,9 @@ export default function Timetable() {
       }
       
       // Automatic Teacher Syncing across the entire school
-      if (schoolName && schoolName.trim() !== '') {
+      if (activeSchool?.id) {
         try {
-          const q = query(collection(db, 'timetables'), where('userId', '==', currentUser.uid), where('schoolName', '==', schoolName));
+          const q = query(collection(db, 'timetables'), where('userId', '==', currentUser.uid), where('schoolId', '==', activeSchool.id));
           const snap = await getDocs(q);
           const batch = writeBatch(db);
           snap.docs.forEach(d => {
@@ -450,10 +584,38 @@ export default function Timetable() {
     setAllTeachersList(Array.from(tSet).sort())
   }, [teachers, cloudTimetables])
 
-  const loadTimetables = async () => {
+  const loadSchools = async () => {
     if (!currentUser) return []
     try {
-      const q = query(collection(db, 'timetables'), where('userId', '==', currentUser.uid))
+      setIsLoadingSchools(true)
+      const q = query(collection(db, 'schools'), where('userId', '==', currentUser.uid))
+      const snapshot = await getDocs(q)
+      const fetchedSchools = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      // Sort newest first
+      fetchedSchools.sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
+      setSchools(fetchedSchools)
+      
+      // If activeSchool is stored but not in fetched list, clear it
+      if (activeSchool && !fetchedSchools.find(s => s.id === activeSchool.id)) {
+        setActiveSchool(null)
+        localStorage.removeItem('ldms_active_school')
+      }
+      return fetchedSchools
+    } catch (error) {
+      console.error('Error loading schools:', error)
+      return []
+    } finally {
+      setIsLoadingSchools(false)
+    }
+  }
+
+  const loadTimetables = async (schoolId) => {
+    if (!currentUser || !schoolId) {
+      setCloudTimetables([])
+      return []
+    }
+    try {
+      const q = query(collection(db, 'timetables'), where('userId', '==', currentUser.uid), where('schoolId', '==', schoolId))
       const snapshot = await getDocs(q)
       const tbs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       tbs.sort((a,b) => (b.updatedAt?.toMillis() || 0) - (a.updatedAt?.toMillis() || 0))
@@ -461,17 +623,30 @@ export default function Timetable() {
       return tbs
     } catch (error) {
       console.error('Error loading timetables:', error)
+      setCloudTimetables([])
       return []
     }
   }
 
   useEffect(() => {
-    if (currentUser) loadTimetables()
+    if (currentUser) {
+      loadSchools()
+    } else {
+      setIsLoadingSchools(false)
+    }
   }, [currentUser])
+
+  useEffect(() => {
+    if (currentUser && activeSchool?.id) {
+      loadTimetables(activeSchool.id)
+    } else {
+      setCloudTimetables([])
+    }
+  }, [currentUser, activeSchool])
 
   const getMasterSubReport = (day) => {
     const absentees = getAbsentTeacherNames().filter(t => isAbsentOnDay(t, day));
-    const sName = schoolName || 'Unassigned School';
+    const sName = activeSchool?.name || 'Unassigned School';
     const schoolTimetables = cloudTimetables.filter(tb => (tb.schoolName || 'Unassigned School') === sName).map(tb => {
       if (tb.id === currentTimetableId) return { ...tb, grid, className };
       return tb;
@@ -590,7 +765,7 @@ export default function Timetable() {
 
   const printMultiDayReport = (days) => {
     if (!days || days.length === 0) return alert('Please select at least one day.');
-    const sName = schoolName || 'Unassigned School';
+    const sName = activeSchool?.name || 'Unassigned School';
     const schoolTbs = cloudTimetables.filter(tb => (tb.schoolName || 'Unassigned School') === sName).map(tb => {
       if (tb.id === currentTimetableId) return { ...tb, grid, className };
       return tb;
@@ -676,7 +851,7 @@ export default function Timetable() {
   }
 
   const printMonthlySummary = () => {
-    const sName = schoolName || 'Unassigned School';
+    const sName = activeSchool?.name || 'Unassigned School';
     const schoolTbs = cloudTimetables.filter(tb => (tb.schoolName || 'Unassigned School') === sName).map(tb => {
       if (tb.id === currentTimetableId) return { ...tb, grid, className };
       return tb;
@@ -1231,15 +1406,36 @@ export default function Timetable() {
     }
   }
 
-  const handleNewTimetable = () => {
-    if (!confirm('Start a new timetable? Current local unsaved changes will be cleared.')) return
+  const handleNewTimetable = async () => {
+    const newName = prompt('Enter a name for the new class (e.g. 10-A):')
+    if (!newName) return
+    
     setCurrentTimetableId(null)
-    setSchoolName('')
-    setClassName('New Class')
+    setClassName(newName)
     setDetails('')
     const g = {}
     ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '' } }) })
     setGrid(g)
+    
+    if (currentUser && activeSchool) {
+      try {
+        const docRef = await addDoc(collection(db, 'timetables'), {
+          userId: currentUser.uid,
+          schoolId: activeSchool.id,
+          schoolName: activeSchool.name,
+          className: newName,
+          details: '',
+          grid: g,
+          activeDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        })
+        setCurrentTimetableId(docRef.id)
+        loadTimetables(activeSchool.id)
+      } catch (e) {
+        console.error("Failed to auto-save new class:", e)
+      }
+    }
   }
 
   const getCellAssignments = (cell) => {
@@ -2220,19 +2416,26 @@ export default function Timetable() {
     })
 
     emptyPeriods.forEach(period => {
+      // Pick the highest-priority subject to lock for this ENTIRE period row
+      subjectReqs.sort((a, b) => b.remaining - a.remaining)
+      let rowSubject = subjectReqs.find(s => s.remaining > 0)
+
       // Fill each day within this period row
       activeDays.forEach(day => {
         const c = newGrid[day]?.[period] || {}
         if (c.isSplit || c.subject || c.isLocked) return // skip already filled or locked
 
-        // Re-sort by remaining count so highest-need subject fills this period row
-        subjectReqs.sort((a, b) => b.remaining - a.remaining)
-        const bestSubject = subjectReqs.find(s => s.remaining > 0)
-        if (!bestSubject) return
+        // If the rowSubject ran out of remaining slots, we need to pick the next best one mid-row
+        if (!rowSubject || rowSubject.remaining <= 0) {
+          subjectReqs.sort((a, b) => b.remaining - a.remaining)
+          rowSubject = subjectReqs.find(s => s.remaining > 0)
+        }
+
+        if (!rowSubject) return
 
         // Find a teacher: prefer subject experts first, then any eligible
         let candidates = teachers.filter(t =>
-          (teacherSubjects[t] || []).includes(bestSubject.subject) && isEligible(t, day, period)
+          (teacherSubjects[t] || []).includes(rowSubject.subject) && isEligible(t, day, period)
         )
         if (candidates.length === 0) {
           candidates = teachers.filter(t => isEligible(t, day, period))
@@ -2241,10 +2444,13 @@ export default function Timetable() {
         if (candidates.length > 0) {
           candidates.sort((a, b) => (workload[a] || 0) - (workload[b] || 0))
           const assignedTeacher = candidates[0]
-          newGrid[day][period] = { subject: bestSubject.subject, teacher: assignedTeacher, substitute: '', room: '' }
+          newGrid[day] = newGrid[day] || {}
+          newGrid[day][period] = { ...c, subject: rowSubject.subject, teacher: assignedTeacher, substitute: '', room: '' }
+          rowSubject.remaining--
           workload[assignedTeacher] = (workload[assignedTeacher] || 0) + 1
-          busyMap[getBusyKey(day, period)].add(assignedTeacher)
-          bestSubject.remaining--
+          const key = getBusyKey(day, period)
+          if (!busyMap[key]) busyMap[key] = new Set()
+          busyMap[key].add(assignedTeacher)
         }
       })
     })
@@ -2369,25 +2575,233 @@ export default function Timetable() {
     document.body.removeChild(link)
   }
 
+  let filledPeriods = 0
+  activeDays.forEach(day => PERIODS.forEach(p => {
+    const c = grid[day]?.[p]
+    if (c && (c.isSplit || c.subject)) filledPeriods++
+  }))
+  const totalSlots = activeDays.length * PERIODS.length
+  const usedSubjects = new Set()
+  activeDays.forEach(day => PERIODS.forEach(p => {
+    const c = grid[day]?.[p]
+    if (!c) return
+    if (c.isSplit && c.groups) c.groups.forEach(g => { if (g.subject && g.subject !== 'Lunch' && g.subject !== 'Free Period') usedSubjects.add(g.subject) })
+    else if (c.subject && c.subject !== 'Lunch' && c.subject !== 'Free Period') usedSubjects.add(c.subject)
+  }))
+  const usedTeachersSet = new Set()
+  activeDays.forEach(day => PERIODS.forEach(p => {
+    const c = grid[day]?.[p]
+    if (!c) return
+    if (c.isSplit && c.groups) c.groups.forEach(g => { if (g.teacher) usedTeachersSet.add(g.teacher) })
+    else if (c.teacher) usedTeachersSet.add(c.teacher)
+  }))
+  const clashCount = (() => {
+    let count = 0
+    activeDays.forEach(d => {
+      PERIODS.forEach(p => {
+        const cell = grid[d]?.[p]
+        if (!cell) return
+        const teachers_in = []
+        if (cell.isSplit && cell.groups) cell.groups.forEach(g => { if (g.teacher) teachers_in.push(g.teacher) })
+        else if (cell.teacher) teachers_in.push(cell.teacher)
+        teachers_in.forEach(t => {
+          (cloudTimetables || []).forEach(tb => {
+            if (tb.id === currentTimetableId) return
+            const oc = tb.grid?.[d]?.[p]
+            if (!oc) return
+            const ot = []
+            if (oc.isSplit && oc.groups) oc.groups.forEach(g => { if (g.teacher) ot.push(g.teacher) })
+            else if (oc.teacher) ot.push(oc.teacher)
+            if (ot.includes(t)) count++
+          })
+        })
+      })
+    })
+    return count
+  })()
+  const fillPercent = totalSlots > 0 ? Math.round((filledPeriods / totalSlots) * 100) : 0
+
+  if (isLoadingSchools) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-surface-400 animate-fade-in">
+        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4" />
+        <p className="font-bold">Loading Schools...</p>
+      </div>
+    )
+  }
+
+  if (!activeSchool && currentUser) {
+    return (
+      <div className="max-w-[1200px] mx-auto animate-fade-in-up pb-24 lg:pb-8">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-black text-surface-900 font-display">My Schools</h1>
+            <p className="text-surface-500 mt-1">Select a school to manage its timetables</p>
+          </div>
+          <button onClick={() => setIsSchoolModalOpen(true)} className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-md">
+            <Plus className="w-5 h-5" /> Create School
+          </button>
+        </div>
+
+        {schools.length === 0 ? (
+          <div className="bg-surface-50 border-2 border-dashed border-surface-200 rounded-[32px] p-8 sm:p-16 flex flex-col items-center justify-center text-center">
+            <div className="w-24 h-24 bg-indigo-100 rounded-[28px] flex items-center justify-center mb-6">
+              <Database className="w-12 h-12 text-indigo-600" />
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black text-surface-900 mb-3">No Schools Found</h2>
+            <p className="text-surface-500 max-w-md mb-8 text-sm sm:text-base">You need to create a school profile before you can start building timetables. This helps organize classes and generate professional substitute reports.</p>
+            <button onClick={() => setIsSchoolModalOpen(true)} className="flex items-center gap-2 px-8 py-3.5 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-500/25 hover:-translate-y-1">
+              <Plus className="w-5 h-5" /> Create Your First School
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {schools.map(school => (
+              <div 
+                key={school.id}
+                onClick={() => {
+                  setActiveSchool(school)
+                  localStorage.setItem('ldms_active_school', JSON.stringify(school))
+                }}
+                className="bg-white rounded-[28px] border border-surface-200 p-6 hover:shadow-xl hover:border-indigo-300 transition-all cursor-pointer group flex flex-col min-h-[220px]"
+              >
+                <div className="flex items-start gap-5 mb-6">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-surface-50 border border-surface-100 overflow-hidden flex items-center justify-center shrink-0">
+                    {school.logoUrl ? (
+                      <img src={school.logoUrl} alt={school.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Database className="w-8 h-8 text-surface-300" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-black text-surface-900 group-hover:text-indigo-600 transition-colors line-clamp-2">{school.name}</h3>
+                    <p className="text-sm text-surface-500 mt-1.5 line-clamp-2">{school.address || 'No Address'}</p>
+                  </div>
+                </div>
+                <div className="mt-auto flex items-center justify-between pt-5 border-t border-surface-100 text-sm">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-black text-surface-400 uppercase tracking-widest">Session</span>
+                    <span className="font-bold text-surface-700">{school.session || '2026-2027'}</span>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors text-indigo-600">
+                    <ArrowRight className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {isSchoolModalOpen && <SchoolSetupModal onClose={() => setIsSchoolModalOpen(false)} onSave={loadSchools} currentUser={currentUser} setActiveSchool={setActiveSchool} />}
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-[1200px] mx-auto animate-fade-in-up pb-24 lg:pb-8">
-      {/* Header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-teal-600 via-emerald-600 to-green-700 rounded-[32px] p-8 sm:p-12 mb-8 shadow-2xl">
+      {/* ═══ HERO: Smart Dashboard ═══ */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-teal-600 via-emerald-600 to-green-700 rounded-[32px] p-6 sm:p-8 mb-6 shadow-2xl">
         <div className="absolute top-0 right-0 -translate-y-1/3 translate-x-1/4 w-[500px] h-[500px] bg-white/10 rounded-full blur-[80px] pointer-events-none" />
+        <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-[300px] h-[300px] bg-emerald-400/15 rounded-full blur-[60px] pointer-events-none" />
         <div className="relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 border border-white/30 text-white text-xs font-black tracking-widest uppercase mb-5">
-            <CalendarDays className="w-4 h-4" /> Schedule
+          {/* Top Row: Title + Save/Cloud */}
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 border border-white/30 text-white text-xs font-black tracking-widest uppercase mb-3">
+                <CalendarDays className="w-4 h-4" /> Hero Tool
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black font-display text-white tracking-tight">
+                Timetable <span className="text-emerald-200">Builder</span>
+              </h1>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {currentUser && (
+                <>
+                  <button onClick={saveToCloud} disabled={isSaving} className="flex items-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white rounded-xl text-sm font-bold transition-all shadow-sm">
+                    <Cloud className="w-4 h-4" /> {isSaving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button onClick={() => { setIsCloudModalOpen(true); loadTimetables(activeSchool?.id) }} className="flex items-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white rounded-xl text-sm font-bold transition-all shadow-sm">
+                    <FolderOpen className="w-4 h-4" /> My Timetables
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black font-display text-white tracking-tight mb-3">
-            Timetable <span className="text-emerald-200">Builder</span>
-          </h1>
-          <p className="text-emerald-100 font-medium text-sm sm:text-base max-w-xl">Click cells to assign subjects & teachers. Manage absent teachers and substitutes.</p>
+
+          {/* Active School Header */}
+          {currentUser && (
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-5 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-white/20 border border-white/30 overflow-hidden flex items-center justify-center shrink-0">
+                  {activeSchool?.logoUrl ? <img src={activeSchool.logoUrl} className="w-full h-full object-cover" /> : <Database className="w-6 h-6 text-white" />}
+                </div>
+                <div>
+                  <h2 className="text-lg sm:text-xl font-black text-white">{activeSchool?.name || schoolName || 'Unassigned School'}</h2>
+                  <div className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest">
+                    {activeSchool?.session || session || '2026-2027'} • {activeSchool?.principalName || principalName || 'No Principal'}
+                  </div>
+                </div>
+              </div>
+              
+              <button onClick={() => { setActiveSchool(null); localStorage.removeItem('ldms_active_school'); }} className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2">
+                <ArrowRight className="w-4 h-4 rotate-180" /> Switch School
+              </button>
+            </div>
+          )}
+
+          {/* Class Info Bar */}
+          <div className="flex flex-wrap items-center gap-3 mb-5">
+            {editingClass ? (
+              <div className="flex flex-wrap items-center gap-2 w-full">
+                <input type="text" value={className} onChange={e => setClassName(e.target.value)} autoFocus placeholder="Class (e.g. 8-A)" className="px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/40 rounded-xl text-sm font-bold text-white placeholder-white/50 focus:outline-none focus:border-white/80 w-full sm:w-auto" />
+                <input type="text" value={details} onChange={e => setDetails(e.target.value)} placeholder="Notes (optional)" className="hidden md:block px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/40 rounded-xl text-sm font-medium text-white placeholder-white/50 focus:outline-none focus:border-white/80 min-w-[200px]" />
+                {!currentUser && (
+                  <>
+                    <input type="text" value={schoolName} onChange={e => setSchoolName(e.target.value)} placeholder="School Name" className="px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/40 rounded-xl text-sm font-medium text-white placeholder-white/50 focus:outline-none focus:border-white/80 w-full sm:w-auto" />
+                    <input type="text" value={session} onChange={e => setSession(e.target.value)} placeholder="Session" className="px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/40 rounded-xl text-sm font-medium text-white placeholder-white/50 focus:outline-none focus:border-white/80 w-full sm:w-auto" />
+                  </>
+                )}
+                <button onClick={() => setEditingClass(false)} className="p-2 bg-white/30 text-white rounded-xl shadow-sm hover:bg-white/40 transition-colors"><Save className="w-5 h-5" /></button>
+              </div>
+            ) : (
+              <button onClick={() => setEditingClass(true)} className="flex items-center gap-3 px-4 py-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/25 rounded-xl text-white transition-all group">
+                <span className="text-lg font-black">📚 {className}</span>
+                <Edit2 className="w-3.5 h-3.5 text-white/50 group-hover:text-white transition-colors ml-1" />
+              </button>
+            )}
+            {currentTimetableId && <span className="text-[10px] font-bold text-emerald-200 bg-white/10 px-2.5 py-1 rounded-full">☁️ Synced</span>}
+          </div>
+
+          {/* Live Stats Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-white/15 backdrop-blur-sm border border-white/20 rounded-2xl p-3.5 text-center group hover:bg-white/20 transition-all">
+              <div className="text-2xl sm:text-3xl font-black text-white">{filledPeriods}<span className="text-base text-emerald-200 font-bold">/{totalSlots}</span></div>
+              <div className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest mt-1">Periods Filled</div>
+              <div className="w-full bg-white/20 rounded-full h-1.5 mt-2 overflow-hidden">
+                <div className="bg-emerald-300 h-full rounded-full transition-all duration-1000" style={{ width: `${fillPercent}%` }} />
+              </div>
+            </div>
+            <div className="bg-white/15 backdrop-blur-sm border border-white/20 rounded-2xl p-3.5 text-center group hover:bg-white/20 transition-all">
+              <div className="text-2xl sm:text-3xl font-black text-white">{usedTeachersSet.size}</div>
+              <div className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest mt-1">Teachers Assigned</div>
+              <div className="text-[10px] text-white/50 font-medium mt-1">{teachers.length} total in roster</div>
+            </div>
+            <div className="bg-white/15 backdrop-blur-sm border border-white/20 rounded-2xl p-3.5 text-center group hover:bg-white/20 transition-all">
+              <div className="text-2xl sm:text-3xl font-black text-white">{usedSubjects.size}</div>
+              <div className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest mt-1">Subjects Used</div>
+              <div className="text-[10px] text-white/50 font-medium mt-1">{activeDays.length}-day week</div>
+            </div>
+            <div className={`backdrop-blur-sm border rounded-2xl p-3.5 text-center group transition-all ${clashCount > 0 ? 'bg-red-500/30 border-red-400/40 hover:bg-red-500/40' : 'bg-white/15 border-white/20 hover:bg-white/20'}`}>
+              <div className={`text-2xl sm:text-3xl font-black ${clashCount > 0 ? 'text-red-200' : 'text-white'}`}>{clashCount}</div>
+              <div className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${clashCount > 0 ? 'text-red-200' : 'text-emerald-200'}`}>{clashCount > 0 ? 'Clashes ⚠️' : 'No Clashes ✅'}</div>
+              {clashCount > 0 && <div className="text-[10px] text-red-200/70 font-medium mt-1">Click Reports to fix</div>}
+            </div>
+          </div>
         </div>
       </div>
       
       {showShop && <TokenShopModal onClose={() => setShowShop(false)} />}
 
-      {/* Controls */}
+      {/* Guest Warning */}
       {!currentUser && (
         <div className="mb-4 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3 text-sm text-amber-800 shadow-sm animate-fade-in">
           <AlertCircle className="w-6 h-6 text-amber-500 shrink-0" />
@@ -2395,108 +2809,156 @@ export default function Timetable() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        {editingClass ? (
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            <input type="text" value={className} onChange={e => setClassName(e.target.value)} autoFocus placeholder="Class (e.g. 8-A)" className="px-4 py-2.5 border-2 border-emerald-400 rounded-xl text-sm font-bold focus:outline-none w-full sm:w-auto" />
-            <input type="text" value={schoolName} onChange={e => setSchoolName(e.target.value)} placeholder="School Name (optional)" className="px-4 py-2.5 border-2 border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:border-emerald-400 w-full sm:w-auto" />
-            <input type="text" value={details} onChange={e => setDetails(e.target.value)} placeholder="Details (optional)" className="hidden md:block px-4 py-2.5 border-2 border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:border-emerald-400 min-w-[200px]" />
-            <button onClick={() => setEditingClass(false)} className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-sm hover:bg-emerald-700 transition-colors"><Save className="w-5 h-5" /></button>
-          </div>
-        ) : (
-          <button onClick={() => setEditingClass(true)} className="px-5 py-2.5 bg-white border border-surface-200 rounded-xl text-sm font-extrabold text-surface-900 hover:bg-surface-50 text-left flex items-center gap-2 shadow-sm transition-all">
-            <span>📚 {className}</span>
-            {schoolName && <span className="text-surface-400 font-medium text-xs border-l border-surface-200 pl-2 ml-1">{schoolName}</span>}
-          </button>
-        )}
-        <button onClick={() => setShowPanel(!showPanel)} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${showPanel ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border border-surface-200 text-surface-700 hover:bg-surface-50'}`}>
-          <Users className="w-4 h-4" /> Teachers {getAbsentTeacherNames().length > 0 && <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">{getAbsentTeacherNames().length}</span>}
-        </button>
-        <button onClick={() => setIsWorkloadModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-sm font-bold hover:bg-indigo-100 shadow-sm transition-all">
-          <BookOpen className="w-4 h-4" /> Workload
-        </button>
-        <button onClick={handlePrintClick} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm"><Printer className="w-4 h-4" /> Print</button>
-        <button onClick={exportClassCSV} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm"><Download className="w-4 h-4" /> CSV</button>
-        
-        <div className="relative">
-          <button onClick={() => setShowShareMenu(!showShareMenu)} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 transition-all shadow-sm">
-            <Share2 className="w-4 h-4" /> Share
-          </button>
-          {showShareMenu && (
-            <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-surface-200 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
-              <button onClick={handleTimetableShareWhatsApp} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-[#25D366]/10 hover:text-[#25D366] transition-colors"><MessageCircle className="w-4 h-4" /> WhatsApp</button>
-              <button onClick={handleTimetableShareTelegram} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-[#0088cc]/10 hover:text-[#0088cc] transition-colors border-t border-surface-100"><Send className="w-4 h-4" /> Telegram</button>
-              <button onClick={handleTimetableShareEmail} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-100 transition-colors border-t border-surface-100"><Mail className="w-4 h-4" /> Email</button>
-              {navigator.share && (
-                <button onClick={handleTimetableNativeShare} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-100 transition-colors border-t border-surface-100"><LinkIcon className="w-4 h-4" /> Share via...</button>
-              )}
+      {/* Quick Guide Banner */}
+      <div className="mb-6 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-[24px] p-5 sm:p-6 shadow-sm relative overflow-hidden animate-fade-in">
+        <div className="absolute -top-4 -right-4 p-4 opacity-10">
+          <Sparkles className="w-32 h-32 text-indigo-500" />
+        </div>
+        <div className="relative z-10 flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
+          <div className="flex-1">
+            <h3 className="text-lg font-black text-indigo-950 mb-3 flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-indigo-600" /> How to build your Smart Timetable?
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="flex items-start gap-3 bg-white/60 p-3 rounded-xl border border-white">
+                <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black shrink-0 shadow-sm">1</div>
+                <div>
+                  <div className="text-sm font-bold text-indigo-900">Setup Data</div>
+                  <div className="text-xs font-medium text-indigo-700/70 mt-0.5">Go to 'MANAGE' and add teachers with their subject workloads.</div>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 bg-white/60 p-3 rounded-xl border border-white">
+                <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black shrink-0 shadow-sm">2</div>
+                <div>
+                  <div className="text-sm font-bold text-indigo-900">Define Grid</div>
+                  <div className="text-xs font-medium text-indigo-700/70 mt-0.5">Edit your Class Name and set the Active Days at the bottom.</div>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 bg-white/60 p-3 rounded-xl border border-white">
+                <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black shrink-0 shadow-sm">3</div>
+                <div>
+                  <div className="text-sm font-bold text-indigo-900">Auto Generate</div>
+                  <div className="text-xs font-medium text-indigo-700/70 mt-0.5">Click 'AI Auto-Fill' in 'BUILD' to magically generate your timetable!</div>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ CONTROL SECTIONS ═══ */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        
+        {/* SECTION 1: BUILD */}
+        <div className="bg-surface-50 border border-surface-200 rounded-[24px] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <h3 className="font-black text-surface-900 tracking-tight">BUILD</h3>
+          </div>
+          <div className="space-y-2">
+            <button onClick={() => setIsAIModalOpen(true)} className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl text-sm font-bold hover:shadow-lg shadow-sm transition-all group">
+              <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform" /> AI Auto-Fill
+            </button>
+            <button onClick={handleNewTimetable} className="w-full flex items-center gap-3 px-4 py-3 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm transition-all group">
+              <Plus className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" /> New Class
+            </button>
+            <button onClick={() => setIsTemplatesModalOpen(true)} className="w-full flex items-center gap-3 px-4 py-3 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm transition-all">
+              <Copy className="w-4 h-4 text-amber-500" /> Copy Template
+            </button>
+          </div>
         </div>
 
-        <button onClick={() => setIsAIModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl text-sm font-bold hover:shadow-lg shadow-sm transition-all animate-pulse-soft">
-          <Sparkles className="w-4 h-4" /> AI Auto-Fill
+        {/* SECTION 2: MANAGE */}
+        <div className="bg-surface-50 border border-surface-200 rounded-[24px] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+            <h3 className="font-black text-surface-900 tracking-tight">MANAGE</h3>
+          </div>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <button onClick={() => setShowPanel(!showPanel)} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-sm ${showPanel ? 'bg-indigo-600 text-white' : 'bg-white border border-surface-200 text-surface-700 hover:bg-surface-50'}`}>
+                <Users className="w-4 h-4" /> Teachers {getAbsentTeacherNames().length > 0 && <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">{getAbsentTeacherNames().length}</span>}
+              </button>
+              <button onClick={() => setIsWorkloadModalOpen(true)} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm transition-all">
+                <BookOpen className="w-4 h-4 text-indigo-500" /> Workload
+              </button>
+            </div>
+            
+            <button onClick={() => setIsSubReportModalOpen(true)} className="w-full flex items-center gap-3 px-4 py-3 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm transition-all group">
+              <FileText className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" /> Daily Sub Report
+            </button>
+            
+            <div className="relative">
+              <button onClick={() => setShowBulkActions(!showBulkActions)} className="w-full flex items-center justify-between px-4 py-3 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm transition-all">
+                <div className="flex items-center gap-3"><Settings className="w-4 h-4 text-surface-400" /> Bulk Actions</div>
+                <ChevronDown className={`w-4 h-4 transition-transform ${showBulkActions ? 'rotate-180' : ''}`} />
+              </button>
+              {showBulkActions && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-surface-200 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
+                  <button onClick={handleBulkClearTeachers} className="w-full text-left px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-50 border-b border-surface-100 flex items-center gap-2"><UserX className="w-4 h-4 text-surface-400" /> Clear Teachers</button>
+                  <button onClick={handleBulkClearSubs} className="w-full text-left px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-50 border-b border-surface-100 flex items-center gap-2"><UserX className="w-4 h-4 text-red-400" /> Clear Substitutes</button>
+                  <button onClick={handleBulkResetAbsences} className="w-full text-left px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-50 border-b border-surface-100 flex items-center gap-2"><UserCheck className="w-4 h-4 text-emerald-400" /> Reset Absences</button>
+                  <button onClick={handleBulkClearGrid} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 className="w-4 h-4" /> Clear Grid</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 3: EXPORT & SHARE */}
+        <div className="bg-surface-50 border border-surface-200 rounded-[24px] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+              <Share2 className="w-4 h-4" />
+            </div>
+            <h3 className="font-black text-surface-900 tracking-tight">EXPORT & SHARE</h3>
+          </div>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <button onClick={handlePrintClick} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm transition-all">
+                <Printer className="w-4 h-4 text-blue-500" /> Print
+              </button>
+              <button onClick={exportClassCSV} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm transition-all">
+                <Download className="w-4 h-4 text-surface-400" /> CSV
+              </button>
+            </div>
+            <button onClick={handleOpenTeacherView} className="w-full flex items-center gap-3 px-4 py-3 bg-fuchsia-50 border border-fuchsia-200 text-fuchsia-700 rounded-xl text-sm font-bold hover:bg-fuchsia-100 shadow-sm transition-all group">
+              <User className="w-4 h-4 group-hover:scale-110 transition-transform" /> Teacher View
+            </button>
+            <div className="relative">
+              <button onClick={() => setShowShareMenu(!showShareMenu)} className="w-full flex items-center justify-between px-4 py-3 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm transition-all">
+                <div className="flex items-center gap-3"><Share2 className="w-4 h-4 text-blue-500" /> Share Digital</div>
+                <ChevronDown className={`w-4 h-4 transition-transform ${showShareMenu ? 'rotate-180' : ''}`} />
+              </button>
+              {showShareMenu && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-surface-200 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
+                  <button onClick={handleTimetableShareWhatsApp} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-[#25D366]/10 hover:text-[#25D366] transition-colors"><MessageCircle className="w-4 h-4" /> WhatsApp</button>
+                  <button onClick={handleTimetableShareTelegram} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-[#0088cc]/10 hover:text-[#0088cc] transition-colors border-t border-surface-100"><Send className="w-4 h-4" /> Telegram</button>
+                  <button onClick={handleTimetableShareEmail} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-100 transition-colors border-t border-surface-100"><Mail className="w-4 h-4" /> Email</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Undo/Redo Floating Controls */}
+      <div className="flex items-center gap-2 mb-6 ml-1">
+        <button onClick={handleUndo} disabled={historyIndex <= 0} className="p-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl hover:bg-surface-50 shadow-sm disabled:opacity-50 transition-all" title="Undo (Ctrl+Z)">
+          <RotateCcw className="w-4 h-4" />
         </button>
-        
+        <button onClick={handleRedo} disabled={historyIndex >= gridHistory.length - 1} className="p-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl hover:bg-surface-50 shadow-sm disabled:opacity-50 transition-all" title="Redo (Ctrl+Y)">
+          <RotateCcw className="w-4 h-4 transform scale-x-[-1]" />
+        </button>
         {assignedSubsCount > 0 && (
-          <button onClick={notifyAllSubs} className="flex items-center gap-2 px-5 py-2.5 bg-[#25D366] text-white rounded-xl text-sm font-bold hover:bg-[#128C7E] shadow-sm transition-all animate-fade-in">
+          <button onClick={notifyAllSubs} className="ml-auto flex items-center gap-2 px-5 py-2.5 bg-[#25D366] text-white rounded-xl text-sm font-bold hover:bg-[#128C7E] shadow-sm transition-all animate-fade-in">
             <MessageCircle className="w-4 h-4" /> Share Subs
           </button>
         )}
-        
-        <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-end flex-wrap">
-          <button onClick={handleOpenTeacherView} className="flex items-center gap-2 px-4 py-2.5 bg-fuchsia-50 border border-fuchsia-200 text-fuchsia-700 rounded-xl text-sm font-bold hover:bg-fuchsia-100 shadow-sm">
-            <User className="w-4 h-4" /> <span>Teacher View</span>
-          </button>
-
-          {currentUser && (
-            <>
-              <button onClick={() => { setIsCloudModalOpen(true); loadTimetables() }} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-sm font-bold hover:bg-indigo-100 shadow-sm">
-                <FolderOpen className="w-4 h-4" /> <span>My Timetables</span>
-              </button>
-              <button onClick={saveToCloud} disabled={isSaving} className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 border border-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 shadow-sm">
-                <Cloud className="w-4 h-4" /> <span>{isSaving ? 'Saving...' : 'Save Cloud'}</span>
-              </button>
-            </>
-          )}
-
-          <button onClick={handleNewTimetable} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl text-sm font-bold hover:bg-surface-50 shadow-sm">
-            <Plus className="w-4 h-4 text-emerald-600" /> <span>New Class</span>
-          </button>
-
-          {currentUser && currentTimetableId && (
-            <button onClick={() => handleDeleteTimetable({ id: currentTimetableId, className })} className="flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-bold hover:bg-red-100 shadow-sm">
-              <Trash2 className="w-4 h-4" /> <span>Delete Saved</span>
-            </button>
-          )}
-
-          <div className="flex items-center gap-2 border-l border-surface-200 pl-2">
-            <button onClick={handleUndo} disabled={historyIndex <= 0} className="p-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl hover:bg-surface-50 shadow-sm disabled:opacity-50 transition-all" title="Undo (Ctrl+Z)">
-              <RotateCcw className="w-4 h-4" />
-            </button>
-            <button onClick={handleRedo} disabled={historyIndex >= gridHistory.length - 1} className="p-2.5 bg-white border border-surface-200 text-surface-700 rounded-xl hover:bg-surface-50 shadow-sm disabled:opacity-50 transition-all" title="Redo (Ctrl+Y)">
-              <RotateCcw className="w-4 h-4 transform scale-x-[-1]" />
-            </button>
-          </div>
-
-          <button onClick={() => setIsTemplatesModalOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-sm font-bold hover:bg-amber-100 shadow-sm transition-all">
-            <Copy className="w-4 h-4" /> <span>Templates</span>
-          </button>
-
-          <div className="relative">
-            <button onClick={() => setShowBulkActions(!showBulkActions)} className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 border border-orange-200 text-orange-600 rounded-xl text-sm font-bold hover:bg-orange-100 shadow-sm transition-all">
-              <Sparkles className="w-4 h-4" /> <span>Bulk Actions</span> <ChevronDown className="w-3 h-3 ml-1" />
-            </button>
-            {showBulkActions && (
-              <div className="absolute top-full right-0 mt-2 w-56 bg-white border border-surface-200 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
-                <button onClick={handleBulkClearTeachers} className="w-full text-left px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-50 border-b border-surface-100 flex items-center gap-2"><UserX className="w-4 h-4 text-surface-400" /> Clear Teachers</button>
-                <button onClick={handleBulkClearSubs} className="w-full text-left px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-50 border-b border-surface-100 flex items-center gap-2"><UserX className="w-4 h-4 text-red-400" /> Clear Substitutes</button>
-                <button onClick={handleBulkResetAbsences} className="w-full text-left px-4 py-3 text-sm font-bold text-surface-700 hover:bg-surface-50 border-b border-surface-100 flex items-center gap-2"><UserCheck className="w-4 h-4 text-emerald-400" /> Reset All Absences</button>
-                <button onClick={handleBulkClearGrid} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 className="w-4 h-4" /> Clear Entire Grid</button>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Absent Alert */}
