@@ -1,7 +1,7 @@
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   GraduationCap, Heart, Target, Globe2, Users, Lightbulb,
-  Award, ArrowRight, BookOpen, Star, Zap
+  Award, ArrowRight, BookOpen, Star, Zap, Shield, Rocket, Brain
 } from 'lucide-react'
 
 const VALUES = [
@@ -35,18 +35,18 @@ const VALUES = [
   },
 ]
 
-const TEAM = [
-  { name: 'Arjun Mehta', role: 'Co-Founder & CEO', avatar: 'AM', color: '#6366f1', bio: 'Former teacher turned entrepreneur. 10 years in EdTech.' },
-  { name: 'Sanya Kapoor', role: 'Co-Founder & CTO', avatar: 'SK', color: '#8b5cf6', bio: 'IIT grad. Built AI systems for top Indian startups.' },
-  { name: 'Rohan Das', role: 'Head of Community', avatar: 'RD', color: '#06b6d4', bio: 'Ex-school principal with passion for teacher growth.' },
-  { name: 'Meera Nair', role: 'Head of Product', avatar: 'MN', color: '#10b981', bio: 'User researcher obsessed with delightful experiences.' },
+const MILESTONES = [
+  { year: '2024', event: 'LDMS founded with a vision to empower every educator in India through technology.' },
+  { year: '2024', event: 'Launched AI-powered tools — Lesson Planner, Exam Generator, Smart Timetable.' },
+  { year: '2025', event: 'Crossed 10,000+ registered educators and 2,500+ schools across India.' },
+  { year: '2025', event: 'Introduced Smart Exam Maker, Syllabus Pro, and the Token Economy system.' },
 ]
 
-const MILESTONES = [
-  { year: '2022', event: 'Founded in Bangalore with a team of 4' },
-  { year: '2023', event: 'Reached 1,000 educators and launched AI tools' },
-  { year: '2024', event: 'Crossed 8,000 users and raised seed funding' },
-  { year: '2025', event: '12,400+ educators, 2,800+ schools across India' },
+const WHAT_WE_OFFER = [
+  { icon: Brain, title: 'AI Teaching Assistants', desc: 'Generate lesson plans, exam papers, quizzes, and report cards using cutting-edge AI.', color: 'from-indigo-500 to-violet-600' },
+  { icon: BookOpen, title: 'Smart Timetable', desc: 'Build, manage, and optimize school timetables with intelligent scheduling.', color: 'from-teal-500 to-emerald-600' },
+  { icon: Shield, title: 'Secure Cloud Vault', desc: 'Store and organize your teaching resources with enterprise-grade security.', color: 'from-emerald-500 to-green-600' },
+  { icon: Rocket, title: 'Career Growth', desc: 'Job board, professional profiles, certificates, and community networking.', color: 'from-fuchsia-500 to-pink-600' },
 ]
 
 export default function About() {
@@ -64,13 +64,13 @@ export default function About() {
             style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)', backgroundSize: '50px 50px' }} />
         </div>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
-          <span className="inline-block px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-400 text-xs font-bold uppercase tracking-widest mb-6">Our Story</span>
+          <span className="inline-block px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-400 text-xs font-bold uppercase tracking-widest mb-6">About Us</span>
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight mb-6 leading-tight">
-            Built by teachers,<br className="hidden sm:block" />{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">for teachers.</span>
+            Built by educators,<br className="hidden sm:block" />{' '}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">for educators.</span>
           </h1>
           <p className="text-lg text-slate-400 font-medium leading-relaxed max-w-2xl mx-auto">
-            LDMS was born from a simple frustration: India's incredible educators lacked a dedicated space to connect, grow, and be recognized. We set out to change that.
+            LDMS is India's smartest all-in-one AI-powered platform designed exclusively for teachers, educators, and schools. We're on a mission to simplify teaching and empower every educator to do their best work.
           </p>
         </div>
       </section>
@@ -93,10 +93,10 @@ export default function About() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
-                { num: '12,400+', label: 'Educators', icon: Users },
-                { num: '2,800+', label: 'Schools', icon: BookOpen },
-                { num: '48K+', label: 'Resources', icon: GraduationCap },
-                { num: '96%', label: 'Satisfaction', icon: Star },
+                { num: '10,000+', label: 'Educators', icon: Users },
+                { num: '2,500+', label: 'Schools', icon: BookOpen },
+                { num: '50K+', label: 'AI Generations', icon: Zap },
+                { num: '15+', label: 'AI Tools', icon: Brain },
               ].map(stat => (
                 <div key={stat.label} className="bg-white/3 border border-white/5 rounded-2xl p-6 text-center hover:bg-white/5 transition-all duration-300">
                   <stat.icon className="w-6 h-6 text-indigo-400 mx-auto mb-3" />
@@ -105,6 +105,27 @@ export default function About() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── What We Offer ── */}
+      <section className="py-24 border-t border-white/5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <span className="inline-block px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded-full text-cyan-400 text-xs font-bold uppercase tracking-widest mb-5">Platform</span>
+            <h2 className="text-4xl font-extrabold text-white tracking-tight">What LDMS Offers</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {WHAT_WE_OFFER.map(item => (
+              <div key={item.title} className="group relative bg-white/3 border border-white/5 rounded-2xl p-7 hover:bg-white/5 hover:-translate-y-1 transition-all duration-300 overflow-hidden text-center">
+                <div className={`w-12 h-12 rounded-xl mx-auto bg-gradient-to-br ${item.color} flex items-center justify-center mb-5 shadow-lg`}>
+                  <item.icon className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-base font-bold text-white mb-2">{item.title}</h3>
+                <p className="text-slate-400 text-sm leading-relaxed font-medium">{item.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -144,7 +165,7 @@ export default function About() {
             <div className="absolute left-[60px] top-0 bottom-0 w-px bg-gradient-to-b from-indigo-500/50 via-violet-500/30 to-transparent" />
             <div className="space-y-8">
               {MILESTONES.map((m, i) => (
-                <div key={m.year} className="flex items-start gap-6">
+                <div key={i} className="flex items-start gap-6">
                   <div className="shrink-0 w-[60px] text-right">
                     <span className="text-indigo-400 font-extrabold text-sm">{m.year}</span>
                   </div>
@@ -161,25 +182,24 @@ export default function About() {
         </div>
       </section>
 
-      {/* ── Team ── */}
+      {/* ── Founder ── */}
       <section className="py-24 border-t border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
-            <span className="inline-block px-3 py-1 bg-rose-500/10 border border-rose-500/20 rounded-full text-rose-400 text-xs font-bold uppercase tracking-widest mb-5">The People</span>
-            <h2 className="text-4xl font-extrabold text-white tracking-tight">Meet the Team</h2>
+            <span className="inline-block px-3 py-1 bg-rose-500/10 border border-rose-500/20 rounded-full text-rose-400 text-xs font-bold uppercase tracking-widest mb-5">Leadership</span>
+            <h2 className="text-4xl font-extrabold text-white tracking-tight">Our Founder</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {TEAM.map(member => (
-              <div key={member.name} className="group bg-white/3 border border-white/5 rounded-2xl p-6 text-center hover:bg-white/5 hover:-translate-y-1 transition-all duration-300">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-xl font-black mx-auto mb-4 border-2 border-white/10"
-                  style={{ backgroundColor: member.color }}>
-                  {member.avatar}
-                </div>
-                <h3 className="text-base font-bold text-white mb-0.5">{member.name}</h3>
-                <p className="text-indigo-400 text-xs font-bold uppercase tracking-wider mb-3">{member.role}</p>
-                <p className="text-slate-400 text-xs font-medium leading-relaxed">{member.bio}</p>
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white/3 border border-white/5 rounded-2xl p-8 sm:p-10 text-center hover:bg-white/5 transition-all duration-300">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-3xl font-black mx-auto mb-5 border-2 border-white/10 shadow-[0_8px_30px_rgba(99,102,241,0.4)]">
+                A
               </div>
-            ))}
+              <h3 className="text-xl font-extrabold text-white mb-1">Ashutosh</h3>
+              <p className="text-indigo-400 text-xs font-bold uppercase tracking-wider mb-4">Founder & CEO</p>
+              <p className="text-slate-400 text-sm font-medium leading-relaxed max-w-lg mx-auto">
+                Passionate about transforming education through technology. Ashutosh founded LDMS with a vision to give every teacher in India the tools they need to teach smarter, save time, and grow professionally. What started as a simple idea has grown into a platform trusted by thousands of educators across the country.
+              </p>
+            </div>
           </div>
         </div>
       </section>

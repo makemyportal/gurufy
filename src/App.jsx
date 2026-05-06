@@ -101,7 +101,18 @@ export default function App() {
       {/* Auth */}
       <Route path="/login" element={<Login />} />
 
-      {/* Main App — exactly like before */}
+      {/* Public info pages with their own marketing layout — placed first so /about, /privacy etc. match before the "/" catch-all */}
+      <Route path="/" element={<PublicLayout />}>
+        <Route path="about" element={<About />} />
+        <Route path="how-it-works" element={<HowItWorks />} />
+        <Route path="pricing" element={<Pricing />} />
+        <Route path="contact" element={<Contact />} />
+        <Route path="blog" element={<Blog />} />
+        <Route path="privacy" element={<Privacy />} />
+        <Route path="terms" element={<Terms />} />
+      </Route>
+
+      {/* Main App */}
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="certificates" element={<CoinGate toolName="Certificate Generator"><Certificates /></CoinGate>} />
@@ -124,17 +135,6 @@ export default function App() {
         <Route path="syllabus-bifurcator" element={<ProtectedRoute><SyllabusBifurcator /></ProtectedRoute>} />
 
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-      </Route>
-
-      {/* Public info pages with their own marketing layout */}
-      <Route path="/" element={<PublicLayout />}>
-        <Route path="about" element={<About />} />
-        <Route path="how-it-works" element={<HowItWorks />} />
-        <Route path="pricing" element={<Pricing />} />
-        <Route path="contact" element={<Contact />} />
-        <Route path="blog" element={<Blog />} />
-        <Route path="privacy" element={<Privacy />} />
-        <Route path="terms" element={<Terms />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" />} />

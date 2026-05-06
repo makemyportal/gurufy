@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, X, Zap, GraduationCap, Sparkles, ChevronDown } from 'lucide-react'
+import { CheckCircle, X, Zap, GraduationCap, Sparkles, ChevronDown } from 'lucide-react'
 
 const PLANS = [
   {

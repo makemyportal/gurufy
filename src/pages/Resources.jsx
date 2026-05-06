@@ -14,6 +14,7 @@ import {
   AlertCircle, Clock, XCircle, HardDrive, Trash2
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import TokenShopModal from '../components/TokenShopModal'
 
 const SUBJECTS = ['All', 'Mathematics', 'Science', 'English', 'Computer Science', 'Hindi', 'Social Studies', 'Physics', 'Chemistry', 'Biology']
 const TYPES = ['All', 'Worksheet', 'Lesson Plan', 'PPT', 'Question Paper', 'Activity', 'Notes']
@@ -132,6 +133,7 @@ export default function Resources() {
   const [selectedSubject, setSelectedSubject] = useState('All')
   const [selectedType, setSelectedType] = useState('All')
   const [showUpload, setShowUpload] = useState(false)
+  const [showShop, setShowShop] = useState(false)
   const [activeTab, setActiveTab] = useState('my-drive') // 'my-drive' | 'marketplace' | 'global'
   const [apiResources, setApiResources] = useState([])
 
@@ -296,6 +298,7 @@ export default function Resources() {
     const price = resource.coinPrice || 0
     if (price > 0 && currentUser.uid !== resource.authorId) {
       if (stats.coins < price) {
+        setShowShop(true)
         alert(`You need ${price} Coins to download this premium resource. You currently have ${stats.coins} Coins.`)
         return
       }
@@ -366,6 +369,8 @@ export default function Resources() {
           </div>
         </div>
       </div>
+
+      {showShop && <TokenShopModal onClose={() => setShowShop(false)} />}
 
       {/* ── Tabs Navigation ── */}
       <div className="flex flex-wrap items-center gap-2 mb-8 p-1.5 bg-surface-100/50 backdrop-blur-sm border border-surface-200 rounded-2xl w-full sm:w-max mx-auto md:mx-0 shadow-sm">

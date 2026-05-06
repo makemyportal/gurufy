@@ -11,6 +11,7 @@ import { asBlob } from 'html-docx-js-typescript'
 import html2pdf from 'html2pdf.js'
 import { db } from '../utils/firebase'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import TokenShopModal from '../components/TokenShopModal'
 
 const boardList = ['CBSE', 'ICSE', 'IB Diploma', 'Cambridge IGCSE', 'State Board', 'General']
 const gradeList = ['All Classes', 'Kindergarten', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12']
@@ -65,6 +66,7 @@ export default function SyllabusBifurcator() {
   const [result, setResult] = useState(null)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
+  const [showShop, setShowShop] = useState(false)
   
   const TOTAL_COST = GENERATION_COST
 
@@ -89,6 +91,7 @@ export default function SyllabusBifurcator() {
 
   const handleGenerate = async () => {
     if ((stats?.coins || 0) < TOTAL_COST) {
+      setShowShop(true)
       return setError(`Not enough coins! You need ${TOTAL_COST} 🪙. Current: ${stats?.coins || 0}`)
     }
     
@@ -576,6 +579,8 @@ ${formattingInstruction}
           )}
         </div>
       </div>
+      
+      {showShop && <TokenShopModal onClose={() => setShowShop(false)} />}
       
       {/* Print Styles Injection */}
       <style dangerouslySetInnerHTML={{__html: `

@@ -6,6 +6,7 @@ import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, 
 import { generateAIContent } from '../utils/aiService'
 import { extractTextFromFile } from '../utils/fileExtractor'
 import { useGamification } from '../contexts/GamificationContext'
+import TokenShopModal from '../components/TokenShopModal'
 
 const ALL_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
 const PERIODS = ['Period 1','Period 2','Period 3','Period 4','Lunch','Period 5','Period 6','Period 7','Period 8']
@@ -262,6 +263,7 @@ export default function Timetable() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
   const [reportSelectedDays, setReportSelectedDays] = useState([])
   const [isSaving, setIsSaving] = useState(false)
+  const [showShop, setShowShop] = useState(false)
   const [session, setSession] = useState(() => localStorage.getItem('ldms_timetable_session') || '')
   const [classTeacher, setClassTeacher] = useState(() => localStorage.getItem('ldms_timetable_teacher') || '')
   const [principalName, setPrincipalName] = useState(() => localStorage.getItem('ldms_timetable_principal') || '')
@@ -2106,6 +2108,7 @@ export default function Timetable() {
     }
 
     if ((stats?.coins || 0) < GENERATION_COST) {
+      setShowShop(true)
       return alert(`Not enough coins! You need ${GENERATION_COST} 🪙 to use AI Timetable Generation.`)
     }
     const success = await spendCoins(GENERATION_COST, 'AI Timetable Generation')
@@ -2381,6 +2384,8 @@ export default function Timetable() {
           <p className="text-emerald-100 font-medium text-sm sm:text-base max-w-xl">Click cells to assign subjects & teachers. Manage absent teachers and substitutes.</p>
         </div>
       </div>
+      
+      {showShop && <TokenShopModal onClose={() => setShowShop(false)} />}
 
       {/* Controls */}
       {!currentUser && (

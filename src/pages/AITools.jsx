@@ -8,6 +8,7 @@ import { useGamification } from '../contexts/GamificationContext'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { db } from '../utils/firebase'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import TokenShopModal from '../components/TokenShopModal'
 
 export const tools = [
   {
@@ -924,6 +925,7 @@ export default function AITools() {
   const [copied, setCopied] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [showShareMenu, setShowShareMenu] = useState(false)
+  const [showShop, setShowShop] = useState(false)
   const [outputLanguage, setOutputLanguage] = useState('English')
   const [isListening, setIsListening] = useState(false)
   const [activeVoiceField, setActiveVoiceField] = useState(null)
@@ -952,6 +954,7 @@ export default function AITools() {
 
     if (!isSuperAdmin) {
       if ((stats?.coins || 0) < COST) {
+        setShowShop(true)
         setError(`Not enough coins! You need ${COST} coins to generate. Earn coins by daily login, sharing resources, or buy from the Token Store! 🪙`)
         setIsGenerating(false)
         return
@@ -1163,6 +1166,8 @@ export default function AITools() {
           </p>
         </div>
       </div>
+      
+      {showShop && <TokenShopModal onClose={() => setShowShop(false)} />}
 
       <div className="w-full max-w-5xl mx-auto mt-8">
         {/* Full-width Standalone Tool Workspace */}

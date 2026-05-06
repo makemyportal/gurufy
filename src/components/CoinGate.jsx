@@ -54,6 +54,7 @@ export default function CoinGate({ children, toolName, toolId }) {
     if (success) {
       setUnlocked(true)
     } else {
+      setShowShop(true)
       setError('Not enough coins! Buy more coins to continue.')
     }
     setSpending(false)

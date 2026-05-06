@@ -19,6 +19,7 @@ import { tools as aiToolsList } from '../data/toolsList'
 import AIChatWidget from './AIChatWidget'
 import ProfileCompletion from './ProfileCompletion'
 import TokenShopModal from './TokenShopModal'
+import SupportWidget from './SupportWidget'
 
 // Nav array builders — called inside component to get reactive translations
 function getTeacherNav(t, settings) {
@@ -714,6 +715,37 @@ export default function Layout() {
             }>
               <Outlet />
             </Suspense>
+
+            {/* Workspace Footer — Public Page Links */}
+            <footer className="mt-16 mb-4 pt-6 border-t border-surface-200/60">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-1.5 text-surface-400">
+                  <div className="w-5 h-5 rounded-md overflow-hidden opacity-60">
+                    <img src="/logo.png" alt="" className="w-full h-full object-contain" />
+                  </div>
+                  <span className="text-xs font-bold text-surface-400">© {new Date().getFullYear()} LDMS Technologies</span>
+                </div>
+                <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+                  {[
+                    { to: '/about', label: 'About' },
+                    { to: '/how-it-works', label: 'How It Works' },
+                    { to: '/pricing', label: 'Pricing' },
+                    { to: '/blog', label: 'Blog' },
+                    { to: '/contact', label: 'Contact' },
+                    { to: '/privacy', label: 'Privacy' },
+                    { to: '/terms', label: 'Terms' },
+                  ].map(link => (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      className="text-xs font-semibold text-surface-400 hover:text-primary-600 transition-colors duration-200"
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </nav>
+              </div>
+            </footer>
           </div>
         </main>
       </div>
@@ -753,6 +785,7 @@ export default function Layout() {
       {showTokenShop && <TokenShopModal onClose={() => setShowTokenShop(false)} />}
 
       <AIChatWidget pageContext={pageTitle} />
+      <SupportWidget />
     </div>
   )
 }

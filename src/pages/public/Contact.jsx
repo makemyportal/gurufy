@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Mail, Phone, MapPin, Send, Twitter, Linkedin, Instagram, CheckCircle, MessageSquare } from 'lucide-react'
+import { db } from '../../utils/firebase'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 
 const CONTACT_METHODS = [
   {
@@ -25,9 +27,9 @@ const CONTACT_METHODS = [
     color: 'from-cyan-500 to-blue-600',
     glow: 'rgba(6,182,212,0.3)',
     title: 'Call Us',
-    value: '+91 80 1234 5678',
+    value: '+91 8077162909',
     desc: 'Mon-Fri, 9am-6pm IST',
-    href: 'tel:+918012345678',
+    href: 'tel:+918077162909',
   },
   {
     icon: MapPin,
@@ -59,6 +61,7 @@ export default function Contact() {
   const [form, setForm] = useState({ name: '', email: '', department: '', message: '' })
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   function handleChange(e) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -67,9 +70,31 @@ export default function Contact() {
   async function handleSubmit(e) {
     e.preventDefault()
     setLoading(true)
-    await new Promise(r => setTimeout(r, 1200))
-    setSubmitted(true)
-    setLoading(false)
+    setError('')
+    try {
+      // Save to Firebase supportMessages — admin will see this in Admin Dashboard
+      if (db) {
+        await addDoc(collection(db, 'supportMessages'), {
+          userId: 'public-visitor',
+          userName: form.name.trim(),
+          userEmail: form.email.trim(),
+          userRole: 'visitor',
+          profilePhoto: '',
+          subject: `[Contact Form] ${form.department || 'General Inquiry'}`,
+          category: form.department || 'General Inquiry',
+          message: form.message.trim(),
+          status: 'open',
+          source: 'contact-page',
+          createdAt: serverTimestamp()
+        })
+      }
+      setSubmitted(true)
+    } catch (err) {
+      console.error('Contact form error:', err)
+      setError('Failed to send message. Please try again or email us directly.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -191,6 +216,12 @@ export default function Contact() {
                         className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm font-medium placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 focus:bg-white/8 transition-all resize-none"
                       />
                     </div>
+
+                    {error && (
+                      <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                        <p className="text-xs font-bold text-red-400">{error}</p>
+                      </div>
+                    )}
 
                     <button
                       type="submit"

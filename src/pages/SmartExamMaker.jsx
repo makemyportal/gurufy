@@ -5,6 +5,7 @@ import { extractTextFromFile } from '../utils/fileExtractor'
 import { useGamification } from '../contexts/GamificationContext'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
+import TokenShopModal from '../components/TokenShopModal'
 import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, increment, deleteDoc } from 'firebase/firestore'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -126,6 +127,8 @@ export default function SmartExamMaker() {
 
   // Regenerate Single Question State
   const [regeneratingQ, setRegeneratingQ] = useState(null)
+  
+  const [showShop, setShowShop] = useState(false)
 
   const GENERATION_COST = toolCosts?.['smart-exam'] ?? 5
   const TOTAL_COST = GENERATION_COST * form.paperSets
@@ -276,6 +279,7 @@ IMPORTANT RULES:
 
   const handleGenerate = async () => {
     if ((stats?.coins || 0) < TOTAL_COST) {
+      setShowShop(true)
       return setError(`Not enough coins! You need ${TOTAL_COST} 🪙. Current: ${stats?.coins || 0}`)
     }
     
@@ -798,11 +802,14 @@ IMPORTANT:
               Create professional board-level exam papers with proper math rendering, custom blueprints, and branded headers.
             </p>
           </div>
+
           <button onClick={() => navigate('/history')} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl transition-all font-bold backdrop-blur-sm border border-white/20">
             <History className="w-4 h-4" /> View Saved Exams
           </button>
         </div>
       </div>
+      
+      {showShop && <TokenShopModal onClose={() => setShowShop(false)} />}
 
       {results.length === 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

@@ -193,6 +193,12 @@ service cloud.firestore {
       allow read, update, delete: if isAuthenticated();
     }
 
+    // Support messages — anyone can create (logged-in users + public contact form visitors), admin manages
+    match /supportMessages/{msgId} {
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated();
+    }
+
     // Admin notifications - any logged-in user can create, admin can read/update
     match /adminNotifications/{notifId} {
       allow create: if isAuthenticated();

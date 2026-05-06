@@ -4,7 +4,8 @@ import {
   XCircle, Search, Power, Trash2, Edit, BarChart3, Briefcase, FolderOpen,
   CalendarDays, Trophy, Megaphone, Eye, Ban, UserCheck, FileText,
   MessageSquare, ChevronRight, RefreshCw, Send, X, AlertCircle, Award, Plus,
-  ShoppingCart, GraduationCap, Radio, Mic, Star, Play, Store, Clock, Wallet, IndianRupee
+  ShoppingCart, GraduationCap, Radio, Mic, Star, Play, Store, Clock, Wallet, IndianRupee,
+  MessageCircleQuestion
 } from 'lucide-react'
 import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, getDoc, setDoc, query, orderBy, limit, where, increment } from 'firebase/firestore'
 import { db } from '../utils/firebase'
@@ -211,6 +212,7 @@ function EditorModal({ type, initialData, onSave, onCancel }) {
 const TABS = [
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'users', label: 'Users', icon: Users },
+  { id: 'support', label: 'Support', icon: MessageCircleQuestion },
   { id: 'payments', label: 'Coin Purchases', icon: Wallet },
   { id: 'review', label: 'Marketplace Review', icon: Store },
   { id: 'resources', label: 'Vault', icon: FolderOpen },
@@ -234,6 +236,7 @@ export default function AdminDashboard() {
   const [gamificationData, setGamificationData] = useState([])
   const [paymentRequests, setPaymentRequests] = useState([])
   const [adminNotifs, setAdminNotifs] = useState([])
+  const [supportMessages, setSupportMessages] = useState([])
   const [platformSettings, setPlatformSettings] = useState({ maintenanceMode: false, registrationDisabled: false })
   const [announcementText, setAnnouncementText] = useState('')
   const [rejectingId, setRejectingId] = useState(null)
@@ -262,6 +265,10 @@ export default function AdminDashboard() {
       setGamificationData(gamSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setPaymentRequests(paymentsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setAdminNotifs(notifsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+
+      // Load support messages
+      const supportSnap = await getDocs(query(collection(db, 'supportMessages'), orderBy('createdAt', 'desc'))).catch(() => ({ docs: [] }))
+      setSupportMessages(supportSnap.docs.map(d => ({ id: d.id, ...d.data() })))
 
       // Load platform settings
       const settingsDoc = await getDoc(doc(db, 'platformSettings', 'global')).catch(() => null)
@@ -625,6 +632,9 @@ export default function AdminDashboard() {
                 )}
                 {tab.id === 'payments' && paymentRequests.filter(p => p.status === 'pending').length > 0 && (
                   <span className="ml-auto w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-bold">{paymentRequests.filter(p => p.status === 'pending').length}</span>
+                )}
+                {tab.id === 'support' && supportMessages.filter(m => m.status === 'open').length > 0 && (
+                  <span className="ml-auto w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px] font-bold">{supportMessages.filter(m => m.status === 'open').length}</span>
                 )}
               </button>
             ))}
@@ -1548,6 +1558,115 @@ export default function AdminDashboard() {
                   <p className="text-xs font-semibold text-surface-500 mt-3">Warning: This action instantly invalidates all active sessions.</p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ====== SUPPORT MESSAGES TAB ====== */}
+          {activeTab === 'support' && (
+            <div className="animate-fade-in">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-extrabold text-surface-900 mb-1">💬 Support Messages</h2>
+                  <p className="text-sm text-surface-500 font-medium">{supportMessages.filter(m => m.status === 'open').length} open, {supportMessages.filter(m => m.status === 'resolved').length} resolved</p>
+                </div>
+              </div>
+
+              {supportMessages.length === 0 ? (
+                <div className="bg-surface-50 border border-surface-200 rounded-2xl p-12 text-center">
+                  <MessageCircleQuestion className="w-12 h-12 text-surface-300 mx-auto mb-3" />
+                  <p className="text-lg font-bold text-surface-600">No support messages yet</p>
+                  <p className="text-sm text-surface-400 mt-1">When users send support requests, they'll appear here.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {supportMessages.map(msg => (
+                    <div key={msg.id} className={`bg-white border rounded-2xl p-5 transition-all hover:shadow-md ${msg.status === 'open' ? 'border-rose-200 bg-rose-50/30' : 'border-surface-200'}`}>
+                      <div className="flex items-start gap-4">
+                        <div className="w-11 h-11 rounded-full bg-surface-200 flex items-center justify-center text-surface-600 font-bold text-sm overflow-hidden shrink-0">
+                          {msg.profilePhoto
+                            ? <img src={msg.profilePhoto} alt="" className="w-full h-full object-cover" />
+                            : (msg.userName || 'U')[0].toUpperCase()
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <h3 className="font-bold text-surface-900 text-sm truncate">{msg.userName || 'Unknown User'}</h3>
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-surface-100 text-surface-500 shrink-0">{msg.userRole || 'teacher'}</span>
+                            </div>
+                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shrink-0 ${msg.status === 'open' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                              {msg.status === 'open' ? '● Open' : '✓ Resolved'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-surface-400 font-medium mb-2">{msg.userEmail} • {formatDate(msg.createdAt)}</p>
+                          {msg.category && (
+                            <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-600 mb-2">{msg.category}</span>
+                          )}
+                          <h4 className="font-bold text-surface-800 text-sm mb-1">{msg.subject}</h4>
+                          <p className="text-sm text-surface-600 font-medium leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-surface-100 flex-wrap">
+                            {msg.status === 'open' ? (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await updateDoc(doc(db, 'supportMessages', msg.id), { status: 'resolved', resolvedAt: new Date().toISOString() })
+                                    setSupportMessages(prev => prev.map(m => m.id === msg.id ? { ...m, status: 'resolved' } : m))
+                                    showToast('Message marked as resolved')
+                                  } catch (err) { showToast('Failed', 'error') }
+                                }}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl transition-colors border border-emerald-200"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5" /> Mark Resolved
+                              </button>
+                            ) : (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await updateDoc(doc(db, 'supportMessages', msg.id), { status: 'open', resolvedAt: null })
+                                    setSupportMessages(prev => prev.map(m => m.id === msg.id ? { ...m, status: 'open' } : m))
+                                    showToast('Message re-opened')
+                                  } catch (err) { showToast('Failed', 'error') }
+                                }}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold rounded-xl transition-colors border border-amber-200"
+                              >
+                                <Clock className="w-3.5 h-3.5" /> Re-open
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                setConfirmModal({
+                                  title: 'Delete Message',
+                                  message: 'This support message will be permanently deleted.',
+                                  danger: true,
+                                  onConfirm: async () => {
+                                    try {
+                                      await deleteDoc(doc(db, 'supportMessages', msg.id))
+                                      setSupportMessages(prev => prev.filter(m => m.id !== msg.id))
+                                      showToast('Message deleted')
+                                    } catch (err) { showToast('Failed', 'error') }
+                                    setConfirmModal(null)
+                                  }
+                                })
+                              }}
+                              className="flex items-center gap-1.5 px-4 py-2 bg-surface-50 hover:bg-red-50 text-surface-500 hover:text-red-600 text-xs font-bold rounded-xl transition-colors border border-surface-200"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" /> Delete
+                            </button>
+                            {msg.userEmail && (
+                              <a
+                                href={`mailto:${msg.userEmail}?subject=Re: ${encodeURIComponent(msg.subject || 'Support')}`}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition-colors border border-indigo-200 ml-auto"
+                              >
+                                <Send className="w-3.5 h-3.5" /> Reply via Email
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
