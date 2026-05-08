@@ -3432,10 +3432,10 @@ export default function Timetable() {
         
         {/* Desktop View */}
         <div className="hidden lg:block overflow-x-auto">
-          <table className="w-full min-w-[800px]">
+          <table className="w-full min-w-[900px] table-fixed">
             <thead>
               <tr>
-                <th className="p-4 text-left text-xs font-black uppercase tracking-widest text-surface-400 bg-surface-50 w-[100px]">Period</th>
+                <th className="p-3 text-left text-xs font-black uppercase tracking-widest text-surface-400 bg-surface-50 w-[110px]">Period</th>
                 {activeDays.map((d, i) => {
                   // Clash detection for this day
                   const dayClashes = [];
@@ -3487,13 +3487,13 @@ export default function Timetable() {
                     return (
                       <td 
                         key={`${day}-${period}`} 
-                        className={`p-1.5 text-center relative group ${cell.isLocked ? 'bg-surface-100 opacity-80' : ''}`} 
+                        className={`p-1 text-center relative group ${cell.isLocked ? 'bg-surface-100 opacity-80' : ''}`} 
                         onClick={() => { if (!isEd && !cell.isLocked) { setEditing(`${day}-${period}`); setShowAllTeachers(false); } }}
                         onDragOver={(e) => { if (!cell.isLocked) handleDragOver(e); }}
                         onDrop={(e) => { if (!cell.isLocked) handleDropOnCell(e, day, period); }}
                       >
                         {isEd && (
-                          <div className="absolute inset-0 z-20 bg-white border-2 border-indigo-400 rounded-xl shadow-xl p-2 flex flex-col gap-1 max-h-[320px] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                          <div className="absolute top-0 left-1/2 -translate-x-1/2 z-30 bg-white border-2 border-indigo-400 rounded-2xl shadow-2xl p-3 flex flex-col gap-1.5 w-[320px] max-h-[400px] overflow-y-auto" style={{ minWidth: '300px' }} onClick={e => e.stopPropagation()}>
                             <div className="flex items-center justify-between mb-2 px-1">
                               <span className="text-[10px] font-black text-surface-400 uppercase">{day} - {period}</span>
                               <div className="flex items-center gap-2">
@@ -3513,10 +3513,10 @@ export default function Timetable() {
                                       <button onClick={() => removeGroup(day, period, gId)} className="text-red-500 p-0.5 bg-red-50 rounded hover:bg-red-100"><X className="w-3 h-3" /></button>
                                     </div>
                                   )}
-                                  <span className="text-[9px] font-bold text-surface-400 px-1 mt-1 flex">SUBJECT</span>
-                                  <div className="flex flex-wrap gap-1 mt-1">
+                                  <span className="text-[10px] font-bold text-surface-400 px-1 mt-1.5 flex items-center gap-1"><Tag className="w-3 h-3" /> SUBJECT</span>
+                                  <div className="flex flex-wrap gap-1.5 mt-1">
                                     {subjects.map(s => (
-                                      <button key={s} onClick={() => setCell(day, period, s, gId)} className={`px-2 py-1 rounded text-[10px] font-bold text-left border ${group.subject === s ? 'ring-2 ring-indigo-400' : ''} ${gc(s)} hover:opacity-80`}>{s}</button>
+                                      <button key={s} onClick={() => setCell(day, period, s, gId)} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-left border transition-all ${group.subject === s ? 'ring-2 ring-indigo-400 shadow-sm scale-105' : ''} ${gc(s)} hover:opacity-80 hover:shadow-sm`}>{s}</button>
                                     ))}
                                   </div>
                                   
@@ -3545,7 +3545,7 @@ export default function Timetable() {
                                     }).map(t => {
                                       const isMatch = group.subject && (teacherSubjects[t] || []).includes(group.subject)
                                       return (
-                                        <button key={t} onClick={() => setCellTeacher(day, period, t, gId)} className={`px-2 py-1 rounded text-[10px] font-bold text-left border ${group.teacher === t ? 'ring-2 ring-indigo-400' : ''} ${isAbsentOnDay(t, day) ? 'bg-red-50 text-red-400 border-red-200 line-through' : onBreak.includes(t) ? 'bg-amber-50 text-amber-600 border-amber-200' : isMatch ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm' : 'bg-white text-surface-700 border-surface-200 hover:bg-indigo-50'}`}>{t} {isMatch && '✨'}</button>
+                                        <button key={t} onClick={() => setCellTeacher(day, period, t, gId)} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-left border transition-all ${group.teacher === t ? 'ring-2 ring-indigo-400 shadow-sm scale-105' : ''} ${isAbsentOnDay(t, day) ? 'bg-red-50 text-red-400 border-red-200 line-through' : onBreak.includes(t) ? 'bg-amber-50 text-amber-600 border-amber-200' : isMatch ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm' : 'bg-white text-surface-700 border-surface-200 hover:bg-indigo-50 hover:shadow-sm'}`}>{t} {isMatch && '✨'}</button>
                                       )
                                     })}
                                   </div>
@@ -3554,7 +3554,7 @@ export default function Timetable() {
                                   </div>
                                   <div className="flex flex-wrap gap-1">
                                     {rooms.map(r => (
-                                      <button key={r} onClick={() => setRoom(day, period, group.room === r ? '' : r, gId)} className={`px-2 py-1 rounded text-[10px] font-bold border ${group.room === r ? 'bg-orange-100 text-orange-700 border-orange-300 ring-1 ring-orange-400' : 'bg-white text-surface-600 border-surface-200 hover:bg-orange-50'}`}>{r}</button>
+                                      <button key={r} onClick={() => setRoom(day, period, group.room === r ? '' : r, gId)} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${group.room === r ? 'bg-orange-100 text-orange-700 border-orange-300 ring-1 ring-orange-400 shadow-sm' : 'bg-white text-surface-600 border-surface-200 hover:bg-orange-50 hover:shadow-sm'}`}>{r}</button>
                                     ))}
                                   </div>
                                   <div className="mt-2 flex justify-end">
@@ -3589,7 +3589,7 @@ export default function Timetable() {
                             ))}
                           </div>
                         ) : (
-                          <div className={`px-2 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border min-h-[52px] flex flex-col items-center justify-center gap-0.5 relative ${cell.subject ? gc(cell.subject) : 'border-dashed border-surface-200 text-surface-300 hover:border-surface-400'}`}>
+                          <div className={`px-2 py-2.5 rounded-xl text-[13px] font-bold cursor-pointer transition-all border min-h-[64px] flex flex-col items-center justify-center gap-0.5 relative ${cell.subject ? gc(cell.subject) : 'border-dashed border-surface-200 text-surface-300 hover:border-surface-400 hover:bg-surface-50'}`}>
                             <button onClick={(e) => toggleLock(e, day, period)} className={`absolute top-1 right-1 p-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity ${cell.isLocked ? 'opacity-100 text-red-500 bg-red-100' : 'text-surface-400 hover:bg-surface-100'}`} title={cell.isLocked ? 'Unlock Cell' : 'Lock Cell'}>
                               {cell.isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
                             </button>
