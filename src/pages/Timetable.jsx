@@ -536,27 +536,22 @@ export default function Timetable() {
       'Period 8': { start: '1:45', end: '2:30' }
     }
   })
+  const [bellOrder, setBellOrder] = useState(() => {
+    const s = localStorage.getItem('ldms_bell_order')
+    return s ? JSON.parse(s) : DEFAULT_PERIODS
+  })
   const [showBellTimings, setShowBellTimings] = useState(false)
   const tableRef = useRef(null)
 
-  // Derive PERIODS dynamically from bellTimings keys (proper sequence order)
+  // PERIODS = explicit user-defined order, synced with bellTimings keys
   const PERIODS = useMemo(() => {
-    const keys = Object.keys(bellTimings)
-    if (keys.length === 0) return DEFAULT_PERIODS
-    // Sort: Period N by number, special slots (Lunch/Break) by start time
-    return keys.sort((a, b) => {
-      const numA = a.match(/^Period\s+(\d+)$/i)?.[1]
-      const numB = b.match(/^Period\s+(\d+)$/i)?.[1]
-      // Both are numbered periods — sort by number
-      if (numA && numB) return parseInt(numA) - parseInt(numB)
-      // Both are special (Lunch, Break, etc.) — sort by start time
-      if (!numA && !numB) return (bellTimings[a]?.start || '').localeCompare(bellTimings[b]?.start || '')
-      // One is numbered, one is special — place special by its start time relative to the period's time
-      const timeA = bellTimings[a]?.start || '00:00'
-      const timeB = bellTimings[b]?.start || '00:00'
-      return timeA.localeCompare(timeB)
-    })
-  }, [bellTimings])
+    const btKeys = new Set(Object.keys(bellTimings))
+    // Keep only items that exist in bellTimings, in bellOrder sequence
+    const ordered = bellOrder.filter(p => btKeys.has(p))
+    // Add any bellTimings keys not in bellOrder (safety fallback)
+    btKeys.forEach(k => { if (!ordered.includes(k)) ordered.push(k) })
+    return ordered.length > 0 ? ordered : DEFAULT_PERIODS
+  }, [bellTimings, bellOrder])
 
   useEffect(() => { localStorage.setItem('ldms_timetable_v2', JSON.stringify(grid)) }, [grid])
   useEffect(() => { localStorage.setItem('ldms_timetable_class', className) }, [className])
@@ -576,6 +571,7 @@ export default function Timetable() {
   useEffect(() => { localStorage.setItem('ldms_teacher_subjects', JSON.stringify(teacherSubjects)) }, [teacherSubjects])
   useEffect(() => { localStorage.setItem('ldms_teacher_constraints', JSON.stringify(teacherConstraints)) }, [teacherConstraints])
   useEffect(() => { localStorage.setItem('ldms_bell_timings', JSON.stringify(bellTimings)) }, [bellTimings])
+  useEffect(() => { localStorage.setItem('ldms_bell_order', JSON.stringify(bellOrder)) }, [bellOrder])
   useEffect(() => { localStorage.setItem('ldms_timetable_templates', JSON.stringify(templates)) }, [templates])
   useEffect(() => { localStorage.setItem('ldms_teacher_contacts', JSON.stringify(teacherContacts)) }, [teacherContacts])
 
@@ -3372,61 +3368,59 @@ export default function Timetable() {
           </div>
           {showBellTimings && (
             <div className="mt-4 pt-4 border-t border-surface-100">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {PERIODS.map(p => (
+              <div className="space-y-2">
+                {PERIODS.map((p, idx) => (
                   <div key={p} className="flex items-center gap-2 bg-surface-50 rounded-xl px-3 py-2.5 border border-surface-100 group">
-                    <span className="text-xs font-bold text-surface-600 w-20 truncate" title={p}>{p}</span>
+                    <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                      <button disabled={idx === 0} onClick={() => { setBellOrder(prev => { const n = [...prev]; const i = n.indexOf(p); if (i > 0) { [n[i-1], n[i]] = [n[i], n[i-1]] } return n }) }} className="w-5 h-5 rounded flex items-center justify-center text-surface-400 hover:bg-violet-100 hover:text-violet-600 disabled:opacity-20 transition-all" title="Move up"><ChevronDown className="w-3 h-3 rotate-180" /></button>
+                      <button disabled={idx === PERIODS.length - 1} onClick={() => { setBellOrder(prev => { const n = [...prev]; const i = n.indexOf(p); if (i < n.length - 1) { [n[i], n[i+1]] = [n[i+1], n[i]] } return n }) }} className="w-5 h-5 rounded flex items-center justify-center text-surface-400 hover:bg-violet-100 hover:text-violet-600 disabled:opacity-20 transition-all" title="Move down"><ChevronDown className="w-3 h-3" /></button>
+                    </div>
+                    <span className="text-[10px] font-black text-surface-300 w-5 text-center shrink-0">{idx + 1}</span>
+                    <input type="text" defaultValue={p} onBlur={(e) => {
+                      const newName = e.target.value.trim()
+                      if (!newName || newName === p) { e.target.value = p; return }
+                      if (bellTimings[newName]) { alert(`"${newName}" already exists!`); e.target.value = p; return }
+                      setBellTimings(prev => { const n = {}; Object.keys(prev).forEach(k => { n[k === p ? newName : k] = prev[k] }); return n })
+                      setBellOrder(prev => prev.map(k => k === p ? newName : k))
+                      setGrid(prev => { const n = { ...prev }; ALL_DAYS.forEach(d => { if (n[d]?.[p]) { n[d] = { ...n[d], [newName]: n[d][p] }; delete n[d][p] } }); return n })
+                    }} onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }} className="text-xs font-bold text-surface-700 w-28 bg-transparent border-b border-transparent hover:border-surface-300 focus:border-violet-400 focus:bg-white focus:px-1.5 rounded outline-none transition-all" title="Click to rename" />
                     <input type="time" value={bellTimings[p]?.start || ''} onChange={e => setBellTimings(prev => ({ ...prev, [p]: { ...prev[p], start: e.target.value } }))} className="text-xs font-bold bg-white border border-surface-200 rounded-lg px-2 py-1.5 w-[90px] focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all" />
                     <span className="text-[10px] font-bold text-surface-400">to</span>
                     <input type="time" value={bellTimings[p]?.end || ''} onChange={e => setBellTimings(prev => ({ ...prev, [p]: { ...prev[p], end: e.target.value } }))} className="text-xs font-bold bg-white border border-surface-200 rounded-lg px-2 py-1.5 w-[90px] focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all" />
-                    {p !== 'Lunch' && (
-                      <button onClick={() => {
-                        if (!window.confirm(`Delete "${p}" from the timetable?`)) return
-                        setBellTimings(prev => { const n = { ...prev }; delete n[p]; return n })
-                        setGrid(prev => {
-                          const n = { ...prev }
-                          ALL_DAYS.forEach(d => { if (n[d]) { const dc = { ...n[d] }; delete dc[p]; n[d] = dc } })
-                          return n
-                        })
-                      }} className="ml-auto w-7 h-7 rounded-lg flex items-center justify-center text-surface-400 hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shrink-0" title="Delete period">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                    <button onClick={() => {
+                      if (!window.confirm(`Delete "${p}" from the timetable?`)) return
+                      setBellTimings(prev => { const n = { ...prev }; delete n[p]; return n })
+                      setBellOrder(prev => prev.filter(k => k !== p))
+                      setGrid(prev => { const n = { ...prev }; ALL_DAYS.forEach(d => { if (n[d]) { const dc = { ...n[d] }; delete dc[p]; n[d] = dc } }); return n })
+                    }} className="ml-auto w-7 h-7 rounded-lg flex items-center justify-center text-surface-400 hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shrink-0" title="Delete period"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                 ))}
               </div>
-              {/* Add new period */}
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <button onClick={() => {
                   const count = PERIODS.filter(p => p.startsWith('Period')).length
                   const newName = `Period ${count + 1}`
                   if (bellTimings[newName]) return alert(`"${newName}" already exists`)
                   const lastPeriod = PERIODS[PERIODS.length - 1]
-                  const lastEnd = bellTimings[lastPeriod]?.end || '14:30'
+                  const lastEnd = bellTimings[lastPeriod]?.end || '02:30'
                   const [h, m] = lastEnd.split(':').map(Number)
                   const newEnd = `${String(h + (m + 45 >= 60 ? 1 : 0)).padStart(2, '0')}:${String((m + 45) % 60).padStart(2, '0')}`
                   setBellTimings(prev => ({ ...prev, [newName]: { start: lastEnd, end: newEnd } }))
-                  setGrid(prev => {
-                    const n = { ...prev }
-                    ALL_DAYS.forEach(d => { if (n[d]) n[d] = { ...n[d], [newName]: { subject: '', teacher: '', substitute: '', room: '', isLocked: false } } })
-                    return n
-                  })
+                  setBellOrder(prev => [...prev, newName])
+                  setGrid(prev => { const n = { ...prev }; ALL_DAYS.forEach(d => { if (n[d]) n[d] = { ...n[d], [newName]: { subject: '', teacher: '', substitute: '', room: '', isLocked: false } } }); return n })
                 }} className="flex items-center gap-1.5 px-4 py-2 border-2 border-dashed border-violet-300 text-violet-600 rounded-xl text-xs font-bold hover:bg-violet-50 hover:border-violet-400 transition-all">
                   <Plus className="w-3.5 h-3.5" /> Add Period
                 </button>
                 <button onClick={() => {
                   if (bellTimings['Break']) return alert('Break already exists')
                   setBellTimings(prev => ({ ...prev, ['Break']: { start: '10:15', end: '10:30' } }))
-                  setGrid(prev => {
-                    const n = { ...prev }
-                    ALL_DAYS.forEach(d => { if (n[d]) n[d] = { ...n[d], ['Break']: { subject: 'Break', teacher: '', substitute: '', room: '', isLocked: true } } })
-                    return n
-                  })
+                  setBellOrder(prev => [...prev, 'Break'])
+                  setGrid(prev => { const n = { ...prev }; ALL_DAYS.forEach(d => { if (n[d]) n[d] = { ...n[d], ['Break']: { subject: 'Break', teacher: '', substitute: '', room: '', isLocked: true } } }); return n })
                 }} className="flex items-center gap-1.5 px-4 py-2 border-2 border-dashed border-amber-300 text-amber-600 rounded-xl text-xs font-bold hover:bg-amber-50 hover:border-amber-400 transition-all">
                   <Plus className="w-3.5 h-3.5" /> Add Break
                 </button>
               </div>
-              <p className="text-[10px] text-surface-400 mt-3">Tip: Add/remove periods here. These periods will appear as columns in your timetable grid.</p>
+              <p className="text-[10px] text-surface-400 mt-3">Click name to rename. Use arrows to reorder. New periods are added at the end.</p>
             </div>
           )}
         </div>
