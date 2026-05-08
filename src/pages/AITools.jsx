@@ -9,6 +9,9 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { db } from '../utils/firebase'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import TokenShopModal from '../components/TokenShopModal'
+import html2pdf from 'html2pdf.js'
+
+const GRADE_LIST = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
 
 export const tools = [
   {
@@ -20,7 +23,7 @@ export const tools = [
     inputs: [
       { id: 'topic', label: 'Topic / Subject', type: 'text', placeholder: 'e.g. The Cold War, Fractions' },
       { id: 'standard', label: 'Educational Standard', type: 'text', placeholder: 'e.g. Common Core, NGSS, State' },
-      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Kindergarten', 'Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)', 'Higher Education'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'duration', label: 'Class Duration', type: 'text', placeholder: 'e.g. 45 Mins, 1.5 Hours' }
     ],
     promptTemplate: (data) => `Create an extremely structured lesson plan for a ${data.grade} class about "${data.topic}". 
@@ -61,7 +64,7 @@ Provide detailed steps.
     color: 'from-emerald-500 to-teal-600',
     inputs: [
       { id: 'topic', label: 'Topic', type: 'text', placeholder: 'e.g. Photosynthesis, Trigonometry' },
-      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Kindergarten', 'Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'type', label: 'Question Format', type: 'select', options: ['Mix of All', 'Multiple Choice Only', 'Short Answer Only'] }
     ],
     promptTemplate: (data) => `Create a student-facing worksheet for a ${data.grade} class about "${data.topic}". Focus on ${data.type} format.
@@ -95,7 +98,7 @@ Format as a numbered list with clear spacing instructions for written answers.
     inputs: [
       { id: 'assignment', label: 'Assignment Type', type: 'text', placeholder: 'e.g. Persuasive Essay, Science Project' },
       { id: 'topic', label: 'Specific Topic', type: 'text', placeholder: 'e.g. Climate Change' },
-      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)', 'Higher Education'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'scale', label: 'Grading Scale', type: 'select', options: ['4-Point Scale (Exceeds, Meets, Approaching, Below)', '100-Point Percentage Scale'] }
     ],
     promptTemplate: (data) => `Create a comprehensive grading rubric for a ${data.grade} ${data.assignment} about "${data.topic}". Use a ${data.scale}.
@@ -114,7 +117,7 @@ Output ONLY the markdown table and a brief 1-sentence instruction on how to use 
     color: 'from-fuchsia-500 to-purple-600',
     inputs: [
       { id: 'studentName', label: 'Student First Name', type: 'text', placeholder: 'e.g. Alex' },
-      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Kindergarten', 'Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'strengths', label: 'Key Strengths', type: 'textarea', placeholder: 'e.g. Great participation, highly creative...' },
       { id: 'improvement', label: 'Areas for Improvement', type: 'textarea', placeholder: 'e.g. Needs to focus during independent work...' }
     ],
@@ -141,7 +144,7 @@ YOU MUST STRICTLY USE THIS FORMAT:
     color: 'from-pink-500 to-rose-600',
     inputs: [
       { id: 'doubt', label: 'The Student\'s Doubt', type: 'textarea', placeholder: 'e.g. Why is the sky blue? Or how do fractions work?' },
-      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Kindergarten', 'Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)', 'Higher Ed'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'tone', label: 'Explanation Tone', type: 'select', options: ['Simple & Fun', 'Real-world Analogies', 'Highly Technical & Strict'] }
     ],
     promptTemplate: (data) => `You are an expert teacher for a ${data.grade} student. They have asked a doubt: "${data.doubt}".
@@ -168,7 +171,7 @@ YOU MUST STRICTLY USE THIS FORMAT:
     color: 'from-red-500 to-rose-600',
     inputs: [
       { id: 'behavior', label: 'Describe the Behavior', type: 'textarea', placeholder: 'e.g. Student keeps interrupting others during reading time.' },
-      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Kindergarten', 'Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'frequency', label: 'Frequency of Behavior', type: 'select', options: ['Rarely', 'Daily/Consistent', 'Severe/Constant Drop-in'] }
     ],
     promptTemplate: (data) => `You are an expert behavioral psychologist and veteran teacher. A teacher of a ${data.grade} class is facing this behavioral issue: "${data.behavior}". The frequency is: ${data.frequency}.
@@ -196,7 +199,7 @@ YOU MUST STRICTLY USE THIS FORMAT:
     color: 'from-orange-500 to-red-600',
     inputs: [
       { id: 'topic', label: 'Quiz Topic', type: 'text', placeholder: 'e.g. Photosynthesis, World War II' },
-      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'count', label: 'Number of Questions', type: 'select', options: ['5 Questions', '10 Questions', '15 Questions', '20 Questions'] },
       { id: 'difficulty', label: 'Difficulty', type: 'select', options: ['Easy (Recall)', 'Medium (Understanding)', 'Hard (Application & Analysis)'] }
     ],
@@ -252,7 +255,7 @@ Warm regards,
     color: 'from-amber-400 to-orange-500',
     inputs: [
       { id: 'topic', label: 'Topic or Theme (Optional)', type: 'text', placeholder: 'e.g. Solar System, First Day of School' },
-      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Kindergarten', 'Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'type', label: 'Activity Type', type: 'select', options: ['Quick Game (5 mins)', 'Group Discussion Starter', 'Movement-Based Energizer', 'Creative Thinking Prompt'] }
     ],
     promptTemplate: (data) => `Generate 3 fun, age-appropriate ${data.type} icebreaker activities for a ${data.grade} class${data.topic ? ` introducing "${data.topic}"` : ''}.
@@ -277,7 +280,7 @@ YOU MUST STRICTLY USE THIS FORMAT:
     color: 'from-amber-500 to-yellow-600',
     inputs: [
       { id: 'topic', label: 'Core Topic', type: 'text', placeholder: 'e.g. Water Conservation, Ancient Civilizations' },
-      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'duration', label: 'Project Duration', type: 'select', options: ['3 Days', '1 Week', '2 Weeks', '1 Month'] },
       { id: 'deliverable', label: 'Final Deliverable Type', type: 'select', options: ['Presentation / PPT', 'Physical Model / Prototype', 'Written Report', 'Video / Documentary', 'Exhibition / Poster'] }
     ],
@@ -310,7 +313,7 @@ YOU MUST STRICTLY FORMAT AS FOLLOWS:
     color: 'from-emerald-400 to-green-600',
     inputs: [
       { id: 'topic', label: 'Topic', type: 'text', placeholder: 'e.g. Fractions, Photosynthesis' },
-      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'focus', label: 'Differentiation Focus', type: 'select', options: ['By Learning Ability', 'By Learning Style (Visual/Auditory/Kinesthetic)', 'By Language Level (ELL Support)'] }
     ],
     promptTemplate: (data) => `Take the topic: "${data.topic}" for a ${data.grade} class and differentiate it into 3 distinct learning tiers. Focus: ${data.focus}.
@@ -411,7 +414,7 @@ YOU MUST STRICTLY USE THIS FORMAT:
     inputs: [
       { id: 'subject', label: 'Subject', type: 'text', placeholder: 'e.g. Science, Mathematics, English' },
       { id: 'topics', label: 'Topics to Cover', type: 'textarea', placeholder: 'e.g. Chapter 3: Light, Chapter 5: Acids & Bases' },
-      { id: 'grade', label: 'Grade Level', type: 'select', options: ['Elementary (1-5)', 'Middle School (6-8)', 'High School (9-12)'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'totalMarks', label: 'Total Marks', type: 'select', options: ['20 Marks (Unit Test)', '40 Marks (Mid-Term)', '80 Marks (Final Exam)', '100 Marks (Board Style)'] },
       { id: 'duration', label: 'Time Allowed', type: 'select', options: ['30 Minutes', '1 Hour', '2 Hours', '3 Hours'] }
     ],
@@ -449,7 +452,7 @@ YOU MUST STRICTLY USE THIS FORMAT:
     color: 'from-teal-500 to-cyan-600',
     inputs: [
       { id: 'subject', label: 'Subject', type: 'text', placeholder: 'e.g. Mathematics, Science, English' },
-      { id: 'grade', label: 'Grade / Class', type: 'select', options: ['Class 1-5', 'Class 6-8', 'Class 9-10', 'Class 11-12'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'board', label: 'Board / Curriculum', type: 'select', options: ['CBSE', 'ICSE', 'State Board', 'IB', 'General'] },
       { id: 'duration', label: 'Plan Duration', type: 'select', options: ['1 Month', 'Full Term (3 Months)', 'Full Academic Year'] }
     ],
@@ -478,7 +481,7 @@ Create a detailed Markdown Table:
     color: 'from-sky-500 to-blue-600',
     inputs: [
       { id: 'topic', label: 'Passage Topic', type: 'text', placeholder: 'e.g. The Rainforest, Space Exploration' },
-      { id: 'grade', label: 'Reading Level', type: 'select', options: ['Class 1-3 (Beginner)', 'Class 4-6 (Intermediate)', 'Class 7-9 (Advanced)', 'Class 10-12 (Expert)'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'language', label: 'Language', type: 'select', options: ['English', 'Hindi', 'Simple English (ESL)'] },
       { id: 'length', label: 'Passage Length', type: 'select', options: ['Short (100-150 words)', 'Medium (200-300 words)', 'Long (400-500 words)'] }
     ],
@@ -510,7 +513,7 @@ YOU MUST STRICTLY USE THIS FORMAT:
     color: 'from-yellow-500 to-orange-600',
     inputs: [
       { id: 'topic', label: 'Math Topic', type: 'text', placeholder: 'e.g. Fractions, Profit & Loss, Speed-Distance' },
-      { id: 'grade', label: 'Class Level', type: 'select', options: ['Class 1-3', 'Class 4-6', 'Class 7-8', 'Class 9-10', 'Class 11-12'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'count', label: 'Number of Problems', type: 'select', options: ['5 Problems', '10 Problems', '15 Problems'] },
       { id: 'difficulty', label: 'Difficulty', type: 'select', options: ['Easy (Direct Application)', 'Medium (Multi-step)', 'Hard (HOTS / Olympiad Level)'] }
     ],
@@ -537,7 +540,7 @@ YOU MUST STRICTLY USE THIS FORMAT:
     color: 'from-pink-400 to-rose-500',
     inputs: [
       { id: 'theme', label: 'Story Theme / Moral', type: 'text', placeholder: 'e.g. Honesty, Kindness, Hard Work, Environment' },
-      { id: 'grade', label: 'Age Group', type: 'select', options: ['Class 1-3 (Simple Language)', 'Class 4-6 (Intermediate)', 'Class 7-9 (Detailed)'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'type', label: 'Story Type', type: 'select', options: ['Moral Story', 'Folktale / Fable', 'Adventure Story', 'Real-life Inspirational'] },
       { id: 'length', label: 'Length', type: 'select', options: ['Short (1 page)', 'Medium (2 pages)', 'Long (3+ pages)'] }
     ],
@@ -566,7 +569,7 @@ YOU MUST STRICTLY USE THIS FORMAT:
     color: 'from-lime-500 to-green-600',
     inputs: [
       { id: 'topic', label: 'Topic / Theme', type: 'text', placeholder: 'e.g. Science vocabulary, Emotions, Travel' },
-      { id: 'grade', label: 'Class Level', type: 'select', options: ['Class 1-3', 'Class 4-6', 'Class 7-9', 'Class 10-12'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'count', label: 'Number of Words', type: 'select', options: ['10 Words', '15 Words', '20 Words', '25 Words'] }
     ],
     promptTemplate: (data) => `Generate a vocabulary list of ${data.count} for ${data.grade} students related to "${data.topic}".
@@ -682,39 +685,79 @@ YOU MUST STRICTLY USE THIS FORMAT:
 *Prepared by: [Class Teacher] | Date: ${new Date().toLocaleDateString()}*`
   },
   {
-    id: 'homework-planner',
-    title: 'Homework Planner',
-    description: 'Generate structured, meaningful homework assignments with clear instructions.',
+    id: 'daily-homework',
+    title: 'Daily Classroom Homework',
+    description: 'Generate focused, engaging daily assignments for students to complete at home.',
     icon: ClipboardList,
     color: 'from-orange-500 to-amber-600',
     inputs: [
-      { id: 'subject', label: 'Subject', type: 'text', placeholder: 'e.g. English, Science, Hindi' },
-      { id: 'topic', label: 'Topic / Chapter', type: 'text', placeholder: 'e.g. Chapter 4: Light and Shadows' },
-      { id: 'grade', label: 'Class Level', type: 'select', options: ['Class 1-3', 'Class 4-6', 'Class 7-8', 'Class 9-10', 'Class 11-12'] },
-      { id: 'type', label: 'Homework Type', type: 'select', options: ['Written Assignment', 'Research / Project', 'Practice Problems', 'Reading + Summary', 'Creative / Art-Based'] }
+      { id: 'subject', label: 'Subject', type: 'text', placeholder: 'e.g. English, Science, Math' },
+      { id: 'topic', label: 'Topic Taught Today', type: 'text', placeholder: 'e.g. Addition of 2-digit numbers' },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
+      { id: 'type', label: 'Homework Format', type: 'select', options: ['Quick Revision & Practice', 'Reading & Reflection', 'Short Writing Task', 'Math Problems (5-10 Qs)'] }
     ],
-    promptTemplate: (data) => `Create a structured ${data.type} homework assignment for ${data.grade} ${data.subject} on "${data.topic}".
+    promptTemplate: (data) => `Create a ${data.type} daily homework assignment for ${data.grade} ${data.subject} based on today's topic: "${data.topic}".
 
 YOU MUST STRICTLY USE THIS FORMAT:
 
-# Homework: ${data.subject} — ${data.topic}
-**Class:** ${data.grade} | **Type:** ${data.type}
-**Submission Date:** [Teacher to fill]
+# Daily Homework: ${data.subject}
+**Class:** ${data.grade} | **Topic:** ${data.topic}
+**Date Assigned:** ${new Date().toLocaleDateString()} | **Due Date:** [Next Day]
 
-### Instructions
-[Clear, numbered step-by-step instructions]
+### 📝 Instructions for Students
+[Clear, engaging 2-3 sentence instruction]
 
-### Tasks
-[3-5 specific tasks the student must complete]
-
-### Evaluation Criteria
-| Criteria | Marks |
-|----------|-------|
-| [Criteria 1] | [X] |
-| [Criteria 2] | [X] |
+### ✅ Tasks to Complete
+1. [Specific, actionable task 1]
+2. [Specific, actionable task 2]
+3. [Optional extra practice]
 
 ---
-> **🏠 Parent Note:** This assignment is expected to take approximately [X] minutes.`
+> **🏠 Note to Parents:** This homework is designed to take [15-20] minutes. Focus: [Main skill being practiced].`
+  },
+  {
+    id: 'holiday-homework',
+    title: 'Holiday Homework & Projects',
+    description: 'Design creative, comprehensive holiday homework, vacation projects, and activities.',
+    icon: Calendar,
+    color: 'from-purple-500 to-fuchsia-600',
+    inputs: [
+      { id: 'subject', label: 'Subject', type: 'text', placeholder: 'e.g. All Subjects, Science, EVS' },
+      { id: 'theme', label: 'Holiday Theme / Vacation', type: 'text', placeholder: 'e.g. Summer Vacation, Diwali Break, Winter Holidays' },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
+      { id: 'duration', label: 'Vacation Duration', type: 'select', options: ['1 Week Break', '15 Days Break', '1 Month Summer/Winter Vacation'] }
+    ],
+    promptTemplate: (data) => `Create an engaging, multi-part ${data.theme} holiday homework project for ${data.grade} ${data.subject}. The vacation duration is ${data.duration}.
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# 🏖️ ${data.theme} Holiday Homework
+**Class:** ${data.grade} | **Subject:** ${data.subject}
+
+### 🌟 Introduction
+[An enthusiastic, encouraging opening message for the students regarding their holidays and this project.]
+
+### 📋 Project Overview: [Creative Title]
+[Briefly explain the core theme of the homework.]
+
+### 🛠️ Required Activities
+1. **Activity 1: [Name]** - [Detailed instruction and what to submit]
+2. **Activity 2: [Name]** - [Detailed instruction and what to submit]
+3. **Activity 3: [Name]** - [Detailed instruction and what to submit]
+
+### 📅 Suggested Timeline
+| Week / Days | Focus Area | Goal |
+|-------------|------------|------|
+| [Week 1]    | [Setup/Research] | [Specific goal] |
+
+### 📊 Evaluation Rubric
+| Criteria | Marks | Description |
+|----------|-------|-------------|
+| Creativity | [X] | [Expectation] |
+| Completion | [X] | [Expectation] |
+
+---
+> **🏠 Dear Parents:** Kindly encourage your child to complete this over the ${data.duration} rather than in one day. Ensure they enjoy the process!`
   },
   {
     id: 'iep-generator',
@@ -724,7 +767,7 @@ YOU MUST STRICTLY USE THIS FORMAT:
     color: 'from-teal-500 to-emerald-600',
     inputs: [
       { id: 'studentName', label: 'Student Name', type: 'text', placeholder: 'e.g. Rahul' },
-      { id: 'grade', label: 'Class', type: 'select', options: ['Class 1-3', 'Class 4-6', 'Class 7-8', 'Class 9-10'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'need', label: 'Primary Learning Need', type: 'select', options: ['Dyslexia', 'ADHD', 'Autism Spectrum', 'Slow Learner', 'Speech/Language Delay', 'Physical Disability', 'Gifted / Twice Exceptional', 'Other'] },
       { id: 'strengths', label: 'Student Strengths', type: 'textarea', placeholder: 'e.g. Great at art, loves music, good memory...' }
     ],
@@ -768,7 +811,7 @@ YOU MUST STRICTLY USE THIS FORMAT:
     inputs: [
       { id: 'experiment', label: 'Experiment Name', type: 'text', placeholder: 'e.g. Testing for Starch in Leaves' },
       { id: 'subject', label: 'Science Branch', type: 'select', options: ['Physics', 'Chemistry', 'Biology', 'General Science'] },
-      { id: 'grade', label: 'Class Level', type: 'select', options: ['Class 6-8', 'Class 9-10', 'Class 11-12'] }
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST }
     ],
     promptTemplate: (data) => `Write a complete ${data.subject} lab practical write-up for the experiment: "${data.experiment}" for ${data.grade} students.
 
@@ -811,7 +854,7 @@ YOU MUST STRICTLY USE THIS FORMAT:
     inputs: [
       { id: 'bookTitle', label: 'Book Title', type: 'text', placeholder: 'e.g. Charlotte\'s Web, The Diary of a Young Girl' },
       { id: 'author', label: 'Author', type: 'text', placeholder: 'e.g. E.B. White' },
-      { id: 'grade', label: 'Student Level', type: 'select', options: ['Class 3-5 (Simple)', 'Class 6-8 (Intermediate)', 'Class 9-12 (Advanced / Critical)'] }
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST }
     ],
     promptTemplate: (data) => `Generate a detailed book review template/guide for "${data.bookTitle}" by ${data.author}, suitable for ${data.grade} students.
 
@@ -851,7 +894,7 @@ YOU MUST STRICTLY USE THIS FORMAT:
     inputs: [
       { id: 'topic', label: 'Topic / Chapter', type: 'text', placeholder: 'e.g. Photosynthesis, Fractions, Indian Freedom Struggle' },
       { id: 'subject', label: 'Subject', type: 'select', options: ['Mathematics', 'Science', 'Social Science', 'English', 'Hindi', 'EVS', 'Computer Science'] },
-      { id: 'grade', label: 'CBSE Class', type: 'select', options: ['Class 1-2 (Foundational)', 'Class 3-5 (Preparatory)', 'Class 6-8 (Middle Stage)', 'Class 9-10 (Secondary)', 'Class 11-12 (Senior Secondary)'] },
+      { id: 'grade', label: 'Class / Grade', type: 'select', options: GRADE_LIST },
       { id: 'framework', label: 'CBSE Pedagogy Framework', type: 'select', options: ['Art Integrated Learning (AIL)', 'Experiential Learning', 'Competency Based Learning', 'Sports Integrated Learning', 'Storytelling / Narrative Pedagogy', 'Toy-Based / Play-Based Learning'] },
       { id: 'duration', label: 'Activity Duration', type: 'select', options: ['15 Minutes (Quick)', '30 Minutes (Standard)', '1 Full Period (45 min)', 'Multi-Day Project'] }
     ],
