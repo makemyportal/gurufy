@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles, Send, Mail, Link as LinkIcon, Edit2, Upload, Download, Trash2, Database, Clock, ArrowRight, Lock, Unlock, Camera, FileText } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { db } from '../utils/firebase'
@@ -10,7 +10,7 @@ import { uploadToCloudinary } from '../utils/cloudinary'
 import TokenShopModal from '../components/TokenShopModal'
 
 const ALL_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
-const PERIODS = ['Period 1','Period 2','Period 3','Period 4','Lunch','Period 5','Period 6','Period 7','Period 8']
+const DEFAULT_PERIODS = ['Period 1','Period 2','Period 3','Period 4','Lunch','Period 5','Period 6','Period 7','Period 8']
 const DEFAULT_SUBJECTS = ['Mathematics','Science','English','Hindi','Social Studies','Physics','Chemistry','Biology','Computer Science','Physical Education','Art','Music','Library','Lunch','Free Period']
 const DEFAULT_TEACHERS = ['Mr. Sharma','Ms. Gupta','Mr. Patel','Ms. Singh','Mr. Kumar','Ms. Joshi','Mr. Verma','Ms. Rao','Mr. Khan','Ms. Mehta','Mr. Reddy','Ms. Nair']
 
@@ -268,7 +268,7 @@ export default function Timetable() {
       const parsed = JSON.parse(s);
       ALL_DAYS.forEach(d => {
         if(parsed[d]) {
-          PERIODS.forEach(p => {
+          DEFAULT_PERIODS.forEach(p => {
             if(parsed[d][p]) {
               if (parsed[d][p].room === undefined) parsed[d][p].room = '';
               if (parsed[d][p].isLocked === undefined) parsed[d][p].isLocked = false;
@@ -279,7 +279,7 @@ export default function Timetable() {
       return parsed;
     }
     const g = {}
-    ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '', room: '', isLocked: false } }) })
+    ALL_DAYS.forEach(d => { g[d] = {}; DEFAULT_PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '', room: '', isLocked: false } }) })
     return g
   })
 
@@ -539,6 +539,25 @@ export default function Timetable() {
   const [showBellTimings, setShowBellTimings] = useState(false)
   const tableRef = useRef(null)
 
+  // Derive PERIODS dynamically from bellTimings keys (proper sequence order)
+  const PERIODS = useMemo(() => {
+    const keys = Object.keys(bellTimings)
+    if (keys.length === 0) return DEFAULT_PERIODS
+    // Sort: Period N by number, special slots (Lunch/Break) by start time
+    return keys.sort((a, b) => {
+      const numA = a.match(/^Period\s+(\d+)$/i)?.[1]
+      const numB = b.match(/^Period\s+(\d+)$/i)?.[1]
+      // Both are numbered periods — sort by number
+      if (numA && numB) return parseInt(numA) - parseInt(numB)
+      // Both are special (Lunch, Break, etc.) — sort by start time
+      if (!numA && !numB) return (bellTimings[a]?.start || '').localeCompare(bellTimings[b]?.start || '')
+      // One is numbered, one is special — place special by its start time relative to the period's time
+      const timeA = bellTimings[a]?.start || '00:00'
+      const timeB = bellTimings[b]?.start || '00:00'
+      return timeA.localeCompare(timeB)
+    })
+  }, [bellTimings])
+
   useEffect(() => { localStorage.setItem('ldms_timetable_v2', JSON.stringify(grid)) }, [grid])
   useEffect(() => { localStorage.setItem('ldms_timetable_class', className) }, [className])
   useEffect(() => { localStorage.setItem('ldms_timetable_school', schoolName) }, [schoolName])
@@ -705,7 +724,7 @@ export default function Timetable() {
       if (currentTimetableId && snapshot.docs.some(d => d.id === currentTimetableId)) {
         setCurrentTimetableId(null)
         const g = {}
-        ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '', room: '', isLocked: false } }) })
+        ALL_DAYS.forEach(d => { g[d] = {}; DEFAULT_PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '', room: '', isLocked: false } }) })
         setGrid(g); setClassName('New Class')
       }
       alert(`"${school.name}" deleted successfully.`)
@@ -715,7 +734,17 @@ export default function Timetable() {
     }
   }
 
-  const handleEditSchoolSave = async () => { await loadSchools() }
+  const handleEditSchoolSave = async () => {
+    const freshSchools = await loadSchools()
+    // Refresh activeSchool with updated data (e.g. new logo)
+    if (activeSchool) {
+      const updated = freshSchools.find(s => s.id === activeSchool.id)
+      if (updated) {
+        setActiveSchool(updated)
+        localStorage.setItem('ldms_active_school', JSON.stringify(updated))
+      }
+    }
+  }
 
   const loadTimetables = async (schoolId) => {
     if (!currentUser || !schoolId) {
@@ -3335,22 +3364,69 @@ export default function Timetable() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-extrabold text-surface-900 flex items-center gap-2"><Clock className="w-4 h-4 text-violet-500" /> Bell Timings</h3>
-              <p className="text-xs text-surface-500 mt-1">Set period start and end times for printing.</p>
+              <p className="text-xs text-surface-500 mt-1">Set period start and end times. These timings appear in your printed timetable.</p>
             </div>
             <button onClick={() => setShowBellTimings(!showBellTimings)} className={`text-xs font-bold px-4 py-2 rounded-xl transition-all ${showBellTimings ? 'bg-violet-100 text-violet-700' : 'bg-surface-100 text-surface-600 hover:bg-surface-200'}`}>
               {showBellTimings ? 'Hide Editor' : 'Edit Timings'}
             </button>
           </div>
           {showBellTimings && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-4 border-t border-surface-100">
-              {PERIODS.map(p => (
-                <div key={p} className="flex items-center gap-2 bg-surface-50 rounded-xl px-3 py-2.5 border border-surface-100">
-                  <span className="text-xs font-bold text-surface-600 w-16 truncate">{p}</span>
-                  <input type="time" value={bellTimings[p]?.start || ''} onChange={e => setBellTimings(prev => ({ ...prev, [p]: { ...prev[p], start: e.target.value } }))} className="text-xs font-bold bg-white border border-surface-200 rounded-lg px-2 py-1.5 w-[85px] focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all" />
-                  <span className="text-[10px] font-bold text-surface-400">to</span>
-                  <input type="time" value={bellTimings[p]?.end || ''} onChange={e => setBellTimings(prev => ({ ...prev, [p]: { ...prev[p], end: e.target.value } }))} className="text-xs font-bold bg-white border border-surface-200 rounded-lg px-2 py-1.5 w-[85px] focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all" />
-                </div>
-              ))}
+            <div className="mt-4 pt-4 border-t border-surface-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {PERIODS.map(p => (
+                  <div key={p} className="flex items-center gap-2 bg-surface-50 rounded-xl px-3 py-2.5 border border-surface-100 group">
+                    <span className="text-xs font-bold text-surface-600 w-20 truncate" title={p}>{p}</span>
+                    <input type="time" value={bellTimings[p]?.start || ''} onChange={e => setBellTimings(prev => ({ ...prev, [p]: { ...prev[p], start: e.target.value } }))} className="text-xs font-bold bg-white border border-surface-200 rounded-lg px-2 py-1.5 w-[90px] focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all" />
+                    <span className="text-[10px] font-bold text-surface-400">to</span>
+                    <input type="time" value={bellTimings[p]?.end || ''} onChange={e => setBellTimings(prev => ({ ...prev, [p]: { ...prev[p], end: e.target.value } }))} className="text-xs font-bold bg-white border border-surface-200 rounded-lg px-2 py-1.5 w-[90px] focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all" />
+                    {p !== 'Lunch' && (
+                      <button onClick={() => {
+                        if (!window.confirm(`Delete "${p}" from the timetable?`)) return
+                        setBellTimings(prev => { const n = { ...prev }; delete n[p]; return n })
+                        setGrid(prev => {
+                          const n = { ...prev }
+                          ALL_DAYS.forEach(d => { if (n[d]) { const dc = { ...n[d] }; delete dc[p]; n[d] = dc } })
+                          return n
+                        })
+                      }} className="ml-auto w-7 h-7 rounded-lg flex items-center justify-center text-surface-400 hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shrink-0" title="Delete period">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {/* Add new period */}
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button onClick={() => {
+                  const count = PERIODS.filter(p => p.startsWith('Period')).length
+                  const newName = `Period ${count + 1}`
+                  if (bellTimings[newName]) return alert(`"${newName}" already exists`)
+                  const lastPeriod = PERIODS[PERIODS.length - 1]
+                  const lastEnd = bellTimings[lastPeriod]?.end || '14:30'
+                  const [h, m] = lastEnd.split(':').map(Number)
+                  const newEnd = `${String(h + (m + 45 >= 60 ? 1 : 0)).padStart(2, '0')}:${String((m + 45) % 60).padStart(2, '0')}`
+                  setBellTimings(prev => ({ ...prev, [newName]: { start: lastEnd, end: newEnd } }))
+                  setGrid(prev => {
+                    const n = { ...prev }
+                    ALL_DAYS.forEach(d => { if (n[d]) n[d] = { ...n[d], [newName]: { subject: '', teacher: '', substitute: '', room: '', isLocked: false } } })
+                    return n
+                  })
+                }} className="flex items-center gap-1.5 px-4 py-2 border-2 border-dashed border-violet-300 text-violet-600 rounded-xl text-xs font-bold hover:bg-violet-50 hover:border-violet-400 transition-all">
+                  <Plus className="w-3.5 h-3.5" /> Add Period
+                </button>
+                <button onClick={() => {
+                  if (bellTimings['Break']) return alert('Break already exists')
+                  setBellTimings(prev => ({ ...prev, ['Break']: { start: '10:15', end: '10:30' } }))
+                  setGrid(prev => {
+                    const n = { ...prev }
+                    ALL_DAYS.forEach(d => { if (n[d]) n[d] = { ...n[d], ['Break']: { subject: 'Break', teacher: '', substitute: '', room: '', isLocked: true } } })
+                    return n
+                  })
+                }} className="flex items-center gap-1.5 px-4 py-2 border-2 border-dashed border-amber-300 text-amber-600 rounded-xl text-xs font-bold hover:bg-amber-50 hover:border-amber-400 transition-all">
+                  <Plus className="w-3.5 h-3.5" /> Add Break
+                </button>
+              </div>
+              <p className="text-[10px] text-surface-400 mt-3">Tip: Add/remove periods here. These periods will appear as columns in your timetable grid.</p>
             </div>
           )}
         </div>
