@@ -170,6 +170,83 @@ const SchoolSetupModal = ({ onClose, onSave, currentUser, setActiveSchool }) => 
   )
 }
 
+const SchoolEditModal = ({ school, onClose, onSave, currentUser }) => {
+  const [name, setName] = useState(school.name || '')
+  const [address, setAddress] = useState(school.address || '')
+  const [phone, setPhone] = useState(school.phone || '')
+  const [principalName, setPrincipalName] = useState(school.principalName || '')
+  const [session, setSession] = useState(school.session || '2026-2027')
+  const [logoFile, setLogoFile] = useState(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [logoPreview, setLogoPreview] = useState(school.logoUrl || '')
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file) { setLogoFile(file); setLogoPreview(URL.createObjectURL(file)) }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!name.trim()) return alert('School Name is required')
+    setIsSubmitting(true)
+    try {
+      let logoUrl = school.logoUrl ?? ''
+      if (logoFile) {
+        const uploadResult = await uploadToCloudinary(logoFile)
+        logoUrl = uploadResult?.secure_url || logoUrl
+      }
+      const updatedData = {
+        name: name.trim(), address: address.trim(), phone: phone.trim(),
+        principalName: principalName.trim(), session: session.trim(),
+        logoUrl: logoUrl || '', updatedAt: serverTimestamp()
+      }
+      Object.keys(updatedData).forEach(k => { if (updatedData[k] === undefined) updatedData[k] = '' })
+      await updateDoc(doc(db, 'schools', school.id), updatedData)
+      alert('School updated successfully!')
+      onSave(); onClose()
+    } catch (err) {
+      console.error('Failed to update school:', err)
+      alert('Failed to update school: ' + err.message)
+    } finally { setIsSubmitting(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+      <div className="bg-white rounded-[32px] shadow-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-3xl font-black font-display text-surface-900">Edit School</h2>
+          <button onClick={onClose} className="p-2 hover:bg-surface-100 rounded-xl transition-colors"><X className="w-6 h-6 text-surface-500" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="flex flex-col sm:flex-row gap-6 items-start">
+            <div className="flex flex-col items-center gap-3">
+              <label className="text-sm font-bold text-surface-700">School Logo</label>
+              <div className="w-32 h-32 rounded-3xl border-2 border-dashed border-surface-300 flex items-center justify-center bg-surface-50 relative overflow-hidden group cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
+                {logoPreview ? (<img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />) : (<Camera className="w-8 h-8 text-surface-400 group-hover:text-indigo-500" />)}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><span className="text-white text-xs font-bold">Change</span></div>
+                <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+              </div>
+            </div>
+            <div className="flex-1 space-y-4 w-full">
+              <div><label className="text-xs font-black text-surface-500 uppercase tracking-widest mb-1.5 block">School Name *</label><input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="e.g. Springfield High School" className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 text-sm font-bold text-surface-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" /></div>
+              <div><label className="text-xs font-black text-surface-500 uppercase tracking-widest mb-1.5 block">Address</label><input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Full address" className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 text-sm font-bold text-surface-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" /></div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div><label className="text-xs font-black text-surface-500 uppercase tracking-widest mb-1.5 block">Principal Name</label><input type="text" value={principalName} onChange={e => setPrincipalName(e.target.value)} placeholder="e.g. Dr. A. Gupta" className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 text-sm font-bold text-surface-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" /></div>
+            <div><label className="text-xs font-black text-surface-500 uppercase tracking-widest mb-1.5 block">Phone</label><input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. +91 98765 43210" className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 text-sm font-bold text-surface-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" /></div>
+            <div><label className="text-xs font-black text-surface-500 uppercase tracking-widest mb-1.5 block">Academic Session</label><input type="text" value={session} onChange={e => setSession(e.target.value)} placeholder="e.g. 2026-2027" className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 text-sm font-bold text-surface-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" /></div>
+          </div>
+          <div className="pt-6 border-t border-surface-100 flex justify-end gap-3">
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="px-6 py-3 rounded-xl font-bold text-surface-600 hover:bg-surface-100 transition-colors">Cancel</button>
+            <button type="submit" disabled={isSubmitting} className="flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all shadow-md disabled:opacity-70 disabled:cursor-not-allowed">{isSubmitting ? 'Saving...' : 'Save Changes'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function Timetable() {
   const { currentUser } = useAuth()
   const { spendCoins, toolCosts, stats } = useGamification()
@@ -384,6 +461,7 @@ export default function Timetable() {
   })
   const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false)
   const [isLoadingSchools, setIsLoadingSchools] = useState(true)
+  const [editingSchool, setEditingSchool] = useState(null)
 
   const [details, setDetails] = useState(() => localStorage.getItem('ldms_timetable_details') || '')
   const [currentTimetableId, setCurrentTimetableId] = useState(() => localStorage.getItem('ldms_timetable_id') || null)
@@ -608,6 +686,36 @@ export default function Timetable() {
       setIsLoadingSchools(false)
     }
   }
+
+  const handleDeleteSchoolProfile = async (school) => {
+    if (!window.confirm(`\u26a0\ufe0f PERMANENT DELETE\n\nAre you sure you want to delete "${school.name}" and ALL its timetables?\n\nThis action cannot be undone.`)) return
+    try {
+      const q = query(collection(db, 'timetables'), where('userId', '==', currentUser.uid), where('schoolId', '==', school.id))
+      const snapshot = await getDocs(q)
+      const batch = writeBatch(db)
+      snapshot.docs.forEach(d => batch.delete(d.ref))
+      batch.delete(doc(db, 'schools', school.id))
+      await batch.commit()
+      if (activeSchool?.id === school.id) {
+        setActiveSchool(null)
+        localStorage.removeItem('ldms_active_school')
+      }
+      setSchools(prev => prev.filter(s => s.id !== school.id))
+      setCloudTimetables(prev => prev.filter(t => t.schoolId !== school.id))
+      if (currentTimetableId && snapshot.docs.some(d => d.id === currentTimetableId)) {
+        setCurrentTimetableId(null)
+        const g = {}
+        ALL_DAYS.forEach(d => { g[d] = {}; PERIODS.forEach(p => { g[d][p] = { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '', room: '', isLocked: false } }) })
+        setGrid(g); setClassName('New Class')
+      }
+      alert(`"${school.name}" deleted successfully.`)
+    } catch (err) {
+      console.error('Delete school error:', err)
+      alert('Failed to delete school: ' + err.message)
+    }
+  }
+
+  const handleEditSchoolSave = async () => { await loadSchools() }
 
   const loadTimetables = async (schoolId) => {
     if (!currentUser || !schoolId) {
@@ -2657,34 +2765,29 @@ export default function Timetable() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {schools.map(school => (
-              <div 
-                key={school.id}
-                onClick={() => {
-                  setActiveSchool(school)
-                  localStorage.setItem('ldms_active_school', JSON.stringify(school))
-                }}
-                className="bg-white rounded-[28px] border border-surface-200 p-6 hover:shadow-xl hover:border-indigo-300 transition-all cursor-pointer group flex flex-col min-h-[220px]"
-              >
-                <div className="flex items-start gap-5 mb-6">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-surface-50 border border-surface-100 overflow-hidden flex items-center justify-center shrink-0">
-                    {school.logoUrl ? (
-                      <img src={school.logoUrl} alt={school.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <Database className="w-8 h-8 text-surface-300" />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="text-lg sm:text-xl font-black text-surface-900 group-hover:text-indigo-600 transition-colors line-clamp-2">{school.name}</h3>
-                    <p className="text-sm text-surface-500 mt-1.5 line-clamp-2">{school.address || 'No Address'}</p>
-                  </div>
+              <div key={school.id} className="bg-white rounded-[28px] border border-surface-200 p-6 hover:shadow-xl hover:border-indigo-300 transition-all cursor-pointer group flex flex-col min-h-[220px] relative">
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
+                  <button onClick={(e) => { e.stopPropagation(); setEditingSchool(school); }} className="w-9 h-9 rounded-xl bg-surface-100 hover:bg-indigo-100 flex items-center justify-center text-surface-500 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5" title="Edit School"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); handleDeleteSchoolProfile(school); }} className="w-9 h-9 rounded-xl bg-surface-100 hover:bg-red-100 flex items-center justify-center text-surface-500 hover:text-red-600 transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5" title="Delete School"><Trash2 className="w-4 h-4" /></button>
                 </div>
-                <div className="mt-auto flex items-center justify-between pt-5 border-t border-surface-100 text-sm">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-black text-surface-400 uppercase tracking-widest">Session</span>
-                    <span className="font-bold text-surface-700">{school.session || '2026-2027'}</span>
+                <div onClick={() => { setActiveSchool(school); localStorage.setItem('ldms_active_school', JSON.stringify(school)); }} className="flex-1 flex flex-col">
+                  <div className="flex items-start gap-5 mb-6">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-surface-50 border border-surface-100 overflow-hidden flex items-center justify-center shrink-0">
+                      {school.logoUrl ? (<img src={school.logoUrl} alt={school.name} className="w-full h-full object-cover" />) : (<Database className="w-8 h-8 text-surface-300" />)}
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-black text-surface-900 group-hover:text-indigo-600 transition-colors line-clamp-2">{school.name}</h3>
+                      <p className="text-sm text-surface-500 mt-1.5 line-clamp-2">{school.address || 'No Address'}</p>
+                    </div>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors text-indigo-600">
-                    <ArrowRight className="w-5 h-5" />
+                  <div className="mt-auto flex items-center justify-between pt-5 border-t border-surface-100 text-sm">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-black text-surface-400 uppercase tracking-widest">Session</span>
+                      <span className="font-bold text-surface-700">{school.session || '2026-2027'}</span>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors text-indigo-600">
+                      <ArrowRight className="w-5 h-5" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2692,6 +2795,7 @@ export default function Timetable() {
           </div>
         )}
         {isSchoolModalOpen && <SchoolSetupModal onClose={() => setIsSchoolModalOpen(false)} onSave={loadSchools} currentUser={currentUser} setActiveSchool={setActiveSchool} />}
+        {editingSchool && <SchoolEditModal school={editingSchool} onClose={() => setEditingSchool(null)} onSave={handleEditSchoolSave} currentUser={currentUser} />}
       </div>
     )
   }
@@ -2699,27 +2803,32 @@ export default function Timetable() {
   return (
     <div className="max-w-[1200px] mx-auto animate-fade-in-up pb-24 lg:pb-8">
       {/* ═══ HERO: Smart Dashboard ═══ */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-teal-600 via-emerald-600 to-green-700 rounded-[32px] p-6 sm:p-8 mb-6 shadow-2xl">
-        <div className="absolute top-0 right-0 -translate-y-1/3 translate-x-1/4 w-[500px] h-[500px] bg-white/10 rounded-full blur-[80px] pointer-events-none" />
-        <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-[300px] h-[300px] bg-emerald-400/15 rounded-full blur-[60px] pointer-events-none" />
+      <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[32px] p-6 sm:p-8 mb-6 shadow-2xl">
+        <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-0 left-0 translate-y-1/3 -translate-x-1/4 w-[400px] h-[400px] bg-violet-500/10 rounded-full blur-[80px] pointer-events-none" />
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
         <div className="relative z-10">
-          {/* Top Row: Title + Save/Cloud */}
+          {/* Top Row */}
           <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 border border-white/30 text-white text-xs font-black tracking-widest uppercase mb-3">
-                <CalendarDays className="w-4 h-4" /> Hero Tool
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-[10px] font-black tracking-[0.2em] uppercase mb-3">
+                <CalendarDays className="w-3.5 h-3.5" /> Smart Scheduler
               </div>
               <h1 className="text-2xl sm:text-3xl font-black font-display text-white tracking-tight">
-                Timetable <span className="text-emerald-200">Builder</span>
+                Timetable <span className="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">Builder</span>
               </h1>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              <div className="hidden sm:flex items-center gap-2 px-3.5 py-2 bg-white/5 border border-white/10 rounded-xl">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-bold text-white/70">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+              </div>
               {currentUser && (
                 <>
-                  <button onClick={saveToCloud} disabled={isSaving} className="flex items-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white rounded-xl text-sm font-bold transition-all shadow-sm">
+                  <button onClick={saveToCloud} disabled={isSaving} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500/20 hover:bg-indigo-500/30 backdrop-blur-sm border border-indigo-400/30 text-white rounded-xl text-sm font-bold transition-all shadow-sm">
                     <Cloud className="w-4 h-4" /> {isSaving ? 'Saving...' : 'Save'}
                   </button>
-                  <button onClick={() => { setIsCloudModalOpen(true); loadTimetables(activeSchool?.id) }} className="flex items-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white rounded-xl text-sm font-bold transition-all shadow-sm">
+                  <button onClick={() => { setIsCloudModalOpen(true); loadTimetables(activeSchool?.id) }} className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/15 text-white rounded-xl text-sm font-bold transition-all shadow-sm">
                     <FolderOpen className="w-4 h-4" /> My Timetables
                   </button>
                 </>
@@ -2729,20 +2838,19 @@ export default function Timetable() {
 
           {/* Active School Header */}
           {currentUser && (
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-5 border-b border-white/10">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-5 border-b border-white/5">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-white/20 border border-white/30 overflow-hidden flex items-center justify-center shrink-0">
-                  {activeSchool?.logoUrl ? <img src={activeSchool.logoUrl} className="w-full h-full object-cover" /> : <Database className="w-6 h-6 text-white" />}
+                <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/15 overflow-hidden flex items-center justify-center shrink-0">
+                  {activeSchool?.logoUrl ? <img src={activeSchool.logoUrl} className="w-full h-full object-cover" /> : <Database className="w-6 h-6 text-indigo-300" />}
                 </div>
                 <div>
                   <h2 className="text-lg sm:text-xl font-black text-white">{activeSchool?.name || schoolName || 'Unassigned School'}</h2>
-                  <div className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest">
-                    {activeSchool?.session || session || '2026-2027'} • {activeSchool?.principalName || principalName || 'No Principal'}
+                  <div className="text-[10px] font-bold text-indigo-300/80 uppercase tracking-widest">
+                    {activeSchool?.session || session || '2026-2027'} {(activeSchool?.principalName || principalName) ? ` \u2022 ${activeSchool?.principalName || principalName}` : ''}
                   </div>
                 </div>
               </div>
-              
-              <button onClick={() => { setActiveSchool(null); localStorage.removeItem('ldms_active_school'); }} className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2">
+              <button onClick={() => { setActiveSchool(null); localStorage.removeItem('ldms_active_school'); }} className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2">
                 <ArrowRight className="w-4 h-4 rotate-180" /> Switch School
               </button>
             </div>
@@ -2752,50 +2860,56 @@ export default function Timetable() {
           <div className="flex flex-wrap items-center gap-3 mb-5">
             {editingClass ? (
               <div className="flex flex-wrap items-center gap-2 w-full">
-                <input type="text" value={className} onChange={e => setClassName(e.target.value)} autoFocus placeholder="Class (e.g. 8-A)" className="px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/40 rounded-xl text-sm font-bold text-white placeholder-white/50 focus:outline-none focus:border-white/80 w-full sm:w-auto" />
-                <input type="text" value={details} onChange={e => setDetails(e.target.value)} placeholder="Notes (optional)" className="hidden md:block px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/40 rounded-xl text-sm font-medium text-white placeholder-white/50 focus:outline-none focus:border-white/80 min-w-[200px]" />
+                <input type="text" value={className} onChange={e => setClassName(e.target.value)} autoFocus placeholder="Class (e.g. 8-A)" className="px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-sm font-bold text-white placeholder-white/40 focus:outline-none focus:border-indigo-400/50 w-full sm:w-auto transition-all" />
+                <input type="text" value={details} onChange={e => setDetails(e.target.value)} placeholder="Notes (optional)" className="hidden md:block px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-sm font-medium text-white placeholder-white/40 focus:outline-none focus:border-indigo-400/50 min-w-[200px] transition-all" />
                 {!currentUser && (
                   <>
-                    <input type="text" value={schoolName} onChange={e => setSchoolName(e.target.value)} placeholder="School Name" className="px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/40 rounded-xl text-sm font-medium text-white placeholder-white/50 focus:outline-none focus:border-white/80 w-full sm:w-auto" />
-                    <input type="text" value={session} onChange={e => setSession(e.target.value)} placeholder="Session" className="px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/40 rounded-xl text-sm font-medium text-white placeholder-white/50 focus:outline-none focus:border-white/80 w-full sm:w-auto" />
+                    <input type="text" value={schoolName} onChange={e => setSchoolName(e.target.value)} placeholder="School Name" className="px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-sm font-medium text-white placeholder-white/40 focus:outline-none focus:border-indigo-400/50 w-full sm:w-auto transition-all" />
+                    <input type="text" value={session} onChange={e => setSession(e.target.value)} placeholder="Session" className="px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-sm font-medium text-white placeholder-white/40 focus:outline-none focus:border-indigo-400/50 w-full sm:w-auto transition-all" />
                   </>
                 )}
-                <button onClick={() => setEditingClass(false)} className="p-2 bg-white/30 text-white rounded-xl shadow-sm hover:bg-white/40 transition-colors"><Save className="w-5 h-5" /></button>
+                <button onClick={() => setEditingClass(false)} className="p-2 bg-indigo-500/30 text-white rounded-xl shadow-sm hover:bg-indigo-500/40 transition-colors border border-indigo-400/20"><Save className="w-5 h-5" /></button>
               </div>
             ) : (
-              <button onClick={() => setEditingClass(true)} className="flex items-center gap-3 px-4 py-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/25 rounded-xl text-white transition-all group">
-                <span className="text-lg font-black">📚 {className}</span>
-                <Edit2 className="w-3.5 h-3.5 text-white/50 group-hover:text-white transition-colors ml-1" />
+              <button onClick={() => setEditingClass(true)} className="flex items-center gap-3 px-4 py-2.5 bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/10 rounded-xl text-white transition-all group">
+                <span className="text-lg font-black"><BookOpen className="w-5 h-5 inline-block mr-1.5 -mt-0.5" /> {className}</span>
+                <Edit2 className="w-3.5 h-3.5 text-white/30 group-hover:text-white/70 transition-colors ml-1" />
               </button>
             )}
-            {currentTimetableId && <span className="text-[10px] font-bold text-emerald-200 bg-white/10 px-2.5 py-1 rounded-full">☁️ Synced</span>}
+            {currentTimetableId && <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/20 px-2.5 py-1 rounded-full">Cloud Synced</span>}
           </div>
 
           {/* Live Stats Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-white/15 backdrop-blur-sm border border-white/20 rounded-2xl p-3.5 text-center group hover:bg-white/20 transition-all">
-              <div className="text-2xl sm:text-3xl font-black text-white">{filledPeriods}<span className="text-base text-emerald-200 font-bold">/{totalSlots}</span></div>
-              <div className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest mt-1">Periods Filled</div>
-              <div className="w-full bg-white/20 rounded-full h-1.5 mt-2 overflow-hidden">
-                <div className="bg-emerald-300 h-full rounded-full transition-all duration-1000" style={{ width: `${fillPercent}%` }} />
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-3.5 text-center group hover:bg-white/10 transition-all">
+              <div className="text-2xl sm:text-3xl font-black text-white">{filledPeriods}<span className="text-base text-indigo-300 font-bold">/{totalSlots}</span></div>
+              <div className="text-[10px] font-bold text-indigo-300/80 uppercase tracking-widest mt-1">Periods Filled</div>
+              <div className="w-full bg-white/10 rounded-full h-1.5 mt-2 overflow-hidden">
+                <div className="bg-gradient-to-r from-indigo-400 to-cyan-400 h-full rounded-full transition-all duration-1000" style={{ width: `${fillPercent}%` }} />
               </div>
             </div>
-            <div className="bg-white/15 backdrop-blur-sm border border-white/20 rounded-2xl p-3.5 text-center group hover:bg-white/20 transition-all">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-3.5 text-center group hover:bg-white/10 transition-all">
               <div className="text-2xl sm:text-3xl font-black text-white">{usedTeachersSet.size}</div>
-              <div className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest mt-1">Teachers Assigned</div>
-              <div className="text-[10px] text-white/50 font-medium mt-1">{teachers.length} total in roster</div>
+              <div className="text-[10px] font-bold text-indigo-300/80 uppercase tracking-widest mt-1">Teachers Active</div>
+              <div className="text-[10px] text-white/30 font-medium mt-1">{teachers.length} in roster</div>
             </div>
-            <div className="bg-white/15 backdrop-blur-sm border border-white/20 rounded-2xl p-3.5 text-center group hover:bg-white/20 transition-all">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-3.5 text-center group hover:bg-white/10 transition-all">
               <div className="text-2xl sm:text-3xl font-black text-white">{usedSubjects.size}</div>
-              <div className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest mt-1">Subjects Used</div>
-              <div className="text-[10px] text-white/50 font-medium mt-1">{activeDays.length}-day week</div>
+              <div className="text-[10px] font-bold text-indigo-300/80 uppercase tracking-widest mt-1">Subjects Used</div>
+              <div className="text-[10px] text-white/30 font-medium mt-1">{activeDays.length}-day week</div>
             </div>
-            <div className={`backdrop-blur-sm border rounded-2xl p-3.5 text-center group transition-all ${clashCount > 0 ? 'bg-red-500/30 border-red-400/40 hover:bg-red-500/40' : 'bg-white/15 border-white/20 hover:bg-white/20'}`}>
-              <div className={`text-2xl sm:text-3xl font-black ${clashCount > 0 ? 'text-red-200' : 'text-white'}`}>{clashCount}</div>
-              <div className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${clashCount > 0 ? 'text-red-200' : 'text-emerald-200'}`}>{clashCount > 0 ? 'Clashes ⚠️' : 'No Clashes ✅'}</div>
-              {clashCount > 0 && <div className="text-[10px] text-red-200/70 font-medium mt-1">Click Reports to fix</div>}
+            <div className={`backdrop-blur-sm border rounded-2xl p-3.5 text-center group transition-all ${clashCount > 0 ? 'bg-red-500/15 border-red-400/25 hover:bg-red-500/20' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}>
+              <div className={`text-2xl sm:text-3xl font-black ${clashCount > 0 ? 'text-red-300' : 'text-white'}`}>{clashCount}</div>
+              <div className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${clashCount > 0 ? 'text-red-300/80' : 'text-emerald-400/80'}`}>{clashCount > 0 ? 'Clashes Found' : 'No Clashes'}</div>
+              {clashCount > 0 && <div className="text-[10px] text-red-300/50 font-medium mt-1">Check Reports</div>}
             </div>
           </div>
+          {fillPercent < 50 && (
+            <div className="mt-4 flex items-center gap-3 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-xs">
+              <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+              <span className="text-white/60 font-medium"><strong className="text-white/80">Tip:</strong> Add teachers in MANAGE, then click <strong className="text-indigo-300">AI Auto-Fill</strong> in BUILD to generate your timetable.</span>
+            </div>
+          )}
         </div>
       </div>
       
@@ -2805,46 +2919,66 @@ export default function Timetable() {
       {!currentUser && (
         <div className="mb-4 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3 text-sm text-amber-800 shadow-sm animate-fade-in">
           <AlertCircle className="w-6 h-6 text-amber-500 shrink-0" />
-          <p><strong>You are using Timetable as a Guest.</strong> Your data is only saved locally on this browser. Login to save to the cloud securely and access it anywhere.</p>
+          <p><strong>You are using Timetable as a Guest.</strong> Your data is only saved locally. Login to save to the cloud.</p>
         </div>
       )}
 
-      {/* Quick Guide Banner */}
-      <div className="mb-6 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-[24px] p-5 sm:p-6 shadow-sm relative overflow-hidden animate-fade-in">
-        <div className="absolute -top-4 -right-4 p-4 opacity-10">
-          <Sparkles className="w-32 h-32 text-indigo-500" />
-        </div>
-        <div className="relative z-10 flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
-          <div className="flex-1">
-            <h3 className="text-lg font-black text-indigo-950 mb-3 flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-indigo-600" /> How to build your Smart Timetable?
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="flex items-start gap-3 bg-white/60 p-3 rounded-xl border border-white">
-                <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black shrink-0 shadow-sm">1</div>
-                <div>
-                  <div className="text-sm font-bold text-indigo-900">Setup Data</div>
-                  <div className="text-xs font-medium text-indigo-700/70 mt-0.5">Go to 'MANAGE' and add teachers with their subject workloads.</div>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 bg-white/60 p-3 rounded-xl border border-white">
-                <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black shrink-0 shadow-sm">2</div>
-                <div>
-                  <div className="text-sm font-bold text-indigo-900">Define Grid</div>
-                  <div className="text-xs font-medium text-indigo-700/70 mt-0.5">Edit your Class Name and set the Active Days at the bottom.</div>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 bg-white/60 p-3 rounded-xl border border-white">
-                <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black shrink-0 shadow-sm">3</div>
-                <div>
-                  <div className="text-sm font-bold text-indigo-900">Auto Generate</div>
-                  <div className="text-xs font-medium text-indigo-700/70 mt-0.5">Click 'AI Auto-Fill' in 'BUILD' to magically generate your timetable!</div>
-                </div>
-              </div>
+      {/* Quick Guide - Collapsible */}
+      <details className="mb-6 group/guide animate-fade-in">
+        <summary className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-[20px] cursor-pointer list-none select-none hover:shadow-md transition-all">
+          <BookOpen className="w-5 h-5 text-indigo-600 shrink-0" />
+          <span className="text-sm font-black text-indigo-950 flex-1">How to build your Smart Timetable?</span>
+          <ChevronDown className="w-4 h-4 text-indigo-400 transition-transform group-open/guide:rotate-180" />
+        </summary>
+        <div className="mt-2 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-[20px] p-5 sm:p-6 relative overflow-hidden">
+          <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="flex items-start gap-3 bg-white/60 p-3 rounded-xl border border-white">
+              <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black shrink-0">1</div>
+              <div><div className="text-sm font-bold text-indigo-900">Setup Data</div><div className="text-xs font-medium text-indigo-700/70 mt-0.5">Go to MANAGE and add teachers with workloads.</div></div>
+            </div>
+            <div className="flex items-start gap-3 bg-white/60 p-3 rounded-xl border border-white">
+              <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black shrink-0">2</div>
+              <div><div className="text-sm font-bold text-indigo-900">Define Grid</div><div className="text-xs font-medium text-indigo-700/70 mt-0.5">Set your Class Name and Active Days.</div></div>
+            </div>
+            <div className="flex items-start gap-3 bg-white/60 p-3 rounded-xl border border-white">
+              <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black shrink-0">3</div>
+              <div><div className="text-sm font-bold text-indigo-900">Auto Generate</div><div className="text-xs font-medium text-indigo-700/70 mt-0.5">Click AI Auto-Fill in BUILD to generate!</div></div>
             </div>
           </div>
         </div>
-      </div>
+      </details>
+
+      {/* Class Tabs Bar */}
+      {currentUser && cloudTimetables.length > 0 && (
+        <div className="mb-6 animate-fade-in">
+          <div className="flex items-center gap-3 mb-3">
+            <h3 className="text-sm font-black text-surface-500 uppercase tracking-widest">Classes</h3>
+            <div className="flex-1 h-px bg-surface-200" />
+            <span className="text-xs font-bold text-surface-400 bg-surface-100 px-2.5 py-1 rounded-full">{cloudTimetables.length} total</span>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {(() => {
+              const sorted = [...cloudTimetables].sort((a, b) => {
+                const gA = getGroupForClass(a.className); const gB = getGroupForClass(b.className)
+                if (gA !== gB) return gA - gB
+                return (a.className || '').localeCompare(b.className || '', undefined, { numeric: true })
+              })
+              return sorted.map((tb) => {
+                const isActive = tb.id === currentTimetableId
+                return (
+                  <button key={tb.id} onClick={() => handleLoadTimetable(tb)}
+                    className={`px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-200 border shrink-0 ${isActive ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/25' : 'bg-white text-surface-700 border-surface-200 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 hover:shadow-md hover:-translate-y-0.5'}`}>
+                    {tb.className || 'Unnamed'}
+                  </button>
+                )
+              })
+            })()}
+            <button onClick={handleNewTimetable} className="px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap border-2 border-dashed border-surface-300 text-surface-500 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-200 flex items-center gap-1.5 shrink-0">
+              <Plus className="w-4 h-4" /> New Class
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ═══ CONTROL SECTIONS ═══ */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
