@@ -11,17 +11,28 @@ const DEFAULT_PACKAGES = [
   { id: 'enterprise', coins: 1000, price: 699, tag: 'Best Value' },
 ]
 
+const DEFAULT_SUBSCRIPTIONS = [
+  { id: 'monthly', duration: '30 Days', price: 499, tag: 'Monthly Plan' },
+  { id: 'yearly', duration: '365 Days', price: 4999, tag: 'Best Value', popular: true },
+]
+
 export default function TokenShopModal({ onClose }) {
   const { currentUser, userProfile } = useAuth()
+  const [shopMode, setShopMode] = useState('coins') // 'coins' | 'subscription'
   const [packages, setPackages] = useState(DEFAULT_PACKAGES)
+  const [subscriptions, setSubscriptions] = useState(DEFAULT_SUBSCRIPTIONS)
   const [selectedPack, setSelectedPack] = useState(DEFAULT_PACKAGES[1])
+  const [selectedSub, setSelectedSub] = useState(DEFAULT_SUBSCRIPTIONS[1])
+  
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [upiId, setUpiId] = useState('teacherhub@upi')
-  const [upiImageUrl, setUpiImageUrl] = useState(`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=upi://pay?pa=teacherhub@upi%26pn=LDMS%20Workspace`)
   const [adminWhatsapp, setAdminWhatsapp] = useState('')
   const [copiedUpi, setCopiedUpi] = useState(false)
+
+  const activeItem = shopMode === 'coins' ? selectedPack : selectedSub
+  const [upiImageUrl, setUpiImageUrl] = useState(`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=upi://pay?pa=teacherhub@upi%26pn=LDMS%20Workspace`)
 
   const userName = userProfile?.name || currentUser?.displayName || 'User'
   const userEmail = currentUser?.email || ''
@@ -33,11 +44,15 @@ export default function TokenShopModal({ onClose }) {
         const data = docSnap.data()
         if (data.upiId) {
           setUpiId(data.upiId)
-          setUpiImageUrl(`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=upi://pay?pa=${data.upiId}%26pn=LDMS%20Workspace%26am=${selectedPack.price}`)
+          setUpiImageUrl(`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=upi://pay?pa=${data.upiId}%26pn=LDMS%20Workspace%26am=${activeItem.price}`)
         }
         if (data.tokenPlans && data.tokenPlans.length > 0) {
           setPackages(data.tokenPlans)
           setSelectedPack(data.tokenPlans.find(p => p.popular) || data.tokenPlans[0])
+        }
+        if (data.subscriptionPlans && data.subscriptionPlans.length > 0) {
+          setSubscriptions(data.subscriptionPlans)
+          setSelectedSub(data.subscriptionPlans.find(p => p.popular) || data.subscriptionPlans[0])
         }
         if (data.adminWhatsapp) setAdminWhatsapp(data.adminWhatsapp)
       }
@@ -47,8 +62,8 @@ export default function TokenShopModal({ onClose }) {
 
   // Update QR when pack changes
   useEffect(() => {
-    setUpiImageUrl(`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=upi://pay?pa=${upiId}%26pn=LDMS%20Workspace%26am=${selectedPack.price}`)
-  }, [selectedPack, upiId])
+    setUpiImageUrl(`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=upi://pay?pa=${upiId}%26pn=LDMS%20Workspace%26am=${activeItem.price}`)
+  }, [activeItem, upiId])
 
   const copyUpi = () => {
     navigator.clipboard.writeText(upiId)
@@ -65,9 +80,10 @@ export default function TokenShopModal({ onClose }) {
         userId: userId,
         userName: userName,
         userEmail: userEmail,
-        amount: selectedPack.price,
-        coins: selectedPack.coins,
-        packageId: selectedPack.id,
+        amount: activeItem.price,
+        itemValue: shopMode === 'coins' ? activeItem.coins : activeItem.duration,
+        packageId: activeItem.id,
+        type: shopMode === 'coins' ? 'coin_purchase' : 'subscription',
         status: 'pending',
         method: 'whatsapp-screenshot',
         createdAt: serverTimestamp()
@@ -76,14 +92,13 @@ export default function TokenShopModal({ onClose }) {
       // 2. Save admin notification (non-blocking)
       try {
         await addDoc(collection(db, 'adminNotifications'), {
-          type: 'coin_purchase',
-          title: `💰 New Coin Purchase Request`,
-          message: `${userName} (${userEmail}) requested ${selectedPack.coins} coins — ₹${selectedPack.price}. Awaiting screenshot verification.`,
+          type: shopMode === 'coins' ? 'coin_purchase' : 'subscription',
+          title: shopMode === 'coins' ? `💰 New Coin Purchase Request` : `🌟 New Subscription Request`,
+          message: `${userName} (${userEmail}) requested ${shopMode === 'coins' ? `${activeItem.coins} coins` : `${activeItem.duration} subscription`} — ₹${activeItem.price}. Awaiting screenshot verification.`,
           userId: userId,
           userName: userName,
           userEmail: userEmail,
-          coins: selectedPack.coins,
-          amount: selectedPack.price,
+          amount: activeItem.price,
           read: false,
           createdAt: serverTimestamp()
         })
@@ -91,16 +106,26 @@ export default function TokenShopModal({ onClose }) {
 
       // 3. Open WhatsApp with pre-filled message
       if (adminWhatsapp) {
-        const msg = `🪙 *Coin Purchase Request*
+        const msg = shopMode === 'coins' ? `🪙 *Coin Purchase Request*
 
 👤 *Name:* ${userName}
 📧 *Email:* ${userEmail}
 🆔 *User ID:* ${userId.substring(0, 8)}...
-💰 *Package:* ${selectedPack.coins} Coins — ₹${selectedPack.price}
+💰 *Package:* ${activeItem.coins} Coins — ₹${activeItem.price}
 
 📎 *Payment screenshot attached below* ⬇️
 
-_Please verify and add coins to my account. Thank you!_`
+_Please verify and add coins to my account. Thank you!_` : `🌟 *Subscription Purchase Request*
+
+👤 *Name:* ${userName}
+📧 *Email:* ${userEmail}
+🆔 *User ID:* ${userId.substring(0, 8)}...
+📅 *Plan:* ${activeItem.duration} — ₹${activeItem.price}
+
+📎 *Payment screenshot attached below* ⬇️
+
+_Please verify and activate my subscription. Thank you!_`
+
         window.open(`https://wa.me/${adminWhatsapp}?text=${encodeURIComponent(msg)}`, '_blank')
       }
 
@@ -150,9 +175,15 @@ _Please verify and add coins to my account. Thank you!_`
                 </div>
               </div>
 
-              <h3 className="text-lg font-bold text-surface-900 mb-4 text-center">Select a Coin Package</h3>
+              <h3 className="text-lg font-bold text-surface-900 mb-4 text-center">Select a Package</h3>
+              
+              <div className="flex bg-surface-100 p-1 rounded-xl mb-5">
+                <button onClick={() => setShopMode('coins')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${shopMode === 'coins' ? 'bg-white text-indigo-700 shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}>Buy Coins</button>
+                <button onClick={() => setShopMode('subscription')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${shopMode === 'subscription' ? 'bg-white text-indigo-700 shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}>Unlimited Plans</button>
+              </div>
+
               <div className="space-y-3">
-                {packages.map(pack => (
+                {shopMode === 'coins' ? packages.map(pack => (
                   <button
                     key={pack.id}
                     onClick={() => setSelectedPack(pack)}
@@ -169,13 +200,30 @@ _Please verify and add coins to my account. Thank you!_`
                       <p className="font-black text-indigo-700 text-xl">₹{pack.price}</p>
                     </div>
                   </button>
+                )) : subscriptions.map(sub => (
+                  <button
+                    key={sub.id}
+                    onClick={() => setSelectedSub(sub)}
+                    className={`w-full relative flex items-center justify-between p-4 rounded-2xl border-2 transition-all text-left ${selectedSub.id === sub.id ? 'border-indigo-600 bg-indigo-50 shadow-md transform scale-[1.01]' : 'border-surface-200 bg-white hover:border-indigo-300'}`}
+                  >
+                    {sub.popular && <span className="absolute -top-3 left-4 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full shadow-sm">Popular</span>}
+                    <div>
+                      <p className="font-extrabold text-surface-900 text-lg flex items-center gap-2">
+                        {sub.duration} <span className="text-amber-500">🌟</span>
+                      </p>
+                      <p className="text-xs font-semibold text-surface-500">{sub.tag}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-indigo-700 text-xl">₹{sub.price}</p>
+                    </div>
+                  </button>
                 ))}
               </div>
               <button 
                 onClick={() => setStep(2)}
                 className="w-full mt-6 py-4 bg-slate-900 hover:bg-black text-white font-extrabold rounded-xl transition-all shadow-lg flex justify-center items-center gap-2"
               >
-                Proceed to Payment (₹{selectedPack.price})
+                Proceed to Payment (₹{activeItem.price})
               </button>
             </div>
           )}
@@ -193,8 +241,8 @@ _Please verify and add coins to my account. Thank you!_`
                     <p className="text-[11px] text-surface-400">{userEmail}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-black text-indigo-700">{selectedPack.coins} 🪙</p>
-                    <p className="text-sm font-bold text-surface-600">₹{selectedPack.price}</p>
+                    <p className="text-lg font-black text-indigo-700">{shopMode === 'coins' ? `${activeItem.coins} 🪙` : `${activeItem.duration} 🌟`}</p>
+                    <p className="text-sm font-bold text-surface-600">₹{activeItem.price}</p>
                   </div>
                 </div>
               </div>
@@ -204,7 +252,7 @@ _Please verify and add coins to my account. Thank you!_`
                 <div className="inline-block p-4 bg-white border-2 border-dashed border-indigo-200 rounded-2xl shadow-sm mb-3">
                   <img src={upiImageUrl} alt="UPI QR Code" className="w-44 h-44 object-cover" />
                 </div>
-                <h3 className="text-xl font-extrabold text-surface-900 mb-1">Scan to Pay ₹{selectedPack.price}</h3>
+                <h3 className="text-xl font-extrabold text-surface-900 mb-1">Scan to Pay ₹{activeItem.price}</h3>
                 <div className="flex items-center justify-center gap-2 mt-1">
                   <p className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg">{upiId}</p>
                   <button onClick={copyUpi} className="p-1.5 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition-colors">
@@ -217,11 +265,11 @@ _Please verify and add coins to my account. Thank you!_`
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
                 <p className="text-xs font-bold text-amber-800 mb-2">📋 Quick Steps:</p>
                 <ol className="text-[11px] text-amber-700 font-medium space-y-1 list-decimal list-inside">
-                  <li>Scan QR or copy UPI ID and pay <b>₹{selectedPack.price}</b></li>
+                  <li>Scan QR or copy UPI ID and pay <b>₹{activeItem.price}</b></li>
                   <li>Take a <b>screenshot</b> of the payment confirmation</li>
                   <li>Click the <b>green WhatsApp button</b> below</li>
                   <li>Attach your screenshot in the WhatsApp chat & send</li>
-                  <li>Your <b>{selectedPack.coins} coins</b> will be added within minutes! ✅</li>
+                  <li>Your <b>{shopMode === 'coins' ? `${activeItem.coins} coins` : activeItem.duration}</b> will be activated within minutes! ✅</li>
                 </ol>
               </div>
 
@@ -251,21 +299,21 @@ _Please verify and add coins to my account. Thank you!_`
               </div>
               <h3 className="text-2xl font-extrabold text-surface-900 mb-2">Request Sent! 🎉</h3>
               <p className="text-surface-600 mb-4 max-w-sm mx-auto">
-                Your purchase request for <strong className="text-indigo-700">{selectedPack.coins} 🪙 Coins</strong> has been submitted successfully.
+                Your purchase request for <strong className="text-indigo-700">{shopMode === 'coins' ? `${activeItem.coins} 🪙 Coins` : `${activeItem.duration} 🌟 Subscription`}</strong> has been submitted successfully.
               </p>
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-6 max-w-sm mx-auto text-left">
                 <p className="text-xs font-bold text-emerald-800 mb-2">✅ What happens next:</p>
                 <ul className="text-[11px] text-emerald-700 font-medium space-y-1 list-disc list-inside">
                   <li>Admin will verify your payment screenshot</li>
-                  <li>Coins will be credited within <b>5-15 minutes</b></li>
-                  <li>You'll see updated balance in your profile</li>
+                  <li>Access will be granted within <b>5-15 minutes</b></li>
+                  <li>You'll see updated access in your profile</li>
                 </ul>
               </div>
               
               {adminWhatsapp && (
                 <button 
                   onClick={() => {
-                    const msg = `Hi! I just made a payment for ${selectedPack.coins} coins (₹${selectedPack.price}). My email: ${userEmail}. Please verify. Thank you! 🙏`
+                    const msg = `Hi! I just made a payment for ${shopMode === 'coins' ? `${activeItem.coins} coins` : activeItem.duration} (₹${activeItem.price}). My email: ${userEmail}. Please verify. Thank you! 🙏`
                     window.open(`https://wa.me/${adminWhatsapp}?text=${encodeURIComponent(msg)}`, '_blank')
                   }}
                   className="px-6 py-3 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold rounded-xl transition-all mb-4 inline-flex items-center gap-2 shadow-lg"

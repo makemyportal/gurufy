@@ -181,6 +181,31 @@ export function GamificationProvider({ children }) {
     spendLockRef.current = true
 
     try {
+      // 1. Fetch user profile to check subscription and role
+      const userSnap = await getDoc(doc(db, 'users', currentUser.uid))
+      const userData = userSnap.exists() ? userSnap.data() : null
+      const userName = userData ? (userData.name || currentUser.email) : currentUser.email
+      
+      const isSuperAdmin = userData?.role === 'superadmin'
+      const hasActiveSubscription = userData?.subscriptionExpiry && new Date(userData.subscriptionExpiry) > new Date()
+
+      // 2. If user has subscription or is superadmin, bypass coin deduction
+      if (isSuperAdmin || hasActiveSubscription) {
+        try {
+          await addDoc(collection(db, 'tool_usage'), {
+            userId: currentUser.uid,
+            userName: userName,
+            toolName: reason.replace('Unlock ', ''),
+            toolId: reason,
+            coinsSpent: 0, // Free access
+            count: 1,
+            createdAt: new Date().toISOString()
+          })
+        } catch (logErr) {}
+        return true
+      }
+
+      // 3. Normal coin deduction flow
       const ref = doc(db, 'gamification', currentUser.uid)
       const snap = await getDoc(ref)
       if (!snap.exists()) return false
@@ -191,10 +216,8 @@ export function GamificationProvider({ children }) {
       await updateDoc(ref, { coins: increment(-amount) })
       setStats(prev => ({ ...prev, coins: (prev.coins || 0) - amount }))
 
-      // Log tool usage for admin analytics
+      // Log tool usage
       try {
-        const userSnap = await getDoc(doc(db, 'users', currentUser.uid))
-        const userName = userSnap.exists() ? (userSnap.data().name || currentUser.email) : currentUser.email
         await addDoc(collection(db, 'tool_usage'), {
           userId: currentUser.uid,
           userName: userName,

@@ -16,6 +16,7 @@ export default function CoinGate({ children, toolName, toolId }) {
 
   const isSuperAdmin = userProfile?.role === 'superadmin'
   const isSuspended = userProfile?.status === 'suspended'
+  const hasActiveSubscription = userProfile?.subscriptionExpiry && new Date(userProfile.subscriptionExpiry) > new Date()
 
   // Suspended users cannot use any tool
   if (isSuspended) {
@@ -40,8 +41,8 @@ export default function CoinGate({ children, toolName, toolId }) {
     )
   }
 
-  // Super admins bypass the gate
-  if (isSuperAdmin || unlocked) {
+  // Super admins or users with active subscriptions bypass the gate
+  if (isSuperAdmin || hasActiveSubscription || unlocked) {
     return children
   }
 

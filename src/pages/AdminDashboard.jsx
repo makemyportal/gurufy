@@ -5,7 +5,7 @@ import {
   CalendarDays, Trophy, Megaphone, Eye, Ban, UserCheck, FileText,
   MessageSquare, ChevronRight, RefreshCw, Send, X, AlertCircle, Award, Plus,
   ShoppingCart, GraduationCap, Radio, Mic, Star, Play, Store, Clock, Wallet, IndianRupee,
-  MessageCircleQuestion
+  MessageCircleQuestion, ZapOff
 } from 'lucide-react'
 import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, getDoc, setDoc, query, orderBy, limit, where, increment } from 'firebase/firestore'
 import { db } from '../utils/firebase'
@@ -306,6 +306,20 @@ export default function AdminDashboard() {
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u))
       showToast(`User ${newStatus === 'suspended' ? 'suspended' : 'activated'}`)
     } catch (err) { showToast('Action failed', 'error') }
+  }
+
+  async function handleCancelSubscription(userId) {
+    setConfirmModal({
+      title: 'Cancel Subscription', message: 'Are you sure you want to cancel this user\'s subscription? They will revert to Coin mode immediately.', danger: true,
+      onConfirm: async () => {
+        try {
+          await updateDoc(doc(db, 'users', userId), { subscriptionExpiry: null })
+          setUsers(prev => prev.map(u => u.id === userId ? { ...u, subscriptionExpiry: null } : u))
+          showToast('Subscription cancelled successfully')
+        } catch (err) { showToast('Action failed', 'error') }
+        setConfirmModal(null)
+      }
+    })
   }
 
   async function handleToggleVerify(user, color) {
@@ -721,6 +735,13 @@ export default function AdminDashboard() {
                                   {user.isVerified && <span className={`w-3.5 h-3.5 text-white rounded-full flex items-center justify-center text-[8px] shadow-sm shrink-0 ${BADGE_COLORS[user.verificationColor] || 'bg-blue-500'}`}>✓</span>}
                                 </p>
                                 <p className="text-xs font-medium text-surface-500">{user.email}</p>
+                                {user.subscriptionExpiry && new Date(user.subscriptionExpiry) > new Date() && (
+                                  <div className="mt-1 flex">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[9px] font-black uppercase tracking-wider shadow-sm border border-amber-200">
+                                      🌟 Active Plan
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -728,25 +749,36 @@ export default function AdminDashboard() {
                           <td className="p-4"><StatusBadge status={user.status} /></td>
                           <td className="p-4 text-sm font-medium text-surface-500">{formatDate(user.createdAt)}</td>
                           <td className="p-4">
-                            <div className="flex items-center justify-end gap-2">
-                              <select
-                                value={user.isVerified ? (user.verificationColor || 'blue') : ''}
-                                onChange={(e) => handleToggleVerify(user, e.target.value)}
-                                className="text-[11px] font-bold px-2 py-1.5 border border-surface-200 rounded-lg bg-surface-50 text-surface-700 outline-none cursor-pointer"
-                              >
-                                <option value="">No Badge</option>
-                                <option value="blue">Blue Badge</option>
-                                <option value="gold">Gold Badge</option>
-                                <option value="emerald">Green Badge</option>
-                                <option value="purple">Purple Badge</option>
-                              </select>
-                              <button onClick={() => handleToggleSuspend(user.id, user.status)} title={user.status === 'suspended' ? 'Activate' : 'Suspend'}
-                                className={`p-2 rounded-lg transition-colors ${user.status === 'suspended' ? 'text-emerald-600 hover:bg-emerald-50' : 'text-amber-600 hover:bg-amber-50'}`}>
-                                {user.status === 'suspended' ? <UserCheck className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
-                              </button>
-                              <button onClick={() => setEditingItem({ type: 'user', data: user })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title="Edit"><Edit className="w-4 h-4" /></button>
-                              <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                            </div>
+                            {user.role !== 'superadmin' ? (
+                              <div className="flex items-center justify-end gap-2">
+                                <select
+                                  value={user.isVerified ? (user.verificationColor || 'blue') : ''}
+                                  onChange={(e) => handleToggleVerify(user, e.target.value)}
+                                  className="text-[11px] font-bold px-2 py-1.5 border border-surface-200 rounded-lg bg-surface-50 text-surface-700 outline-none cursor-pointer"
+                                >
+                                  <option value="">No Badge</option>
+                                  <option value="blue">Blue Badge</option>
+                                  <option value="gold">Gold Badge</option>
+                                  <option value="emerald">Green Badge</option>
+                                  <option value="purple">Purple Badge</option>
+                                </select>
+                                <button onClick={() => handleToggleSuspend(user.id, user.status)} title={user.status === 'suspended' ? 'Activate' : 'Suspend'}
+                                  className={`p-2 rounded-lg transition-colors ${user.status === 'suspended' ? 'text-emerald-600 hover:bg-emerald-50' : 'text-amber-600 hover:bg-amber-50'}`}>
+                                  {user.status === 'suspended' ? <UserCheck className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                                </button>
+                                {user.subscriptionExpiry && new Date(user.subscriptionExpiry) > new Date() && (
+                                  <button onClick={() => handleCancelSubscription(user.id)} className="p-2 text-surface-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Cancel Subscription">
+                                    <ZapOff className="w-4 h-4" />
+                                  </button>
+                                )}
+                                <button onClick={() => setEditingItem({ type: 'user', data: user })} className="p-2 text-surface-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title="Edit"><Edit className="w-4 h-4" /></button>
+                                <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-surface-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                              </div>
+                            ) : (
+                              <div className="flex justify-end">
+                                <span className="px-2 py-1 bg-surface-100 text-surface-400 text-[10px] font-black uppercase tracking-widest rounded-md">Protected</span>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -963,6 +995,8 @@ export default function AdminDashboard() {
                     const isPending = req.status === 'pending'
                     const isApproved = req.status === 'approved'
                     const isRejected = req.status === 'rejected'
+                    const isSub = req.type === 'subscription'
+                    
                     return (
                       <div key={req.id} className={`bg-white border rounded-2xl overflow-hidden hover:shadow-md transition-all ${isPending ? 'border-amber-200/60' : isApproved ? 'border-emerald-200/60' : 'border-rose-200/60'}`}>
                         {/* Header */}
@@ -970,6 +1004,9 @@ export default function AdminDashboard() {
                           {isPending ? <Clock className="w-4 h-4 text-amber-500" /> : isApproved ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <XCircle className="w-4 h-4 text-rose-500" />}
                           <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${isPending ? 'bg-amber-100 text-amber-700' : isApproved ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                             {req.status}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-surface-100 text-surface-600">
+                            {isSub ? 'Subscription' : 'Coins'}
                           </span>
                           <span className="text-xs text-surface-400 font-medium ml-auto">
                             {(() => { try { const dt = req.createdAt?.toDate ? req.createdAt.toDate() : new Date(req.createdAt); return dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) } catch { return '-' } })()}
@@ -984,8 +1021,8 @@ export default function AdminDashboard() {
                             </div>
                             <div className="flex items-center gap-4">
                               <div className="text-center px-4 py-2 bg-amber-50 rounded-xl border border-amber-100">
-                                <p className="text-lg font-black text-amber-700">{req.coins} 🪙</p>
-                                <p className="text-[9px] font-bold uppercase text-amber-500">Coins</p>
+                                <p className="text-lg font-black text-amber-700">{isSub ? req.itemValue : `${req.coins} 🪙`}</p>
+                                <p className="text-[9px] font-bold uppercase text-amber-500">{isSub ? 'Plan' : 'Coins'}</p>
                               </div>
                               <div className="text-center px-4 py-2 bg-indigo-50 rounded-xl border border-indigo-100">
                                 <p className="text-lg font-black text-indigo-700 flex items-center gap-1"><IndianRupee className="w-4 h-4" />{req.amount}</p>
@@ -1003,16 +1040,30 @@ export default function AdminDashboard() {
                             <div className="flex gap-2 pt-3 border-t border-surface-100">
                               <button onClick={async () => {
                                 try {
-                                  await updateDoc(doc(db, 'paymentRequests', req.id), { status: 'approved', approvedAt: new Date() })
-                                  await updateDoc(doc(db, 'gamification', req.userId), { coins: increment(req.coins) }).catch(async () => {
-                                    // If doc doesn't exist, create it
-                                    await setDoc(doc(db, 'gamification', req.userId), { coins: req.coins, xp: 0, badges: [] })
-                                  })
-                                  setPaymentRequests(prev => prev.map(p => p.id === req.id ? { ...p, status: 'approved' } : p))
-                                  showToast(`✅ Approved! ${req.coins} coins credited to ${req.userName || 'user'}`)
+                                  if (isSub) {
+                                    const days = req.itemValue === '365 Days' ? 365 : 30
+                                    const expiry = new Date()
+                                    expiry.setDate(expiry.getDate() + days)
+                                    
+                                    await updateDoc(doc(db, 'paymentRequests', req.id), { status: 'approved', approvedAt: new Date() })
+                                    await updateDoc(doc(db, 'users', req.userId), { subscriptionExpiry: expiry.toISOString() })
+                                    
+                                    // Make sure we update local state if users are loaded
+                                    setUsers(prev => prev.map(u => u.id === req.userId ? { ...u, subscriptionExpiry: expiry.toISOString() } : u))
+                                    setPaymentRequests(prev => prev.map(p => p.id === req.id ? { ...p, status: 'approved' } : p))
+                                    showToast(`✅ Approved! Subscription activated for ${req.userName || 'user'}`)
+                                  } else {
+                                    await updateDoc(doc(db, 'paymentRequests', req.id), { status: 'approved', approvedAt: new Date() })
+                                    await updateDoc(doc(db, 'gamification', req.userId), { coins: increment(req.coins) }).catch(async () => {
+                                      // If doc doesn't exist, create it
+                                      await setDoc(doc(db, 'gamification', req.userId), { coins: req.coins, xp: 0, badges: [] })
+                                    })
+                                    setPaymentRequests(prev => prev.map(p => p.id === req.id ? { ...p, status: 'approved' } : p))
+                                    showToast(`✅ Approved! ${req.coins} coins credited to ${req.userName || 'user'}`)
+                                  }
                                 } catch (err) { console.error(err); showToast('Failed to approve', 'error') }
                               }} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg flex items-center gap-1.5">
-                                <CheckCircle className="w-4 h-4" /> Approve & Credit Coins
+                                <CheckCircle className="w-4 h-4" /> {isSub ? 'Activate Subscription' : 'Approve & Credit Coins'}
                               </button>
                               <button onClick={async () => {
                                 if (!window.confirm('Reject this payment request?')) return
