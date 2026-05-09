@@ -935,6 +935,45 @@ YOU MUST STRICTLY USE THIS FORMAT:
 
 ---
 > **📌 CBSE Reference:** This activity aligns with NEP 2020's emphasis on ${data.framework} and reduces rote learning.`
+  },
+  {
+    id: 'summer-camp',
+    title: 'Advanced Summer Camp Planner',
+    description: 'Design comprehensive, multi-subject summer camp curriculums and vacation activities for mixed age groups.',
+    icon: Smile,
+    color: 'from-yellow-400 to-orange-500',
+    inputs: [
+      { id: 'campName', label: 'Camp Theme / Name (Optional)', type: 'text', placeholder: 'e.g. Future Explorers, Nature & Tech Camp', optional: true },
+      { id: 'schoolName', label: 'School Name (Optional)', type: 'text', placeholder: 'e.g. Delhi Public School', optional: true },
+      { id: 'schoolLogo', label: 'School Logo Image URL (Optional)', type: 'text', placeholder: 'e.g. https://example.com/logo.png', optional: true },
+      { id: 'subjects', label: 'Target Subjects / Domains', type: 'textarea', placeholder: 'e.g. Science, Robotics, Art, Life Skills (or type "All Subjects")' },
+      { id: 'grades', label: 'Target Classes / Grades', type: 'textarea', placeholder: 'e.g. Class 1, 3, 5 OR Class 6 to 8 (You can mention multiple specific classes)' },
+      { id: 'duration', label: 'Camp Duration', type: 'select', options: ['1-Day Mega Event', '1 Week Camp', '15 Days Camp', 'Full Summer Vacation Project'] },
+      { id: 'format', label: 'Output Format', type: 'select', options: ['Poster Style (Visual & Catchy)', 'Professional Curriculum (Detailed)'] }
+    ],
+    promptTemplate: (data) => {
+      const isPoster = data.format === 'Poster Style (Visual & Catchy)';
+      const styleDesc = isPoster ? 'highly visual, catchy, poster-style advertisement and high-level itinerary' : 'detailed, professional, structured academic curriculum and operational guide';
+      const themeText = data.campName ? `"${data.campName}"` : 'a Summer Camp';
+      
+      let prompt = `Act as an expert educational director. Create a ${styleDesc} for ${themeText} targeting ${data.grades}.
+Duration: ${data.duration}.
+Subjects/Domains integrated: ${data.subjects}.
+The activities MUST be automatically generated, highly engaging, practical, and cross-curricular. 
+You MUST provide a clear, class-wise breakdown so teachers know exactly what each class is doing.
+Use **bold text** to highlight key points, skills, and activities.
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+`;
+      
+      if (isPoster) {
+        prompt += `# 🌟 MEGA SUMMER CAMP: ${data.campName ? data.campName.toUpperCase() : 'SUMMER EXPLORERS'} 🌟\n**Target Classes:** ${data.grades} | **Duration:** ${data.duration}\n\n### ✨ Why Join Us? (The Big Idea)\n[A super catchy, exciting 3-4 sentence description of the camp and its cross-curricular magic. **Highlight key points in bold.**]\n\n### 🚀 Class-Wise Featured Activities\nClearly break down which activities are for which specific classes mentioned in "${data.grades}". Make it highly visual with emojis and **bold highlights**.\n\n#### 👉 For Class [Insert Class]:\n* 🎯 **[Activity Name]**: [1-sentence exciting description highlighting the ${data.subjects} connection]\n* 🎯 **[Activity Name]**: [1-sentence exciting description]\n\n#### 👉 For Class [Insert Class]:\n* 🎯 **[Activity Name]**: [1-sentence exciting description]\n\n### 📅 Quick Itinerary\n> **Note:** [Briefly outline the flow of the ${data.duration} in a highly readable format with bullet points]\n\n### 🛠️ What Students Will Create\n* 🏆 **[Deliverable 1]**\n* 🧠 **[Skill Gained]**\n\n---\n> **📢 Get Ready for the Best Summer Ever!** [A short, highly motivational closing sentence]`;
+      } else {
+        prompt += `# Summer Camp Curriculum: ${data.campName || 'Multi-Disciplinary Camp'}\n**Target Classes:** ${data.grades} | **Duration:** ${data.duration}\n**Core Subjects:** ${data.subjects}\n\n### 🎯 Core Objectives & Learning Outcomes\n[A professional paragraph explaining the educational value. Highlight the **key skills** in bold.]\n\n### 🧩 Class-Wise Activity & Subject Matrix\nCreate a Markdown table showing activities separated by class, and how different subjects (${data.subjects}) are integrated.\n| Target Class | Activity Name | Primary Subject | Secondary Subjects | Key Skill Developed |\n|---|---|---|---|---|\n| [Class] | **[Activity Name]** | ... | ... | ... |\n| [Class] | **[Activity Name]** | ... | ... | ... |\n\n### 📅 Detailed Class-Wise Itinerary (${data.duration})\nBreak down the schedule. If classes do different things, specify clearly.\n\n#### 📌 Phase 1 / Day 1-2: [Theme/Title]\n* **For [Class]:** **[Activity Name]** - [Detailed description]\n* **For [Class]:** **[Activity Name]** - [Detailed description]\n\n#### 📌 Phase 2 / Mid-Camp: [Theme/Title]\n* **For [Class]:** **[Activity Name]** - [Detailed description]\n\n### 🏆 Final Exhibition / Capstone Project\n[Describe the final multi-subject project separated by class if needed]\n\n---\n> **💡 Note for Teachers:** [Provide 2-3 **highlighted** advanced tips on managing these specific classes and facilitating multi-subject PBL]`;
+      }
+      return prompt;
+    }
   }
 ]
 
@@ -974,7 +1013,7 @@ export default function AITools() {
   const [activeVoiceField, setActiveVoiceField] = useState(null)
 
   // Validate form
-  const isFormValid = activeTool.inputs.every(input => formData[input.id] && formData[input.id].trim() !== '')
+  const isFormValid = activeTool.inputs.every(input => input.optional || (formData[input.id] && formData[input.id].trim() !== ''))
 
   async function handleGenerate(e) {
     e.preventDefault()
@@ -1071,55 +1110,41 @@ export default function AITools() {
     setIsDownloading(true)
 
     try {
-      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
-        import('jspdf'),
-        import('html2canvas')
-      ])
-
       const container = document.createElement('div')
-      container.style.position = 'fixed'
-      container.style.left = '-9999px'
-      container.style.top = '0'
-      container.style.width = '794px'
-      container.style.background = '#ffffff'
-      container.style.padding = '40px'
-      container.style.zIndex = '-9999'
-
+      
       container.innerHTML = `
         <style>
-          .pdf-wrapper { font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif; color: #0f172a; line-height: 1.7; }
-          .pdf-content h1 { font-size: 24px; font-weight: 800; color: #0f172a; margin: 24px 0 14px 0; padding-bottom: 8px; border-bottom: 3px solid #e2e8f0; }
-          .pdf-content h2 { font-size: 18px; font-weight: 700; color: #1e293b; margin: 20px 0 10px 0; padding-bottom: 5px; border-bottom: 2px solid #f1f5f9; }
-          .pdf-content h3 { font-size: 15px; font-weight: 700; color: #334155; margin: 16px 0 8px 0; }
-          .pdf-content p { font-size: 13px; color: #475569; margin-bottom: 12px; line-height: 1.7; }
+          .pdf-wrapper { font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif; color: #0f172a; line-height: 1.7; font-size: 14px; }
+          .pdf-content h1 { font-size: 24px; font-weight: 800; color: #0f172a; margin: 24px 0 14px 0; padding-bottom: 8px; border-bottom: 3px solid #e2e8f0; page-break-after: avoid; }
+          .pdf-content h2 { font-size: 18px; font-weight: 700; color: #1e293b; margin: 20px 0 10px 0; padding-bottom: 5px; border-bottom: 2px solid #f1f5f9; page-break-after: avoid; }
+          .pdf-content h3 { font-size: 15px; font-weight: 700; color: #334155; margin: 16px 0 8px 0; page-break-after: avoid; }
+          .pdf-content p { font-size: 13px; color: #475569; margin-bottom: 12px; line-height: 1.7; page-break-inside: avoid; }
           .pdf-content strong { color: #0f172a; font-weight: 700; }
           .pdf-content em { font-style: italic; color: #64748b; }
           .pdf-content ul, .pdf-content ol { margin: 10px 0 14px 0; padding-left: 24px; }
           .pdf-content li { font-size: 13px; color: #475569; margin-bottom: 6px; line-height: 1.6; }
-          .pdf-content table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; border: 1px solid #e2e8f0; }
+          .pdf-content table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; border: 1px solid #e2e8f0; page-break-inside: auto; }
           .pdf-content th { background: #f1f5f9; font-weight: 700; color: #1e293b; padding: 10px 12px; text-align: left; border: 1px solid #e2e8f0; }
           .pdf-content td { padding: 8px 12px; color: #475569; border: 1px solid #e2e8f0; }
           .pdf-content tr:nth-child(even) { background-color: #fafbfc; }
-          .pdf-content blockquote { border-left: 4px solid #6366f1; background: #eef2ff; padding: 14px 18px; margin: 16px 0; border-radius: 0 8px 8px 0; }
+          .pdf-content tr { page-break-inside: avoid; page-break-after: auto; }
+          .pdf-content blockquote { border-left: 4px solid #6366f1; background: #eef2ff; padding: 14px 18px; margin: 16px 0; border-radius: 0 8px 8px 0; page-break-inside: avoid; }
         </style>
         <div class="pdf-wrapper">
           <div class="pdf-content">${printContent.innerHTML}</div>
         </div>
       `
 
-      document.body.appendChild(container)
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      const canvas = await html2canvas(container, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' })
-      document.body.removeChild(container)
-
-      const imgData = canvas.toDataURL('image/jpeg', 1.0)
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
-
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight)
-      pdf.save(`LDMS_${activeTool.title.replace(/\s+/g, '_')}.pdf`)
+      const opt = {
+        margin:       12,
+        filename:     `LDMS_${activeTool.title.replace(/\s+/g, '_')}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+      
+      await html2pdf().set(opt).from(container).save();
 
     } catch (err) {
       console.error('PDF generation failed:', err)
@@ -1255,7 +1280,7 @@ export default function AITools() {
                           value={formData[input.id] || ''}
                           onChange={e => handleInputChange(input.id, e.target.value)}
                           className="w-full px-4 py-3 bg-white border border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-[3px] focus:ring-primary-100 focus:border-primary-400 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] appearance-none"
-                          required
+                          required={!input.optional}
                         >
                           <option value="" disabled>Select {input.label}...</option>
                           {input.options.map(opt => (
@@ -1270,7 +1295,7 @@ export default function AITools() {
                             onChange={e => handleInputChange(input.id, e.target.value)}
                             rows={3}
                             className="w-full px-4 py-3 pr-12 bg-white border border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-[3px] focus:ring-primary-100 focus:border-primary-400 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] resize-y"
-                            required
+                            required={!input.optional}
                           />
                           <button type="button" onClick={() => startVoiceInput(input.id)} className={`absolute right-3 top-3 p-1.5 rounded-lg transition-all ${isListening && activeVoiceField === input.id ? 'bg-red-100 text-red-600 animate-pulse' : 'text-surface-400 hover:text-surface-700 hover:bg-surface-100'}`} title="Voice Input">
                             {isListening && activeVoiceField === input.id ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -1284,7 +1309,7 @@ export default function AITools() {
                             value={formData[input.id] || ''}
                             onChange={e => handleInputChange(input.id, e.target.value)}
                             className="w-full px-4 py-3 pr-12 bg-white border border-surface-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-[3px] focus:ring-primary-100 focus:border-primary-400 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
-                            required
+                            required={!input.optional}
                           />
                           <button type="button" onClick={() => startVoiceInput(input.id)} className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all ${isListening && activeVoiceField === input.id ? 'bg-red-100 text-red-600 animate-pulse' : 'text-surface-400 hover:text-surface-700 hover:bg-surface-100'}`} title="Voice Input">
                             {isListening && activeVoiceField === input.id ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -1402,8 +1427,8 @@ export default function AITools() {
                   </div>
                 </div>
                 
-                <div className="p-4 sm:p-6 md:p-8 overflow-y-auto custom-scrollbar flex-1 max-h-[500px] sm:max-h-[600px] bg-white">
-                  <article id="printable-area" className="prose prose-slate prose-sm md:prose-base max-w-none 
+                <div className="p-4 sm:p-6 md:p-8 overflow-y-auto custom-scrollbar flex-1 max-h-[500px] sm:max-h-[600px] bg-white relative">
+                  <article id="printable-area" className="prose prose-slate prose-sm md:prose-base max-w-none relative z-10
                     prose-headings:font-display prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-surface-900
                     prose-p:text-surface-600 prose-p:leading-relaxed prose-li:text-surface-600 
                     prose-strong:text-surface-900 prose-strong:font-bold
@@ -1413,9 +1438,30 @@ export default function AITools() {
                     prose-th:bg-surface-100 prose-th:px-4 prose-th:py-3 prose-th:text-left prose-th:font-bold prose-th:text-surface-900 prose-th:border prose-th:border-surface-200
                     prose-td:px-4 prose-td:py-3 prose-td:border prose-td:border-surface-200 prose-td:text-surface-700
                     prose-blockquote:border-l-4 prose-blockquote:border-primary-500 prose-blockquote:bg-primary-50 prose-blockquote:px-5 prose-blockquote:py-4 prose-blockquote:rounded-r-xl prose-blockquote:not-italic prose-blockquote:shadow-sm">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {generatedContent}
-                    </ReactMarkdown>
+                    
+                    {activeTool.id === 'summer-camp' && formData.format === 'Poster Style (Visual & Catchy)' && (
+                      <div className="absolute inset-0 z-[-1] overflow-hidden rounded-2xl pointer-events-none -m-8 w-[calc(100%+4rem)] h-[calc(100%+4rem)] bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500">
+                        {/* Decorative Blurred Orbs for Mesh Gradient Effect */}
+                        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-cyan-400 rounded-full mix-blend-overlay filter blur-[100px] opacity-80"></div>
+                        <div className="absolute top-[20%] right-[-20%] w-[70%] h-[70%] bg-yellow-400 rounded-full mix-blend-overlay filter blur-[100px] opacity-80"></div>
+                        <div className="absolute bottom-[-20%] left-[10%] w-[80%] h-[80%] bg-rose-500 rounded-full mix-blend-overlay filter blur-[100px] opacity-80"></div>
+                        
+                        {/* Subtle Dotted Grid Overlay */}
+                        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4xNSkiLz48L3N2Zz4=')] opacity-60"></div>
+                      </div>
+                    )}
+
+                    <div className={activeTool.id === 'summer-camp' && formData.format === 'Poster Style (Visual & Catchy)' ? 'p-6 sm:p-10 rounded-3xl bg-white/85 backdrop-blur-md shadow-2xl border border-white/60 relative z-10 [&_h1]:text-center [&_h1]:text-primary-800 [&_h1]:text-4xl sm:[&_h1]:text-5xl [&_h1]:font-extrabold [&_h1]:mb-8 [&_h1]:drop-shadow-sm [&_h3]:text-primary-700 [&_h3]:text-2xl [&_h3]:mt-6 [&_h4]:text-xl [&_h4]:text-primary-600 [&_p]:text-surface-900 [&_p]:font-medium [&_li]:text-surface-900 [&_li]:font-medium [&_blockquote]:bg-white/90 [&_blockquote]:shadow-md' : ''}>
+                      {(formData.schoolName || formData.schoolLogo) && activeTool.id === 'summer-camp' && formData.format === 'Poster Style (Visual & Catchy)' && (
+                        <div className="flex flex-col items-center justify-center mb-8 border-b-2 border-primary-200/60 pb-6">
+                          {formData.schoolLogo && <img src={formData.schoolLogo} alt="School Logo" className="h-20 sm:h-28 object-contain mb-4 drop-shadow-md rounded-xl" crossOrigin="anonymous" />}
+                          {formData.schoolName && <h2 className="text-2xl sm:text-4xl font-extrabold text-surface-900 tracking-wide uppercase text-center drop-shadow-sm">{formData.schoolName}</h2>}
+                        </div>
+                      )}
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {generatedContent}
+                      </ReactMarkdown>
+                    </div>
                   </article>
                 </div>
               </div>
