@@ -228,6 +228,16 @@ Mix the layouts (SPLIT_LEFT_IMAGE, SPLIT_RIGHT_IMAGE, FULL_BACKGROUND, DARK_TEXT
         }
       };
 
+      // Fetch all images concurrently to drastically speed up download
+      const imagePromises = generatedSlides.map(slideData => {
+         if (slideData.imageKeyword && slideData.layout !== 'DARK_TEXT_ONLY') {
+            const url = getImageUrl(slideData.imageKeyword, 800, 600); // Reduced size for faster fetch
+            return fetchImageAsBase64(url);
+         }
+         return Promise.resolve(null);
+      });
+      const slideImages = await Promise.all(imagePromises);
+
       for (let i = 0; i < generatedSlides.length; i++) {
         const slideData = generatedSlides[i];
         const slide = pptx.addSlide({ masterName: "MASTER_SLIDE" });
@@ -236,24 +246,20 @@ Mix the layouts (SPLIT_LEFT_IMAGE, SPLIT_RIGHT_IMAGE, FULL_BACKGROUND, DARK_TEXT
           slide.addNotes(slideData.speakerNotes);
         }
 
-        let base64Image = null;
-        if (slideData.imageKeyword && slideData.layout !== 'DARK_TEXT_ONLY') {
-            const url = getImageUrl(slideData.imageKeyword, 1000, 800);
-            base64Image = await fetchImageAsBase64(url);
-        }
+        const base64Image = slideImages[i];
 
         const addPremiumText = (xPos) => {
            // Fixed coordinates to prevent overflow
            slide.addText(slideData.title, { x: xPos, y: 0.5, w: 4.5, h: 1.2, fontSize: 36, color: activeTheme.colors.textTitle, bold: true, fontFace: activeTheme.fonts.title, valign: "top" });
            
            if (slideData.content) {
-             slide.addText(slideData.content, { x: xPos, y: 1.8, w: 4.5, h: 1.2, fontSize: 18, color: activeTheme.colors.textContent, fontFace: activeTheme.fonts.body, lineSpacing: 26, valign: "top" });
+             slide.addText(slideData.content, { x: xPos, y: 1.8, w: 4.5, h: 1.2, fontSize: 16, color: activeTheme.colors.textContent, fontFace: activeTheme.fonts.body, lineSpacing: 22, valign: "top" });
            }
            
            if (slideData.bullets && slideData.bullets.length > 0) {
              slide.addText(
                slideData.bullets.map(b => ({ text: b, options: { breakLine: true } })),
-               { x: xPos, y: 3.2, w: 4.5, h: 2.2, fontSize: 16, color: activeTheme.colors.bulletText, fontFace: activeTheme.fonts.title, lineSpacing: 32, valign: "top" }
+               { x: xPos, y: 3.2, w: 4.5, h: 2.2, fontSize: 15, color: activeTheme.colors.bulletText, fontFace: activeTheme.fonts.title, lineSpacing: 22, valign: "top" }
              );
            }
         };
@@ -291,12 +297,12 @@ Mix the layouts (SPLIT_LEFT_IMAGE, SPLIT_RIGHT_IMAGE, FULL_BACKGROUND, DARK_TEXT
           slide.background = { fill: "0F172A" }; 
           slide.addText(slideData.title, { x: 1.5, y: 1.2, w: 7, h: 1.5, fontSize: 44, color: "FFFFFF", bold: true, align: "center", fontFace: activeTheme.fonts.title, valign: "top" });
           if (slideData.content) {
-            slide.addText(slideData.content, { x: 1.5, y: 2.8, w: 7, h: 1.0, fontSize: 22, color: "CBD5E1", align: "center", fontFace: activeTheme.fonts.body, lineSpacing: 32, valign: "top" });
+            slide.addText(slideData.content, { x: 1.5, y: 2.8, w: 7, h: 1.0, fontSize: 20, color: "CBD5E1", align: "center", fontFace: activeTheme.fonts.body, lineSpacing: 26, valign: "top" });
           }
           if (slideData.bullets && slideData.bullets.length > 0) {
             slide.addText(
               slideData.bullets.map(b => ({ text: b, options: { breakLine: true } })),
-              { x: 1.5, y: 4.0, w: 7, h: 1.5, fontSize: 18, color: "94A3B8", fontFace: activeTheme.fonts.title, lineSpacing: 28, valign: "top", align: "center" }
+              { x: 1.5, y: 4.0, w: 7, h: 1.5, fontSize: 16, color: "94A3B8", fontFace: activeTheme.fonts.title, lineSpacing: 24, valign: "top", align: "center" }
             );
           }
         }
