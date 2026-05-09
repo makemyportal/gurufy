@@ -11,7 +11,7 @@ import {
   LayoutDashboard, Bell, Search, Menu, X, LogOut, ChevronDown,
   Settings, Shield, HelpCircle, GraduationCap, MessageSquare, CalendarDays,
   Heart, MessageCircle, UserPlus, Zap, Trophy, Flame, LogIn, Megaphone, ShoppingCart, Radio,
-  Moon, Sun, History, ArrowRight, CheckSquare, Calculator, Lock, FileQuestion, Gamepad2, Award, Command
+  Moon, Sun, History, ArrowRight, CheckSquare, Calculator, Lock, FileQuestion, Gamepad2, Award, Command, MonitorPlay
 } from 'lucide-react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../utils/firebase'
@@ -27,6 +27,7 @@ function getTeacherNav(t, settings) {
     { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/timetable', icon: CalendarDays, label: 'Timetable', color: 'from-teal-500 to-teal-600', shadow: 'rgba(20,184,166,0.4)' },
     { to: '/ai-directory', icon: Sparkles, label: 'AI Platforms', color: 'from-pink-500 to-rose-600', shadow: 'rgba(236,72,153,0.4)' },
+    { to: '/ppt-generator', icon: MonitorPlay, label: 'Smart PPT Maker', color: 'from-indigo-500 to-purple-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/smart-exam', icon: FileQuestion, label: 'Smart Exam Maker', color: 'from-fuchsia-500 to-purple-600', shadow: 'rgba(192,38,211,0.4)' },
     { to: '/syllabus-bifurcator', icon: CalendarDays, label: 'Syllabus Pro', color: 'from-cyan-500 to-blue-600', shadow: 'rgba(6,182,212,0.4)' },
     { to: '/history', icon: History, label: 'Generation History', color: 'from-purple-500 to-violet-600', shadow: 'rgba(139,92,246,0.4)' },
@@ -39,6 +40,7 @@ function getSchoolNav(t, settings) {
     { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/timetable', icon: CalendarDays, label: 'Timetable', color: 'from-teal-500 to-teal-600', shadow: 'rgba(20,184,166,0.4)' },
     { to: '/ai-directory', icon: Sparkles, label: 'AI Platforms', color: 'from-pink-500 to-rose-600', shadow: 'rgba(236,72,153,0.4)' },
+    { to: '/ppt-generator', icon: MonitorPlay, label: 'Smart PPT Maker', color: 'from-indigo-500 to-purple-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/smart-exam', icon: FileQuestion, label: 'Smart Exam Maker', color: 'from-fuchsia-500 to-purple-600', shadow: 'rgba(192,38,211,0.4)' },
     { to: '/syllabus-bifurcator', icon: CalendarDays, label: 'Syllabus Pro', color: 'from-cyan-500 to-blue-600', shadow: 'rgba(6,182,212,0.4)' },
     { to: '/history', icon: History, label: 'History', color: 'from-purple-500 to-violet-600', shadow: 'rgba(139,92,246,0.4)' },
@@ -51,6 +53,7 @@ function getTeacherMobileNav(t) {
     { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/timetable', icon: CalendarDays, label: 'Timetable', color: 'from-teal-500 to-teal-600', shadow: 'rgba(20,184,166,0.4)' },
     { to: '/ai-directory', icon: Sparkles, label: 'AI', color: 'from-pink-500 to-rose-600', shadow: 'rgba(236,72,153,0.4)' },
+    { to: '/ppt-generator', icon: MonitorPlay, label: 'PPT Maker', color: 'from-indigo-500 to-purple-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/history', icon: History, label: 'History', color: 'from-purple-500 to-violet-600', shadow: 'rgba(139,92,246,0.4)' },
     { to: '/resources', icon: FolderOpen, label: 'Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
     { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
@@ -61,6 +64,7 @@ function getSchoolMobileNav(t) {
     { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/timetable', icon: CalendarDays, label: 'Timetable', color: 'from-teal-500 to-teal-600', shadow: 'rgba(20,184,166,0.4)' },
     { to: '/ai-directory', icon: Sparkles, label: 'AI', color: 'from-pink-500 to-rose-600', shadow: 'rgba(236,72,153,0.4)' },
+    { to: '/ppt-generator', icon: MonitorPlay, label: 'PPT Maker', color: 'from-indigo-500 to-purple-600', shadow: 'rgba(99,102,241,0.4)' },
     { to: '/history', icon: History, label: 'History', color: 'from-purple-500 to-violet-600', shadow: 'rgba(139,92,246,0.4)' },
     { to: '/resources', icon: FolderOpen, label: 'Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
     { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
@@ -163,6 +167,7 @@ export default function Layout() {
       { id: 'timetable', title: 'Timetable Builder', description: 'Create weekly class schedules visually.', icon: CalendarDays, path: '/timetable', category: 'Utility', color: 'from-teal-500 to-teal-600' },
       { id: 'exam-generator-page', title: 'Exam Paper Generator', description: 'AI-generated exam papers with answer keys.', icon: FileQuestion, path: '/exam-generator', category: 'Utility', color: 'from-rose-500 to-rose-600' },
       { id: 'classroom-quiz', title: 'Classroom Quiz', description: 'Create & present live quizzes Kahoot-style.', icon: Gamepad2, path: '/classroom-quiz', category: 'Utility', color: 'from-violet-500 to-violet-600' },
+      { id: 'ppt-generator', title: 'Smart PPT Maker', description: 'Generate AI presentations with web preview.', icon: MonitorPlay, path: '/ppt-generator', category: 'AI Tool', color: 'from-indigo-500 to-purple-600' },
     ]
     utilityItems.forEach(u => items.push(u))
     // Navigation pages

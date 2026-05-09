@@ -33,6 +33,7 @@ const ExamPaperGen = lazy(() => import('./pages/ExamPaperGen'))
 const SmartExamMaker = lazy(() => import('./pages/SmartExamMaker'))
 const ClassroomQuiz = lazy(() => import('./pages/ClassroomQuiz'))
 const SyllabusBifurcator = lazy(() => import('./pages/SyllabusBifurcator'))
+const PPTGenerator = lazy(() => import('./pages/PPTGenerator'))
 
 // Lazy loaded components (Public info pages)
 const About = lazy(() => import('./pages/public/About'))
@@ -133,6 +134,7 @@ export default function App() {
         <Route path="smart-exam" element={<ProtectedRoute><SmartExamMaker /></ProtectedRoute>} />
         <Route path="classroom-quiz" element={<CoinGate toolName="Classroom Quiz" toolId="classroom-quiz"><ClassroomQuiz /></CoinGate>} />
         <Route path="syllabus-bifurcator" element={<ProtectedRoute><SyllabusBifurcator /></ProtectedRoute>} />
+        <Route path="ppt-generator" element={<ProtectedRoute><CoinGate toolName="Smart PPT Maker"><PPTGenerator /></CoinGate></ProtectedRoute>} />
 
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       </Route>
