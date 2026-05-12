@@ -334,6 +334,27 @@ export default function Home() {
         </div>
       )}
 
+      {/* Complete School Timetable Hero Banner */}
+      <div className="mb-10 relative overflow-hidden rounded-[24px] bg-gradient-to-r from-indigo-900 to-violet-900 text-white shadow-xl group cursor-pointer" onClick={() => navigate('/school-timetable-builder')}>
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/3 w-[300px] h-[300px] bg-gradient-to-tr from-fuchsia-500 to-pink-500 rounded-full blur-[80px] pointer-events-none opacity-40 group-hover:opacity-60 transition-opacity duration-700" />
+        
+        <div className="relative z-10 p-8 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-8">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-white text-xs font-black tracking-widest uppercase mb-4 shadow-glow-sm backdrop-blur-md">
+              <Sparkles className="w-4 h-4 text-fuchsia-300" /> Premium Tool
+            </div>
+            <h2 className="text-3xl md:text-4xl font-black font-display mb-2">Complete School Timetable</h2>
+            <p className="text-indigo-100 font-medium text-sm md:text-base max-w-xl">
+              One-click AI generation for your entire school. Assign class teachers, manage workloads, and create clash-free schedules instantly.
+            </p>
+          </div>
+          <button className="shrink-0 flex items-center gap-2 px-6 py-3.5 bg-white text-indigo-900 font-extrabold rounded-xl shadow-lg hover:scale-105 transition-transform">
+            Launch Builder <ArrowRight className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
       {/* ═══════════════════════════════════════════════════ */}
       {/* "What is LDMS?" — Platform Info Section             */}
       {/* ═══════════════════════════════════════════════════ */}

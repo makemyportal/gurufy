@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { CalendarDays, Printer, RotateCcw, X, Save, UserX, UserCheck, Coffee, AlertTriangle, Users, Plus, BookOpen, Tag, Cloud, FolderOpen, AlertCircle, User, ChevronDown, MessageCircle, Share2, Copy, Settings, Sparkles, Send, Mail, Link as LinkIcon, Edit2, Upload, Download, Trash2, Database, Clock, ArrowRight, Lock, Unlock, Camera, FileText } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import { db } from '../utils/firebase'
 import { collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { generateAIContent } from '../utils/aiService'
@@ -8,6 +9,7 @@ import { extractTextFromFile } from '../utils/fileExtractor'
 import { useGamification } from '../contexts/GamificationContext'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import TokenShopModal from '../components/TokenShopModal'
+import SchoolTimetableHero from './SchoolTimetableHero'
 
 const ALL_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
 const DEFAULT_PERIODS = ['Period 1','Period 2','Period 3','Period 4','Lunch','Period 5','Period 6','Period 7','Period 8']
@@ -249,6 +251,7 @@ const SchoolEditModal = ({ school, onClose, onSave, currentUser }) => {
 
 export default function Timetable() {
   const { currentUser } = useAuth()
+  const navigate = useNavigate()
   const { spendCoins, toolCosts, stats } = useGamification()
   
   const GENERATION_COST = toolCosts?.['timetable'] ?? 10
@@ -611,8 +614,10 @@ export default function Timetable() {
     try {
       const timetableData = {
         userId: currentUser.uid,
+        schoolId: activeSchool?.id || null,
         schoolName,
         className,
+        classTeacher,
         details,
         grid,
         teachers,
@@ -625,6 +630,7 @@ export default function Timetable() {
         teacherSubjects,
         teacherConstraints,
         bellTimings,
+        aiRequirements,
         updatedAt: serverTimestamp()
       }
 
@@ -758,6 +764,17 @@ export default function Timetable() {
       console.error('Error loading timetables:', error)
       setCloudTimetables([])
       return []
+    }
+  }
+
+  const handleCompleteSchoolSaved = async () => {
+    const tbs = await loadTimetables(activeSchool?.id || 'hero-tool-standalone')
+    setIsSchoolModalOpen(false)
+    if (tbs && tbs.length > 0) {
+      handleLoadTimetable(tbs[0])
+      alert('School timetables loaded successfully! You can switch between classes in the "My Saved Timetables" menu.')
+    } else {
+      setIsCloudModalOpen(true)
     }
   }
 
@@ -1397,8 +1414,11 @@ export default function Timetable() {
         
         const timetableData = {
           userId: currentUser.uid,
-          schoolName: 'Demo High School',
+          schoolId: activeSchool?.id || 'demo-school',
+          schoolName: activeSchool?.name || 'Demo High School',
           className: cls,
+          classTeacher: levelTeachers[0],
+          aiRequirements: {},
           details: 'Demo timetable generated automatically',
           grid: demoGrid,
           teachers: teacherNames,
@@ -2591,6 +2611,172 @@ export default function Timetable() {
     setGrid(newGrid)
     setIsAIModalOpen(false)
     alert('✨ AI Auto-Generation Complete!\nNote: Some periods may be blank if no teachers were available or constraints were too strict.')
+  }
+
+  const generateFullSchoolTimetable = async () => {
+    if (!activeSchool) return alert('Please select a school first.')
+    if (cloudTimetables.length === 0) return alert('No classes found for this school. Please create classes and save them to the cloud first.')
+    if ((stats?.coins || 0) < GENERATION_COST * 2) {
+      setShowShop(true)
+      return alert(`Not enough coins! You need ${GENERATION_COST * 2} 🪙 for Full School Generation.`)
+    }
+    
+    if (!confirm('⚠️ This will completely rewrite the timetable for ALL classes in the school to ensure no clashes. Are you sure you want to proceed?')) return
+
+    const success = await spendCoins(GENERATION_COST * 2, 'Full School Timetable Generation')
+    if (!success) return alert('Failed to deduct coins.')
+
+    const workload = {}
+    allTeachersList.forEach(t => workload[t] = 0)
+    const busyMap = {}
+    const getBusyKey = (d, p) => `${d}|||${p}`
+
+    const teachingPeriods = PERIODS.filter(p => p !== 'Lunch')
+    
+    let classesToGenerate = cloudTimetables.map(tb => ({
+      ...tb,
+      newGrid: JSON.parse(JSON.stringify(tb.grid || {})),
+      aiReqs: tb.aiRequirements ? JSON.parse(JSON.stringify(tb.aiRequirements)) : {},
+      ct: tb.classTeacher || ''
+    }))
+
+    classesToGenerate.forEach(c => {
+      ALL_DAYS.forEach(d => {
+        c.newGrid[d] = c.newGrid[d] || {}
+        PERIODS.forEach(p => {
+          c.newGrid[d][p] = c.newGrid[d][p] || { subject: p === 'Lunch' ? 'Lunch' : '', teacher: '', substitute: '', room: '', isLocked: false }
+        })
+      })
+
+      if (Object.keys(c.aiReqs).length === 0) {
+        const group = getGroupForClass(c.className)
+        if (group === 1) c.aiReqs = { 'English': 8, 'Mathematics': 8, 'Art': 6, 'Music': 4, 'Physical Education': 4 }
+        else if (group === 2) c.aiReqs = { 'English': 7, 'Mathematics': 7, 'Hindi': 6, 'Science': 6, 'Social Studies': 5, 'Computer Science': 2, 'Physical Education': 3, 'Art': 2, 'Library': 2 }
+        else if (group === 3) c.aiReqs = { 'English': 6, 'Mathematics': 7, 'Hindi': 5, 'Science': 7, 'Social Studies': 6, 'Computer Science': 3, 'Physical Education': 3, 'Library': 2 }
+        else c.aiReqs = { 'English': 6, 'Physics': 6, 'Chemistry': 6, 'Mathematics': 6, 'Biology': 6, 'Physical Education': 3, 'Computer Science': 3 }
+      }
+    })
+
+    const isEligible = (t, day, period, className) => {
+      const allowed = teacherConstraints[t]?.allowedClasses
+      if (allowed && className) {
+        const allowedArray = allowed.split(',').map(s => s.trim().toLowerCase()).filter(s => s)
+        const classStr = className.toLowerCase()
+        if (allowedArray.length > 0) {
+          const matches = allowedArray.some(val => new RegExp(`\\b${val}\\b`, 'i').test(classStr))
+          if (!matches) return false
+        }
+      }
+      const maxW = teacherConstraints[t]?.maxWorkload !== undefined ? teacherConstraints[t].maxWorkload : 36
+      if ((workload[t] || 0) >= maxW) return false
+      const key = getBusyKey(day, period)
+      if (busyMap[key]?.has(t)) return false
+      return true
+    }
+
+    const period1 = teachingPeriods[0]
+    if (period1) {
+      activeDays.forEach(day => {
+        classesToGenerate.forEach(c => {
+          const ct = c.ct
+          if (!ct) return
+
+          const cell = c.newGrid[day]?.[period1]
+          if (cell && cell.isLocked) return
+
+          let subjectToAssign = 'Class Teacher Period'
+          let usedReq = false
+
+          const teacherSubs = teacherSubjects[ct] || []
+          for (const sub of teacherSubs) {
+            if (c.aiReqs[sub] > 0) {
+              subjectToAssign = sub
+              c.aiReqs[sub]--
+              usedReq = true
+              break
+            }
+          }
+
+          if (!usedReq && teacherSubs.length > 0) {
+            subjectToAssign = teacherSubs[0]
+          }
+
+          c.newGrid[day][period1] = { ...cell, subject: subjectToAssign, teacher: ct, substitute: '', room: '' }
+          workload[ct] = (workload[ct] || 0) + 1
+          const key = getBusyKey(day, period1)
+          if (!busyMap[key]) busyMap[key] = new Set()
+          busyMap[key].add(ct)
+        })
+      })
+    }
+
+    const remainingPeriods = teachingPeriods.slice(1)
+    
+    remainingPeriods.forEach(period => {
+      activeDays.forEach(day => {
+        classesToGenerate.forEach(c => {
+          const cell = c.newGrid[day]?.[period]
+          if (cell && (cell.isLocked || cell.subject)) return
+
+          const subjectReqs = Object.entries(c.aiReqs)
+            .map(([sub, count]) => ({ subject: sub, remaining: count }))
+            .filter(s => s.remaining > 0)
+            .sort((a, b) => b.remaining - a.remaining)
+
+          if (subjectReqs.length === 0) return
+
+          for (const req of subjectReqs) {
+            let candidates = teachers.filter(t =>
+              (teacherSubjects[t] || []).includes(req.subject) && isEligible(t, day, period, c.className)
+            )
+            
+            if (candidates.length === 0) {
+              candidates = teachers.filter(t => isEligible(t, day, period, c.className))
+            }
+
+            if (candidates.length > 0) {
+              candidates.sort((a, b) => (workload[a] || 0) - (workload[b] || 0))
+              const assignedTeacher = candidates[0]
+              
+              c.newGrid[day][period] = { ...cell, subject: req.subject, teacher: assignedTeacher, substitute: '', room: '' }
+              c.aiReqs[req.subject]--
+              workload[assignedTeacher] = (workload[assignedTeacher] || 0) + 1
+              const key = getBusyKey(day, period)
+              if (!busyMap[key]) busyMap[key] = new Set()
+              busyMap[key].add(assignedTeacher)
+              break
+            }
+          }
+        })
+      })
+    })
+
+    setIsSaving(true)
+    try {
+      const batch = writeBatch(db)
+      classesToGenerate.forEach(c => {
+        const docRef = doc(db, 'timetables', c.id)
+        batch.update(docRef, {
+          grid: c.newGrid,
+          aiRequirements: c.aiReqs,
+          updatedAt: serverTimestamp()
+        })
+        
+        if (currentTimetableId === c.id) {
+          setGrid(c.newGrid)
+        }
+      })
+      await batch.commit()
+      
+      await loadTimetables(activeSchool.id)
+      setIsAIModalOpen(false)
+      alert('🏫 Complete School Timetable Generated Successfully!\nAll classes have been updated to prevent clashes. Class Teachers have been assigned Period 1.')
+    } catch (error) {
+      console.error('Failed to save full school timetable:', error)
+      alert('Error saving the generated timetables.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const getWorkload = () => {
@@ -4147,7 +4333,10 @@ export default function Timetable() {
           <div className="bg-white rounded-[28px] shadow-2xl p-6 w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-xl font-extrabold text-surface-900 flex items-center gap-2"><Cloud className="w-6 h-6 text-indigo-500" /> My Saved Timetables</h3>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 hidden sm:flex">
+                <button onClick={() => { setIsCloudModalOpen(false); setIsSchoolModalOpen(true); }} className="px-4 py-2 bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-700 hover:to-pink-700 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg hover:shadow-xl transition-all">
+                  <Sparkles className="w-4 h-4" /> Complete School AI
+                </button>
                 <button onClick={handleLoadDemoSchool} disabled={isSaving} className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors border border-indigo-200">
                   <Database className="w-4 h-4" /> Load Demo School
                 </button>
@@ -4661,6 +4850,9 @@ export default function Timetable() {
             <button onClick={generateAITimetable} className="w-full py-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2">
               <Sparkles className="w-5 h-5" /> Run AI Generator ({GENERATION_COST} 🪙)
             </button>
+            <button onClick={generateFullSchoolTimetable} className="w-full mt-3 py-4 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+              <Database className="w-5 h-5" /> Generate Complete School ({GENERATION_COST * 2} 🪙)
+            </button>
           </div>
         </div>
       )}
@@ -4705,6 +4897,15 @@ export default function Timetable() {
             </div>
           </div>
         </div>
+      )}
+
+      {isSchoolModalOpen && (
+        <SchoolTimetableHero 
+          isOpen={isSchoolModalOpen} 
+          onClose={() => setIsSchoolModalOpen(false)} 
+          onSaved={handleCompleteSchoolSaved} 
+          activeSchoolId={activeSchool?.id} 
+        />
       )}
     </div>
   )

@@ -5,7 +5,7 @@ import { collection, query, where, getDocs, orderBy, limit } from 'firebase/fire
 import { useNavigate } from 'react-router-dom'
 import {
   Briefcase, Users, FileText, MessageSquare, TrendingUp,
-  Search, Plus, Loader2, ArrowUpRight, Building2, Eye
+  Search, Plus, Loader2, ArrowUpRight, Building2, Eye, CalendarDays, Sparkles
 } from 'lucide-react'
 
 export default function SchoolDashboard() {
@@ -96,6 +96,24 @@ export default function SchoolDashboard() {
             <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${stat.color} opacity-5 rounded-full blur-2xl -mr-8 -mt-8 group-hover:opacity-10 transition-opacity`} />
           </div>
         ))}
+      </div>
+
+      {/* Hero Timetable Banner */}
+      <div className="mb-6 relative overflow-hidden rounded-[24px] bg-gradient-to-r from-indigo-900 to-violet-900 text-white shadow-xl group cursor-pointer" onClick={() => navigate('/school-timetable-builder')}>
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+        <div className="absolute -right-20 -top-20 w-64 h-64 bg-pink-500/30 rounded-full blur-[80px] group-hover:bg-pink-400/40 transition-colors"></div>
+        <div className="relative p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex-1">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-bold tracking-widest uppercase mb-4">
+              <Sparkles className="w-3.5 h-3.5 text-pink-300" /> Hero Tool
+            </div>
+            <h2 className="text-3xl md:text-4xl font-black font-display mb-2">Complete School Timetable</h2>
+            <p className="text-white/80 max-w-xl text-sm md:text-base">Configure teachers, set classes, and let our advanced algorithm generate a clash-free schedule for your entire school in one click.</p>
+          </div>
+          <div className="shrink-0 flex items-center justify-center w-20 h-20 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl group-hover:scale-105 transition-transform">
+            <CalendarDays className="w-10 h-10 text-white" />
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
