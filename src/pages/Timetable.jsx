@@ -767,8 +767,19 @@ export default function Timetable() {
     }
   }
 
-  const handleCompleteSchoolSaved = async () => {
-    const tbs = await loadTimetables(activeSchool?.id || 'hero-tool-standalone')
+  const handleCompleteSchoolSaved = async (newSchoolId) => {
+    let targetSchoolId = newSchoolId || activeSchool?.id || 'hero-tool-standalone'
+    
+    if (newSchoolId && (!activeSchool || activeSchool.id !== newSchoolId)) {
+      const schoolsList = await loadSchools()
+      const newlyCreated = schoolsList.find(s => s.id === newSchoolId)
+      if (newlyCreated) {
+        setActiveSchool(newlyCreated)
+        localStorage.setItem('ldms_active_school', JSON.stringify(newlyCreated))
+      }
+    }
+
+    const tbs = await loadTimetables(targetSchoolId)
     setIsSchoolModalOpen(false)
     if (tbs && tbs.length > 0) {
       handleLoadTimetable(tbs[0])
@@ -1197,29 +1208,34 @@ export default function Timetable() {
   const executeTeacherPrint = () => {
     if (!selectedTeacherForView) return
     const w = window.open('', '_blank')
-    w.document.write(`<html><head><title>Teacher Timetable - ${selectedTeacherForView}</title><style>body{font-family:Inter,sans-serif;padding:30px;max-width:1000px;margin:0 auto}table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:40px}th,td{border:1px solid #cbd5e1;padding:10px;text-align:center}th{background:#1e293b;color:white;font-weight:bold}.clash{background:#fee2e2;color:#991b1b;border:2px solid #ef4444}.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #e2e8f0;padding-bottom:20px}.header h1{margin:0 0 10px 0;font-size:28px;color:#0f172a}.header p{margin:0 0 5px 0;color:#475569;font-size:16px}.footer{display:flex;justify-content:space-between;margin-top:60px;padding-top:20px}.sign-box{text-align:center;width:200px}.sign-line{border-top:1px solid #475569;margin-bottom:8px;padding-top:6px;font-weight:bold;font-size:14px;color:#0f172a}.sign-name{font-size:14px;color:#475569}</style></head><body>`)
+    w.document.write(`<html><head><title>Teacher Timetable - ${selectedTeacherForView}</title><style>body{font-family:Inter,sans-serif;padding:30px;max-width:1200px;margin:0 auto}table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:40px}th,td{border:1px solid #e2e8f0;padding:10px;text-align:center}th{background:#f8fafc;color:#64748b;font-weight:bold;text-transform:uppercase;font-size:11px}.clash{background:#fee2e2;color:#991b1b;border:2px solid #ef4444}.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #e2e8f0;padding-bottom:20px}.header h1{margin:0 0 10px 0;font-size:28px;color:#0f172a}.header p{margin:0 0 5px 0;color:#475569;font-size:16px}.footer{display:flex;justify-content:space-between;margin-top:60px;padding-top:20px}.sign-box{text-align:center;width:200px}.sign-line{border-top:1px solid #475569;margin-bottom:8px;padding-top:6px;font-weight:bold;font-size:14px;color:#0f172a}.sign-name{font-size:14px;color:#475569}</style></head><body>`)
     
     w.document.write(`<div class="header">`)
     w.document.write(`<h1>${schoolName ? schoolName : 'School Timetable'}</h1>`)
     w.document.write(`<p><strong>Teacher:</strong> ${selectedTeacherForView} ${session ? `&nbsp;|&nbsp; <strong>Session:</strong> ${session}` : ''}</p>`)
     w.document.write(`</div>`)
     
-    w.document.write(`<table><thead><tr><th>Period</th>`)
-    ALL_DAYS.forEach(d => w.document.write(`<th>${d}</th>`))
-    w.document.write(`</tr></thead><tbody>`)
+    w.document.write(`<table><thead><tr><th>DAY \\ PERIOD</th>`)
     PERIODS.forEach(p => {
-      const timing = bellTimings[p] ? `<br><span style="font-size:10px;font-weight:normal;color:#475569">${bellTimings[p].start} - ${bellTimings[p].end}</span>` : ''
-      w.document.write(`<tr><td><strong>${p}</strong>${timing}</td>`)
-      ALL_DAYS.forEach(d => {
+      const timing = bellTimings[p] ? `<br><span style="font-size:10px;font-weight:normal;color:#94a3b8;text-transform:lowercase;letter-spacing:0">${bellTimings[p].start} - ${bellTimings[p].end}</span>` : ''
+      w.document.write(`<th>${p}${timing}</th>`)
+    })
+    w.document.write(`</tr></thead><tbody>`)
+    
+    ALL_DAYS.forEach(d => {
+      w.document.write(`<tr><td style="font-weight:bold; color:#334155; text-transform:uppercase; font-size:12px;">${d}</td>`)
+      PERIODS.forEach(p => {
         const assignments = teacherViewGrid[d]?.[p] || []
-        if (assignments.length === 0) {
+        if (p.toLowerCase() === 'lunch') {
+          w.document.write(`<td style="background:#fef3c7;"><div style="font-size:12px; font-weight:bold; color:#b45309; letter-spacing:1px;">LUNCH</div></td>`)
+        } else if (assignments.length === 0) {
           w.document.write(`<td>-</td>`)
         } else {
           const isClash = assignments.length > 1
           w.document.write(`<td class="${isClash ? 'clash' : ''}">`)
           assignments.forEach((a, i) => {
-            if (i > 0) w.document.write(`<hr style="margin:4px 0; border:0; border-top:1px solid ${isClash ? '#fca5a5' : '#cbd5e1'}">`)
-            w.document.write(`<strong>${a.className}</strong><br><small>${a.subject || 'No Subject'}</small>`)
+            if (i > 0) w.document.write(`<hr style="margin:4px 0; border:0; border-top:1px dashed ${isClash ? '#fca5a5' : '#cbd5e1'}">`)
+            w.document.write(`<strong style="color:${isClash ? '#b91c1c' : '#4338ca'}">${a.className}</strong><br><small style="color:#64748b">${a.subject || 'No Subject'}</small>`)
           })
           w.document.write(`</td>`)
         }
@@ -1235,7 +1251,7 @@ export default function Timetable() {
     
     w.document.write(`</body></html>`)
     w.document.close()
-    setTimeout(() => w.print(), 500)
+
   }
 
   const handleLoadTimetable = (tb) => {
@@ -2201,7 +2217,7 @@ export default function Timetable() {
   const executePrint = () => {
     setIsPrintModalOpen(false)
     const w = window.open('', '_blank')
-    w.document.write(`<html><head><title>Timetable - ${className}</title><style>body{font-family:Inter,sans-serif;padding:30px;max-width:1000px;margin:0 auto}table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:40px}th,td{border:1px solid #cbd5e1;padding:10px;text-align:center}th{background:#1e293b;color:white;font-weight:bold}.sub{color:#dc2626;font-style:italic;display:block;margin-top:4px}.absent{text-decoration:line-through;color:#94a3b8}.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #e2e8f0;padding-bottom:20px}.header h1{margin:0 0 10px 0;font-size:28px;color:#0f172a}.header p{margin:0 0 5px 0;color:#475569;font-size:16px}.footer{display:flex;justify-content:space-between;margin-top:60px;padding-top:20px}.sign-box{text-align:center;width:200px}.sign-line{border-top:1px solid #475569;margin-bottom:8px;padding-top:6px;font-weight:bold;font-size:14px;color:#0f172a}.sign-name{font-size:14px;color:#475569}</style></head><body>`)
+    w.document.write(`<html><head><title>Timetable - ${className}</title><style>body{font-family:Inter,sans-serif;padding:30px;max-width:1200px;margin:0 auto}table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:40px}th,td{border:1px solid #e2e8f0;padding:10px;text-align:center}th{background:#f8fafc;color:#64748b;font-weight:bold;text-transform:uppercase;font-size:11px}.sub{color:#dc2626;font-style:italic;display:block;margin-top:4px}.absent{text-decoration:line-through;color:#94a3b8}.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #e2e8f0;padding-bottom:20px}.header h1{margin:0 0 10px 0;font-size:28px;color:#0f172a}.header p{margin:0 0 5px 0;color:#475569;font-size:16px}.footer{display:flex;justify-content:space-between;margin-top:60px;padding-top:20px}.sign-box{text-align:center;width:200px}.sign-line{border-top:1px solid #475569;margin-bottom:8px;padding-top:6px;font-weight:bold;font-size:14px;color:#0f172a}.sign-name{font-size:14px;color:#475569}</style></head><body>`)
     
     w.document.write(`<div class="header">`)
     w.document.write(`<h1>${schoolName ? schoolName : 'School Timetable'}</h1>`)
@@ -2209,35 +2225,40 @@ export default function Timetable() {
     if (details) w.document.write(`<p style="font-style:italic;font-size:14px;margin-top:10px">${details}</p>`)
     w.document.write(`</div>`)
     
-    w.document.write(`<table><thead><tr><th>Period</th>`)
-    activeDays.forEach(d => w.document.write(`<th>${d}</th>`))
-    w.document.write(`</tr></thead><tbody>`)
+    w.document.write(`<table><thead><tr><th>DAY \\ PERIOD</th>`)
     PERIODS.forEach(p => {
-      const timing = bellTimings[p] ? `<br><span style="font-size:10px;font-weight:normal;color:#475569">${bellTimings[p].start} - ${bellTimings[p].end}</span>` : ''
-      w.document.write(`<tr><td><strong>${p}</strong>${timing}</td>`)
-      activeDays.forEach(d => {
+      const timing = bellTimings[p] ? `<br><span style="font-size:10px;font-weight:normal;color:#94a3b8;text-transform:lowercase;letter-spacing:0">${bellTimings[p].start} - ${bellTimings[p].end}</span>` : ''
+      w.document.write(`<th>${p}${timing}</th>`)
+    })
+    w.document.write(`</tr></thead><tbody>`)
+    
+    activeDays.forEach(d => {
+      w.document.write(`<tr><td style="font-weight:bold; color:#334155; text-transform:uppercase; font-size:12px;">${d}</td>`)
+      PERIODS.forEach(p => {
         const c = grid[d]?.[p] || {}
         let html = '';
-        if (c.isSplit && c.groups) {
+        if (p.toLowerCase() === 'lunch') {
+          html = `<div style="font-size:12px; font-weight:bold; color:#b45309; letter-spacing:1px;">LUNCH</div>`
+        } else if (c.isSplit && c.groups) {
           html += `<div style="display:flex; flex-direction:column; gap:4px;">`
           c.groups.forEach((g, idx) => {
             if (idx > 0) html += `<hr style="margin:2px 0; border:0; border-top:1px dashed #cbd5e1">`
             const isAbsent = g.teacher && isAbsentOnDay(g.teacher, d)
             html += `<div>`
             html += `<div style="font-size:10px; color:#64748b; font-weight:bold; text-transform:uppercase;">${g.groupName || ''}</div>`
-            html += g.subject ? `<div style="font-size:13px; font-weight:bold; margin-bottom:2px;">${g.subject}</div>` : '-'
-            if (g.teacher) html += `<div class="${isAbsent ? 'absent' : ''}" style="font-size:11px; font-weight:600; color:#334155;">${g.teacher}</div>`
+            html += g.subject ? `<div style="font-size:13px; font-weight:bold; margin-bottom:2px; color:#4338ca;">${g.subject}</div>` : '-'
+            if (g.teacher) html += `<div class="${isAbsent ? 'absent' : ''}" style="font-size:11px; font-weight:600; color:#64748b;">${g.teacher}</div>`
             if (g.substitute) html += `<div class="sub" style="font-size:10px; font-weight:bold; background:#fee2e2; color:#b91c1c; padding:2px; border-radius:4px; display:inline-block; margin-top:2px;">Sub: ${g.substitute}</div>`
             html += `</div>`
           })
           html += `</div>`
         } else {
           const isAbsent = c.teacher && isAbsentOnDay(c.teacher, d)
-          html = c.subject ? `<div style="font-size:14px; font-weight:bold; margin-bottom:2px;">${c.subject}</div>` : '-'
-          if (c.teacher) html += `<div class="${isAbsent ? 'absent' : ''}" style="font-size:12px; font-weight:600; color:#334155;">${c.teacher}</div>`
+          html = c.subject ? `<div style="font-size:13px; font-weight:bold; margin-bottom:2px; color:#4338ca;">${c.subject}</div>` : '-'
+          if (c.teacher) html += `<div class="${isAbsent ? 'absent' : ''}" style="font-size:11px; font-weight:600; color:#64748b;">${c.teacher}</div>`
           if (c.substitute) html += `<div class="sub" style="font-size:11px; font-weight:bold; background:#fee2e2; color:#b91c1c; padding:2px; border-radius:4px; display:inline-block; margin-top:4px;">Sub: ${c.substitute}</div>`
         }
-        w.document.write(`<td>${html}</td>`)
+        w.document.write(`<td ${p.toLowerCase() === 'lunch' ? 'style="background:#fef3c7;"' : ''}>${html}</td>`)
       })
       w.document.write(`</tr>`)
     })
@@ -3616,69 +3637,72 @@ export default function Timetable() {
       {/* Timetable Grid */}
       <div ref={tableRef} className="bg-white rounded-[28px] border border-surface-200 shadow-sm overflow-hidden">
         
-        {/* Desktop View */}
+                {/* Desktop View */}
         <div className="hidden lg:block overflow-x-auto">
-          <table className="w-full min-w-[900px] table-fixed">
+          <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
-              <tr>
-                <th className="p-3 text-left text-xs font-black uppercase tracking-widest text-surface-400 bg-surface-50 w-[110px]">Period</th>
-                {activeDays.map((d, i) => {
-                  // Clash detection for this day
-                  const dayClashes = [];
-                  PERIODS.forEach(p => {
-                    const cell = grid[d]?.[p];
-                    if (!cell) return;
-                    const teachers_in_period = [];
-                    if (cell.isSplit && cell.groups) cell.groups.forEach(g => { if (g.teacher) teachers_in_period.push(g.teacher); });
-                    else if (cell.teacher) teachers_in_period.push(cell.teacher);
-                    
-                    teachers_in_period.forEach(t => {
-                      (cloudTimetables || []).forEach(tb => {
-                        if (tb.id === currentTimetableId) return;
-                        const otherCell = tb.grid?.[d]?.[p];
-                        if (!otherCell) return;
-                        const otherTeachers = [];
-                        if (otherCell.isSplit && otherCell.groups) otherCell.groups.forEach(g => { if (g.teacher) otherTeachers.push(g.teacher); });
-                        else if (otherCell.teacher) otherTeachers.push(otherCell.teacher);
-                        if (otherTeachers.includes(t)) dayClashes.push({ period: p, teacher: t, otherClass: tb.className });
-                      });
-                    });
-                  });
-                  return (
-                    <th key={d} className="p-4 text-center text-xs font-black uppercase tracking-widest text-surface-500 bg-surface-50 relative">
-                      {d}
-                      {dayClashes.length > 0 && (
-                        <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-black flex items-center justify-center animate-pulse" title={`${dayClashes.length} clash(es): ${dayClashes.map(c => `${c.teacher} (${c.period} - ${c.otherClass})`).join(', ')}`}>
-                          {dayClashes.length}
-                        </span>
-                      )}
-                    </th>
-                  );
-                })}
+              <tr className="bg-surface-50 text-surface-500 text-[10px] uppercase tracking-wider font-bold">
+                <th className="p-3 border-b border-r border-surface-200 sticky left-0 bg-surface-50 z-10 w-32 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">DAY \ PERIOD</th>
+                {PERIODS.map(period => (
+                  <th key={period} className="p-3 border-b border-surface-200 text-center whitespace-nowrap">
+                    <div>{period}</div>
+                    {bellTimings[period] && (
+                      <div className="text-[8px] text-surface-400 font-medium mt-0.5 lowercase tracking-normal">{bellTimings[period].start} - {bellTimings[period].end}</div>
+                    )}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {PERIODS.map((period, pi) => (
-                <tr key={period} className={`${pi % 2 === 0 ? '' : 'bg-surface-50/30'} border-t border-surface-100`}>
-                  <td className="p-3 text-xs font-bold text-surface-500 whitespace-nowrap">
-                    <div>{period}</div>
-                    {bellTimings[period] && (
-                      <div className="text-[9px] text-surface-400 font-medium mt-0.5">{bellTimings[period].start} - {bellTimings[period].end}</div>
-                    )}
-                  </td>
-                  {activeDays.map(day => {
-                    const cell = grid[day]?.[period] || {}
-                    const isEd = editing === `${day}-${period}`
-                    const isAbsent = cell.teacher && isAbsentOnDay(cell.teacher, day)
-                    return (
-                      <td 
-                        key={`${day}-${period}`} 
-                        className={`p-1 text-center relative group ${cell.isLocked ? 'bg-surface-100 opacity-80' : ''}`} 
-                        onClick={() => { if (!isEd && !cell.isLocked) { setEditing(`${day}-${period}`); setShowAllTeachers(false); } }}
-                        onDragOver={(e) => { if (!cell.isLocked) handleDragOver(e); }}
-                        onDrop={(e) => { if (!cell.isLocked) handleDropOnCell(e, day, period); }}
-                      >
-                        {isEd && (
+              {activeDays.map(day => {
+                const dayClashes = [];
+                PERIODS.forEach(p => {
+                  const cell = grid[day]?.[p];
+                  if (!cell) return;
+                  const teachers_in_period = [];
+                  if (cell.isSplit && cell.groups) cell.groups.forEach(g => { if (g.teacher) teachers_in_period.push(g.teacher); });
+                  else if (cell.teacher) teachers_in_period.push(cell.teacher);
+                  
+                  teachers_in_period.forEach(t => {
+                    (cloudTimetables || []).forEach(tb => {
+                      if (tb.id === currentTimetableId) return;
+                      const otherCell = tb.grid?.[day]?.[p];
+                      if (!otherCell) return;
+                      const otherTeachers = [];
+                      if (otherCell.isSplit && otherCell.groups) otherCell.groups.forEach(g => { if (g.teacher) otherTeachers.push(g.teacher); });
+                      else if (otherCell.teacher) otherTeachers.push(otherCell.teacher);
+                      if (otherTeachers.includes(t)) dayClashes.push({ period: p, teacher: t, otherClass: tb.className });
+                    });
+                  });
+                });
+
+                return (
+                  <tr key={day} className="border-b border-surface-100 last:border-0 hover:bg-surface-50 transition-colors">
+                    <td className="p-4 border-r border-surface-200 font-bold text-surface-700 text-xs sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] align-middle">
+                      <div className="flex items-center justify-between">
+                        <span>{day}</span>
+                        {dayClashes.length > 0 && (
+                          <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-black flex items-center justify-center animate-pulse" title={`${dayClashes.length} clash(es): ${dayClashes.map(c => `${c.teacher} (${c.period} - ${c.otherClass})`).join(', ')}`}>
+                            {dayClashes.length}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    {PERIODS.map(period => {
+                      const cell = grid[day]?.[period] || {}
+                      const isEd = editing === `${day}-${period}`
+                      const isAbsent = cell.teacher && isAbsentOnDay(cell.teacher, day)
+                      const isLunch = period.toLowerCase() === 'lunch'
+                      
+                      return (
+                        <td 
+                          key={`${day}-${period}`} 
+                          className={`p-1 border-r border-surface-100 last:border-0 relative group min-w-[120px] align-middle ${cell.isLocked ? 'bg-surface-100 opacity-80' : isLunch ? 'bg-amber-50/50' : ''}`} 
+                          onClick={() => { if (!isEd && !cell.isLocked && !isLunch) { setEditing(`${day}-${period}`); setShowAllTeachers(false); } }}
+                          onDragOver={(e) => { if (!cell.isLocked && !isLunch) handleDragOver(e); }}
+                          onDrop={(e) => { if (!cell.isLocked && !isLunch) handleDropOnCell(e, day, period); }}
+                        >
+                          {isEd && (
                           <div className="absolute top-0 left-1/2 -translate-x-1/2 z-30 bg-white border-2 border-indigo-400 rounded-2xl shadow-2xl p-3 flex flex-col gap-1.5 w-[320px] max-h-[400px] overflow-y-auto" style={{ minWidth: '300px' }} onClick={e => e.stopPropagation()}>
                             <div className="flex items-center justify-between mb-2 px-1">
                               <span className="text-[10px] font-black text-surface-400 uppercase">{day} - {period}</span>
@@ -3755,12 +3779,12 @@ export default function Timetable() {
                         {cell.isSplit && cell.groups && cell.groups.length > 0 ? (
                           <div className={`px-1 py-1 rounded-xl cursor-pointer transition-all border min-h-[52px] flex flex-col gap-1 border-surface-200 bg-surface-50 hover:border-surface-300`}>
                             {cell.groups.map(g => (
-                              <div key={g.id} className={`px-1.5 py-1 rounded-lg text-[9px] flex flex-col items-center justify-center border ${g.subject ? gc(g.subject) : 'border-dashed border-surface-300 bg-white text-surface-400'}`}>
+                              <div key={g.id} className={`px-1.5 py-1 rounded-lg text-[9px] flex flex-col items-center justify-center border ${g.subject ? 'border-indigo-200 bg-white' : 'border-dashed border-surface-300 bg-white text-surface-400'}`}>
                                 <div className="font-black text-surface-500 mb-0.5 opacity-80 uppercase tracking-wider text-[8px]">{g.groupName}</div>
                                 {g.subject ? (
                                   <>
-                                    <span className="font-bold">{g.subject}</span>
-                                    {g.teacher && <span className={`text-[8px] font-bold mt-0.5 ${g.teacher && isAbsentOnDay(g.teacher, day) ? 'line-through text-red-400' : 'text-surface-700'}`}>{g.teacher}</span>}
+                                    <span className="font-bold text-indigo-700">{g.subject}</span>
+                                    {g.teacher && <span className={`text-[8px] font-bold mt-0.5 ${g.teacher && isAbsentOnDay(g.teacher, day) ? 'line-through text-red-400' : 'text-surface-500'}`}>{g.teacher}</span>}
                                     {g.substitute && (
                                       <button onClick={e => { e.stopPropagation(); setSubModal({ day, period, groupId: g.id }) }} className="text-[8px] font-bold text-red-600 bg-red-100 px-1 py-0.5 mt-0.5 rounded hover:bg-red-200 cursor-pointer transition-colors" title="Click to change substitute">
                                         Sub: {g.substitute} ✎
@@ -3775,15 +3799,17 @@ export default function Timetable() {
                             ))}
                           </div>
                         ) : (
-                          <div className={`px-2 py-2.5 rounded-xl text-[13px] font-bold cursor-pointer transition-all border min-h-[64px] flex flex-col items-center justify-center gap-0.5 relative ${cell.subject ? gc(cell.subject) : 'border-dashed border-surface-200 text-surface-300 hover:border-surface-400 hover:bg-surface-50'}`}>
+                          <div className={`px-2 py-2.5 rounded-xl cursor-pointer transition-all min-h-[64px] flex flex-col items-center justify-center gap-0.5 relative`}>
                             <button onClick={(e) => toggleLock(e, day, period)} className={`absolute top-1 right-1 p-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity ${cell.isLocked ? 'opacity-100 text-red-500 bg-red-100' : 'text-surface-400 hover:bg-surface-100'}`} title={cell.isLocked ? 'Unlock Cell' : 'Lock Cell'}>
                               {cell.isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
                             </button>
-                            {cell.subject ? (
+                            {isLunch && !cell.subject && !cell.teacher ? (
+                              <span className="text-xs font-bold text-amber-700 tracking-widest py-2">LUNCH</span>
+                            ) : cell.subject ? (
                               <>
-                                <span>{cell.subject}</span>
+                                <span className="text-[11px] font-bold text-indigo-700 truncate w-full max-w-[110px] text-center" title={cell.subject}>{cell.subject}</span>
                                 {cell.teacher && (
-                                  <span className={`text-xs mt-0.5 font-bold ${isAbsent ? 'line-through text-red-400' : 'text-surface-700'}`}>{cell.teacher}</span>
+                                  <span className={`text-[9px] truncate w-full max-w-[110px] mt-0.5 text-center ${isAbsent ? 'line-through text-red-400 font-bold' : 'text-surface-500'}`} title={cell.teacher}>{cell.teacher}</span>
                                 )}
                                 {cell.substitute && (
                                   <div className="flex items-center justify-center gap-1 mt-0.5">
@@ -3809,19 +3835,22 @@ export default function Timetable() {
                                   </button>
                                 )}
                               </>
-                            ) : '+'}
+                            ) : (
+                              <span className="text-[11px] text-surface-300 font-medium">- Free -</span>
+                            )}
                           </div>
                         )}
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
 
-        {/* Mobile View */}
+{/* Mobile View */}
         <div className="lg:hidden flex flex-col divide-y divide-surface-100">
           {activeDays.map(day => (
             <div key={day} className="bg-white">
@@ -4516,70 +4545,71 @@ export default function Timetable() {
                 </div>
               ) : (
                 <div className="w-full">
-                  {/* Desktop View */}
-                  <div className="hidden lg:block min-w-[800px]">
-                    {/* Grid Header */}
-                    <div className="grid grid-cols-[80px_repeat(6,1fr)] bg-slate-900 text-white sticky top-0 z-10 text-xs sm:text-sm shadow-md">
-                      <div className="p-3 sm:p-4 font-bold border-b border-r border-slate-800 text-center uppercase tracking-wider">Period</div>
-                      {ALL_DAYS.map(day => (
-                        <div key={day} className="p-3 sm:p-4 font-bold border-b border-r border-slate-800 text-center uppercase tracking-wider">
-                          {day}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Grid Body */}
-                    <div className="divide-y divide-surface-200">
-                      {PERIODS.map((period) => (
-                        <div key={period} className="grid grid-cols-[80px_repeat(6,1fr)]">
-                          {/* Period Column */}
-                          <div className="p-3 sm:p-4 bg-surface-50 border-r border-surface-200 font-bold text-surface-700 text-xs sm:text-sm text-center flex items-center justify-center">
-                            {period}
-                          </div>
-                          
-                          {/* Days Columns */}
-                          {ALL_DAYS.map(day => {
-                            const assignments = teacherViewGrid[day]?.[period] || []
-                            const isClash = assignments.length > 1
-                            
-                            return (
-                              <div 
-                                key={`${day}-${period}`} 
-                                className={`p-3 border-r border-surface-200 relative min-h-[80px] transition-colors
-                                  ${assignments.length === 0 ? 'bg-white hover:bg-surface-50/50' : isClash ? 'bg-red-50 hover:bg-red-100' : 'bg-fuchsia-50/30 hover:bg-fuchsia-50/60'}`}
-                              >
-                                {assignments.length > 0 ? (
-                                  <div className="space-y-2">
-                                    {assignments.map((a, i) => (
-                                      <div key={i} className={`p-2 rounded-lg text-center ${isClash ? 'bg-red-100/80 border border-red-200 shadow-sm' : 'bg-white border border-fuchsia-100 shadow-sm'}`}>
-                                        <div className={`text-xs sm:text-sm font-black ${isClash ? 'text-red-700' : 'text-fuchsia-700'}`}>
-                                          {a.className}
+                                    {/* Desktop View */}
+                  <div className="hidden lg:block min-w-[800px] overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left border-collapse min-w-max">
+                      <thead>
+                        <tr className="bg-surface-50 text-surface-500 text-[10px] uppercase tracking-wider font-bold">
+                          <th className="p-3 border-b border-r border-surface-200 sticky left-0 bg-surface-50 z-10 w-28 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">DAY \\ PERIOD</th>
+                          {PERIODS.map(period => (
+                            <th key={period} className="p-3 border-b border-surface-200 text-center whitespace-nowrap">
+                              <div>{period}</div>
+                              {bellTimings[period] && (
+                                <div className="text-[8px] text-surface-400 font-medium mt-0.5 lowercase tracking-normal">{bellTimings[period].start} - {bellTimings[period].end}</div>
+                              )}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ALL_DAYS.map(day => (
+                          <tr key={day} className="border-b border-surface-100 last:border-0 hover:bg-surface-50 transition-colors">
+                            <td className="p-3 border-r border-surface-200 font-bold text-surface-700 text-xs sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] align-middle">
+                              {day}
+                            </td>
+                            {PERIODS.map(period => {
+                              const assignments = teacherViewGrid[day]?.[period] || []
+                              const isClash = assignments.length > 1
+                              const isLunch = period.toLowerCase() === 'lunch'
+                              
+                              return (
+                                <td 
+                                  key={`${day}-${period}`} 
+                                  className={`p-2 text-center border-r border-surface-100 last:border-0 relative min-w-[120px] align-middle ${isLunch ? 'bg-amber-50/50' : assignments.length === 0 ? 'bg-white' : isClash ? 'bg-red-50/50' : 'bg-fuchsia-50/10'}`}
+                                >
+                                  {assignments.length > 0 ? (
+                                    <div className="flex flex-col gap-1.5 items-center justify-center">
+                                      {assignments.map((a, i) => (
+                                        <div key={i} className={`flex flex-col items-center justify-center w-full max-w-[110px] ${isClash ? 'p-1.5 bg-red-100 rounded-lg border border-red-200 shadow-sm' : ''}`}>
+                                          <span className={`text-[11px] font-bold truncate w-full ${isClash ? 'text-red-700' : 'text-fuchsia-700'}`} title={a.className}>
+                                            {a.className}
+                                          </span>
+                                          <span className={`text-[9px] truncate w-full mt-0.5 ${isClash ? 'text-red-600' : 'text-surface-500'}`} title={a.subject || 'No Subject'}>
+                                            {a.subject || 'No Subject'}
+                                          </span>
                                         </div>
-                                        <div className={`text-[10px] sm:text-xs font-semibold mt-0.5 ${isClash ? 'text-red-600' : 'text-fuchsia-600/80'}`}>
-                                          {a.subject || 'No Subject'}
+                                      ))}
+                                      {isClash && (
+                                        <div className="absolute top-1 right-1">
+                                          <span className="flex h-2.5 w-2.5 relative">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                                          </span>
                                         </div>
-                                      </div>
-                                    ))}
-                                    {isClash && (
-                                      <div className="absolute top-1 right-1">
-                                        <span className="flex h-3 w-3 relative">
-                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                          <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="h-full w-full flex items-center justify-center text-surface-300 font-medium text-xs">
-                                    -
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      ))}
-                    </div>
+                                      )}
+                                    </div>
+                                  ) : isLunch ? (
+                                    <span className="text-xs font-bold text-amber-700 tracking-widest py-2">LUNCH</span>
+                                  ) : (
+                                    <span className="text-[11px] text-surface-300 font-medium">- Free -</span>
+                                  )}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
 
                   {/* Mobile View Accordion */}

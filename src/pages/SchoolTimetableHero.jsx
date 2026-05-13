@@ -5,6 +5,7 @@ import { db } from '../utils/firebase'
 import { collection, query, where, getDocs, writeBatch, doc, serverTimestamp } from 'firebase/firestore'
 import { useGamification } from '../contexts/GamificationContext'
 import TokenShopModal from '../components/TokenShopModal'
+import { useNavigate } from 'react-router-dom'
 
 const ALL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const DEFAULT_PERIODS = ['Period 1', 'Period 2', 'Period 3', 'Period 4', 'Lunch', 'Period 5', 'Period 6', 'Period 7', 'Period 8']
@@ -13,8 +14,10 @@ const SUBJECTS = ['Mathematics', 'Science', 'English', 'Hindi', 'Social Studies'
 
 export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }) {
   const { currentUser } = useAuth()
-  const { spendCoins, stats } = useGamification()
-  const GENERATION_COST = 50
+  const { spendCoins, stats, toolCosts } = useGamification()
+  const GENERATION_COST = toolCosts?.['timetable'] ?? 10
+  const navigate = useNavigate()
+  const [createdSchoolId, setCreatedSchoolId] = useState(null)
 
   const [step, setStep] = useState(1)
   const [activeSchool, setActiveSchool] = useState(null)
@@ -90,36 +93,27 @@ export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }
     return 0;
   }
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     if (!schoolName.trim()) return alert('Please enter your School / Institution name in Step 1.')
     if (classes.length === 0) return alert('Add at least one class.')
     if (teachers.length === 0) return alert('Add at least one teacher.')
 
-    if ((stats?.coins || 0) < GENERATION_COST) {
-      setShowShop(true)
-      return alert(`Not enough coins! You need ${GENERATION_COST} 🪙.`)
-    }
-
-    const confirmed = window.confirm(`This will cost ${GENERATION_COST} coins and generate a fresh timetable for all ${classes.length} classes. Proceed?`)
-    if (!confirmed) return
-
     setIsGenerating(true)
     
     // Simulate generation delay for visual effect
-    setTimeout(async () => {
-      const success = await spendCoins(GENERATION_COST, 'Hero School Timetable')
-      if (!success) {
-        setIsGenerating(false)
-        return alert('Failed to deduct coins.')
-      }
-
+    setTimeout(() => {
       runAlgorithm()
     }, 1500)
   }
 
   const runAlgorithm = () => {
     const workload = {}
-    teachers.forEach(t => workload[t.name] = 0)
+    const dailyWorkload = {}
+    teachers.forEach(t => {
+      workload[t.name] = 0
+      dailyWorkload[t.name] = {}
+      ALL_DAYS.forEach(d => dailyWorkload[t.name][d] = 0)
+    })
     const busyMap = {}
     const getBusyKey = (d, p) => `${d}|||${p}`
 
@@ -147,7 +141,7 @@ export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }
       else c.aiReqs = { 'English': 6, 'Physics': 6, 'Chemistry': 6, 'Mathematics': 6, 'Biology': 6, 'Physical Education': 3, 'Computer Science': 3 }
     })
 
-    const isEligible = (tName, day, period, className) => {
+    const isEligible = (tName, day, period, className, strictDaily = true) => {
       const teacherObj = teachers.find(t => t.name === tName)
       if (!teacherObj) return false
 
@@ -168,6 +162,11 @@ export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }
       
       const maxW = activeDays.length * teachingPeriods.length // allow fully booked if needed
       if ((workload[tName] || 0) >= maxW) return false
+      
+      if (strictDaily) {
+        const idealMaxDaily = Math.max(1, teachingPeriods.length > 6 ? teachingPeriods.length - 2 : teachingPeriods.length - 1)
+        if ((dailyWorkload[tName]?.[day] || 0) >= idealMaxDaily) return false
+      }
       
       const key = getBusyKey(day, period)
       if (busyMap[key]?.has(tName)) return false
@@ -203,6 +202,7 @@ export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }
 
           c.grid[day][period1] = { subject: subjectToAssign, teacher: ctName, isLocked: true }
           workload[ctName] = (workload[ctName] || 0) + 1
+          dailyWorkload[ctName][day] = (dailyWorkload[ctName][day] || 0) + 1
           const key = getBusyKey(day, period1)
           if (!busyMap[key]) busyMap[key] = new Set()
           busyMap[key].add(ctName)
@@ -210,14 +210,30 @@ export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }
       })
     }
 
-    // PASS 2: Assign rest
+    // PASS 2: Assign rest with horizontal consistency
     const remainingPeriods = teachingPeriods.slice(1)
     
     remainingPeriods.forEach(period => {
+      const currentTracker = {}
+      
       activeDays.forEach(day => {
         genData.forEach(c => {
           const cell = c.grid[day]?.[period]
           if (cell && cell.subject) return
+
+          const tracker = currentTracker[c.id]
+          if (tracker && tracker.subject && c.aiReqs[tracker.subject] > 0) {
+            if (isEligible(tracker.teacherName, day, period, c.name, true) || isEligible(tracker.teacherName, day, period, c.name, false)) {
+              c.grid[day][period] = { subject: tracker.subject, teacher: tracker.teacherName, isLocked: false }
+              c.aiReqs[tracker.subject]--
+              workload[tracker.teacherName] = (workload[tracker.teacherName] || 0) + 1
+              dailyWorkload[tracker.teacherName][day] = (dailyWorkload[tracker.teacherName][day] || 0) + 1
+              const key = getBusyKey(day, period)
+              if (!busyMap[key]) busyMap[key] = new Set()
+              busyMap[key].add(tracker.teacherName)
+              return
+            }
+          }
 
           const subjectReqs = Object.entries(c.aiReqs)
             .map(([sub, count]) => ({ subject: sub, remaining: count }))
@@ -227,12 +243,16 @@ export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }
           if (subjectReqs.length === 0) return
 
           for (const req of subjectReqs) {
-            let candidates = teachers.filter(t =>
-              t.subjects.includes(req.subject) && isEligible(t.name, day, period, c.name)
-            )
+            let candidates = teachers.filter(t => t.subjects.includes(req.subject) && isEligible(t.name, day, period, c.name, true))
             
             if (candidates.length === 0) {
-              candidates = teachers.filter(t => isEligible(t.name, day, period, c.name))
+              candidates = teachers.filter(t => t.subjects.includes(req.subject) && isEligible(t.name, day, period, c.name, false))
+            }
+            if (candidates.length === 0) {
+              candidates = teachers.filter(t => isEligible(t.name, day, period, c.name, true))
+            }
+            if (candidates.length === 0) {
+              candidates = teachers.filter(t => isEligible(t.name, day, period, c.name, false))
             }
 
             if (candidates.length > 0) {
@@ -242,9 +262,12 @@ export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }
               c.grid[day][period] = { subject: req.subject, teacher: assignedTeacher.name, isLocked: false }
               c.aiReqs[req.subject]--
               workload[assignedTeacher.name] = (workload[assignedTeacher.name] || 0) + 1
+              dailyWorkload[assignedTeacher.name][day] = (dailyWorkload[assignedTeacher.name][day] || 0) + 1
               const key = getBusyKey(day, period)
               if (!busyMap[key]) busyMap[key] = new Set()
               busyMap[key].add(assignedTeacher.name)
+              
+              currentTracker[c.id] = { subject: req.subject, teacherName: assignedTeacher.name }
               break
             }
           }
@@ -259,7 +282,11 @@ export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }
           const cell = c.grid[day]?.[period]
           if (cell && cell.subject) return
 
-          const candidates = teachers.filter(t => isEligible(t.name, day, period, c.name))
+          let candidates = teachers.filter(t => isEligible(t.name, day, period, c.name, true))
+          if (candidates.length === 0) {
+            candidates = teachers.filter(t => isEligible(t.name, day, period, c.name, false))
+          }
+
           if (candidates.length > 0) {
             candidates.sort((a, b) => (workload[a.name] || 0) - (workload[b.name] || 0))
             const assignedTeacher = candidates[0]
@@ -267,6 +294,7 @@ export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }
             
             c.grid[day][period] = { subject: subj, teacher: assignedTeacher.name, isLocked: false }
             workload[assignedTeacher.name] = (workload[assignedTeacher.name] || 0) + 1
+            dailyWorkload[assignedTeacher.name][day] = (dailyWorkload[assignedTeacher.name][day] || 0) + 1
             const key = getBusyKey(day, period)
             if (!busyMap[key]) busyMap[key] = new Set()
             busyMap[key].add(assignedTeacher.name)
@@ -284,15 +312,40 @@ export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }
 
   const handleSaveToCloud = async () => {
     if (!currentUser) return
+    
+    if ((stats?.coins || 0) < GENERATION_COST) {
+      setShowShop(true)
+      return alert(`Not enough coins! You need ${GENERATION_COST} 🪙 to save.`)
+    }
+
     setIsSaving(true)
     try {
+      const success = await spendCoins(GENERATION_COST, 'Save Full School Timetables')
+      if (!success) {
+        setIsSaving(false)
+        return alert('Failed to deduct coins.')
+      }
+
       const batch = writeBatch(db)
       
+      let finalSchoolId = activeSchoolId || createdSchoolId
+      if (!finalSchoolId) {
+        const newSchoolRef = doc(collection(db, 'schools'))
+        finalSchoolId = newSchoolRef.id
+        setCreatedSchoolId(finalSchoolId)
+        batch.set(newSchoolRef, {
+          userId: currentUser.uid,
+          name: schoolName.trim() || 'My School',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        })
+      }
+
       generatedData.forEach(c => {
         const docRef = doc(collection(db, 'timetables'))
         batch.set(docRef, {
           userId: currentUser.uid,
-          schoolId: activeSchoolId || 'hero-tool-standalone',
+          schoolId: finalSchoolId,
           schoolName: schoolName.trim(),
           className: c.name,
           classTeacher: c.classTeacher,
@@ -309,8 +362,12 @@ export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }
 
       await batch.commit()
       alert('School Timetables saved successfully! You can view and edit them individually in the Timetable Builder.')
-      if (onSaved) onSaved()
-      if (onClose) onClose()
+      if (onSaved) onSaved(finalSchoolId)
+      if (onClose) {
+        onClose()
+      } else {
+        navigate('/timetable')
+      }
     } catch (err) {
       console.error(err)
       alert('Failed to save timetables.')
@@ -557,7 +614,7 @@ export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }
                   {isGenerating ? (
                     <><Sparkles className="w-6 h-6 animate-spin" /> Generating Timetables...</>
                   ) : (
-                    <><Sparkles className="w-6 h-6" /> Generate Complete School ({GENERATION_COST} 🪙)</>
+                    <><Sparkles className="w-6 h-6" /> Generate Complete School (Free Preview)</>
                   )}
                 </button>
               </div>
@@ -577,17 +634,42 @@ export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }
                   {generatedData.map(c => (
                     <div key={c.id} className="mb-6 last:mb-0">
                       <h3 className="font-bold text-lg text-surface-900 mb-3 border-b border-surface-200 pb-2">{c.name} {c.classTeacher && <span className="text-sm font-medium text-surface-500 ml-2">(CT: {c.classTeacher})</span>}</h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-                        {activeDays.map(d => {
-                          const p1 = c.grid[d]?.[periods[0]]
-                          return (
-                            <div key={d} className="bg-white p-2 rounded-lg border border-surface-100 text-center">
-                              <div className="text-[10px] font-black uppercase text-surface-400 tracking-wider mb-1">{d.slice(0,3)} P1</div>
-                              <div className="text-xs font-bold text-indigo-700 truncate">{p1?.subject || '-'}</div>
-                              <div className="text-[10px] text-surface-500 truncate">{p1?.teacher || '-'}</div>
-                            </div>
-                          )
-                        })}
+                      <div className="overflow-x-auto border border-surface-200 rounded-xl bg-white shadow-sm custom-scrollbar">
+                        <table className="w-full text-left border-collapse min-w-max">
+                          <thead>
+                            <tr className="bg-surface-50 text-surface-500 text-[10px] uppercase tracking-wider font-bold">
+                              <th className="p-3 border-b border-r border-surface-200 sticky left-0 bg-surface-50 z-10 w-28 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Day \ Period</th>
+                              {periods.map(p => (
+                                <th key={p} className="p-3 border-b border-surface-200 text-center whitespace-nowrap">{p}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {activeDays.map(d => (
+                              <tr key={d} className="border-b border-surface-100 last:border-0 hover:bg-surface-50 transition-colors">
+                                <td className="p-3 border-r border-surface-200 font-bold text-surface-700 text-xs sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{d}</td>
+                                {periods.map(p => {
+                                  const cell = c.grid[d]?.[p]
+                                  const isLunch = p.toLowerCase() === 'lunch'
+                                  return (
+                                    <td key={p} className={`p-2 text-center border-r border-surface-100 last:border-0 min-w-[120px] ${isLunch ? 'bg-amber-50/50' : ''}`}>
+                                      {isLunch ? (
+                                        <span className="text-xs font-bold text-amber-700 tracking-widest">LUNCH</span>
+                                      ) : cell?.subject ? (
+                                        <div className="flex flex-col gap-0.5 items-center justify-center">
+                                          <span className="text-[11px] font-bold text-indigo-700 truncate w-full max-w-[110px]" title={cell.subject}>{cell.subject}</span>
+                                          <span className="text-[9px] text-surface-500 truncate w-full max-w-[110px]" title={cell.teacher}>{cell.teacher}</span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-[11px] text-surface-300 font-medium">- Free -</span>
+                                      )}
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   ))}
@@ -600,7 +682,7 @@ export default function SchoolTimetableHero({ onClose, onSaved, activeSchoolId }
                     className="py-4 px-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all active:scale-[0.98] disabled:opacity-70 flex items-center gap-2"
                   >
                     {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                    {isSaving ? 'Saving to Database...' : 'Save All Timetables to Cloud'}
+                    {isSaving ? 'Saving to Database...' : `Save All Timetables to Cloud (${GENERATION_COST} 🪙)`}
                   </button>
                 </div>
               </div>
