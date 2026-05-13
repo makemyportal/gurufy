@@ -20,6 +20,7 @@ import AIChatWidget from './AIChatWidget'
 import ProfileCompletion from './ProfileCompletion'
 import TokenShopModal from './TokenShopModal'
 import SupportWidget from './SupportWidget'
+import GlobalAIAssistant from './GlobalAIAssistant'
 
 // Nav array builders — called inside component to get reactive translations
 function getTeacherNav(t, settings) {
@@ -789,8 +790,10 @@ export default function Layout() {
 
       {showTokenShop && <TokenShopModal onClose={() => setShowTokenShop(false)} />}
 
-      <AIChatWidget pageContext={pageTitle} />
+      {/* <AIChatWidget pageContext={pageTitle} /> */}
       <SupportWidget />
+      <GlobalAIAssistant />
     </div>
   )
 }
+

@@ -1076,7 +1076,8 @@ export default function AITools() {
         }
       }
     } catch (err) {
-      setError(err.message || 'Failed to generate content. Please try again.')
+      console.error(err)
+      setError('All servers are currently busy processing requests. Please try again after a few seconds. ✨')
     } finally {
       setIsGenerating(false)
     }
