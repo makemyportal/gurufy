@@ -35,6 +35,7 @@ const ClassroomQuiz = lazy(() => import('./pages/ClassroomQuiz'))
 const SyllabusBifurcator = lazy(() => import('./pages/SyllabusBifurcator'))
 const PPTGenerator = lazy(() => import('./pages/PPTGenerator'))
 const SchoolTimetableHero = lazy(() => import('./pages/SchoolTimetableHero'))
+const VisualGames = lazy(() => import('./pages/VisualGames'))
 
 // Lazy loaded components (Public info pages)
 const About = lazy(() => import('./pages/public/About'))
@@ -137,6 +138,7 @@ export default function App() {
         <Route path="syllabus-bifurcator" element={<ProtectedRoute><SyllabusBifurcator /></ProtectedRoute>} />
         <Route path="ppt-generator" element={<ProtectedRoute><CoinGate toolName="Smart PPT Maker"><PPTGenerator /></CoinGate></ProtectedRoute>} />
         <Route path="school-timetable-builder" element={<ProtectedRoute><CoinGate toolName="Hero Timetable Builder"><SchoolTimetableHero /></CoinGate></ProtectedRoute>} />
+        <Route path="visual-games" element={<ProtectedRoute><CoinGate toolName="Visual Games Engine"><VisualGames /></CoinGate></ProtectedRoute>} />
 
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       </Route>

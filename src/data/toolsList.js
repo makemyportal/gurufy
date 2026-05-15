@@ -30,4 +30,5 @@ export const tools = [
   { id: 'book-review', title: 'Book Review Generator', description: 'Generate structured book review templates for students with guided prompts.', icon: BookMarked, color: 'from-amber-600 to-yellow-700' },
   { id: 'activity-based-learning', title: 'Activity Based Learning (CBSE)', description: 'Design CBSE-aligned hands-on activities using Art Integration & Experiential Learning pedagogy.', icon: Lightbulb, color: 'from-yellow-400 to-amber-500' },
   { id: 'summer-camp', title: 'Advanced Summer Camp Planner', description: 'Design comprehensive, multi-subject summer camp curriculums and vacation activities for mixed age groups.', icon: Smile, color: 'from-yellow-400 to-orange-500' },
+  { id: 'printable-template', title: 'Printable Layout & Template Maker', description: 'Design blank, structural templates and layouts (worksheets, planners, checklists) to download as PDFs and fill by hand.', icon: ClipboardList, color: 'from-blue-500 to-cyan-600' }
 ]

@@ -974,6 +974,44 @@ YOU MUST STRICTLY USE THIS FORMAT:
       }
       return prompt;
     }
+  },
+  {
+    id: 'printable-template',
+    title: 'Printable Layout & Template Maker',
+    description: 'Design blank, structural templates and layouts (worksheets, planners, checklists) to download as PDFs and fill by hand.',
+    icon: ClipboardList,
+    color: 'from-blue-500 to-cyan-600',
+    inputs: [
+      { id: 'templateType', label: 'Template Type', type: 'text', placeholder: 'e.g. Weekly Lesson Planner, Seating Chart, Student Checklist' },
+      { id: 'grade', label: 'Class / Grade (Optional)', type: 'select', options: GRADE_LIST, optional: true },
+      { id: 'columns', label: 'Required Columns/Sections', type: 'textarea', placeholder: 'e.g. Date, Topic, Activity, Remarks' },
+      { id: 'style', label: 'Design Style', type: 'select', options: ['Minimalist & Clean', 'Fun & Engaging (Primary)', 'Professional & Detailed'] }
+    ],
+    promptTemplate: (data) => `Create a structural, blank template/layout for a "${data.templateType}"${data.grade ? ' for a ' + data.grade + ' class' : ''}.
+Style: ${data.style}.
+Required Columns/Sections: ${data.columns}.
+
+This is for a teacher to print as a PDF and fill in by hand. Therefore, it MUST primarily consist of empty tables, blank lines, and structured spaces rather than dense text.
+
+YOU MUST STRICTLY USE THIS FORMAT:
+
+# 📝 ${data.templateType}
+**Class:** ${data.grade || '___________'} | **Date:** ___________
+
+### [Optional Brief Instruction or Quote]
+[A 1-sentence instruction on how to use it, or a motivational quote]
+
+### [Main Content Area]
+Create comprehensive Markdown Tables with empty rows/cells where teachers can write. 
+Use multiple tables or sections if necessary.
+Provide ample blank space (e.g., using empty rows in tables or lists like:
+1. ________________________
+2. ________________________)
+
+---
+> **💡 Notes / Remarks:**
+> _______________________________________
+> _______________________________________`
   }
 ]
 
