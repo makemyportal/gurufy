@@ -9,6 +9,10 @@ import { useGamification } from '../contexts/GamificationContext'
 import RPGQuestGame from '../components/games/RPGQuestGame'
 import EscapeRoomGame from '../components/games/EscapeRoomGame'
 import LabSimulatorGame from '../components/games/LabSimulatorGame'
+import Explorer2DGame from '../components/games/Explorer2DGame'
+import BattleshipGame from '../components/games/BattleshipGame'
+import SpaceShooterGame from '../components/games/SpaceShooterGame'
+import { Map, Anchor, Rocket, Crosshair } from 'lucide-react'
 
 const GAME_TEMPLATES = [
   {
@@ -18,6 +22,30 @@ const GAME_TEMPLATES = [
     icon: Shield,
     color: 'from-orange-500 to-red-600',
     tags: ['Math', 'History']
+  },
+  {
+    id: 'explorer_2d',
+    name: '2D Explorer (Real Game)',
+    description: 'A top-down Zelda-like tile map where students move a character and encounter AI enemies.',
+    icon: Map,
+    color: 'from-blue-500 to-cyan-600',
+    tags: ['Interactive', 'Fun']
+  },
+  {
+    id: 'battleship',
+    name: 'Naval Battleship',
+    description: 'A 10x10 radar grid where students fire missiles to find hidden questions and sink ships.',
+    icon: Anchor,
+    color: 'from-cyan-600 to-blue-800',
+    tags: ['Logic', 'Grid']
+  },
+  {
+    id: 'space_shooter',
+    name: 'Space Shooter (Action)',
+    description: 'An arcade space shooter where students fly a ship and shoot asteroids containing correct answers.',
+    icon: Crosshair,
+    color: 'from-indigo-600 to-purple-800',
+    tags: ['Action', 'Arcade']
   },
   {
     id: 'escape_room',
@@ -45,6 +73,82 @@ const SUBJECT_TOPICS = {
   "Computer Science": ["Programming Basics", "Networking", "Cybersecurity", "Data Structures", "AI & Machine Learning"],
   "Geography": ["Continents & Oceans", "Climate Zones", "Countries & Capitals", "Map Reading", "Physical Features"]
 }
+
+const PRE_MADE_GAMES = [
+  {
+    id: '1',
+    template: 'battleship',
+    title: 'Fraction Fleet Attack',
+    subject: 'Mathematics',
+    cardImage: 'https://picsum.photos/seed/mathfleet/600/400',
+    data: {
+      "title": "Fraction Fleet Attack",
+      "backgroundStory": "Enemy submarines are using math to hide! Solve the fraction problems to pinpoint their exact locations on the radar.",
+      "levels": [
+        { "levelNumber": 1, "monsterName": "Sub Alpha", "question": "What is 1/2 + 1/4?", "options": ["3/4", "2/6", "1/8", "1/6"], "correctAnswerIndex": 0, "successText": "Direct hit! Submarine Alpha destroyed.", "failText": "Missed! Review your common denominators." },
+        { "levelNumber": 2, "monsterName": "Cruiser Beta", "question": "Which fraction is the largest?", "options": ["1/3", "1/4", "1/2", "1/5"], "correctAnswerIndex": 2, "successText": "Target locked and destroyed!", "failText": "The torpedo missed." },
+        { "levelNumber": 3, "monsterName": "Destroyer Gamma", "question": "Simplify 4/8", "options": ["1/4", "1/2", "2/3", "4/4"], "correctAnswerIndex": 1, "successText": "Perfect simplification! Hull breached.", "failText": "Incorrect coordinates." },
+        { "levelNumber": 4, "monsterName": "Carrier Delta", "question": "What is 3/4 - 1/4?", "options": ["1/2", "2/4", "Both A & B", "1/4"], "correctAnswerIndex": 2, "successText": "Massive hit! Carrier sinking.", "failText": "The math was slightly off." },
+        { "levelNumber": 5, "monsterName": "Dreadnought", "question": "What is 1/2 of 100?", "options": ["25", "50", "75", "100"], "correctAnswerIndex": 1, "successText": "Critical strike! The fleet is destroyed.", "failText": "Target evaded the strike." }
+      ]
+    }
+  },
+  {
+    id: '2',
+    template: 'escape_room',
+    title: 'Escape the Pyramid',
+    subject: 'History',
+    cardImage: 'https://picsum.photos/seed/pyramidscape/600/400',
+    data: {
+      "title": "Escape the Pyramid",
+      "backgroundStory": "You are trapped in an Ancient Egyptian pyramid. Solve the historical riddles to unlock the doors and escape before the sand fills the room.",
+      "levels": [
+        { "levelNumber": 1, "monsterName": "Stone Door", "question": "Who was at the top of the social pyramid in Ancient Egypt?", "options": ["Priests", "Pharaoh", "Scribes", "Farmers"], "correctAnswerIndex": 1, "successText": "The heavy stone door grinds open.", "failText": "The door remains locked." },
+        { "levelNumber": 2, "monsterName": "Golden Lock", "question": "Which river was crucial to Ancient Egyptian civilization?", "options": ["Amazon", "Tigris", "Nile", "Euphrates"], "correctAnswerIndex": 2, "successText": "The golden mechanism clicks into place.", "failText": "Sand falls from the ceiling. Wrong answer." },
+        { "levelNumber": 3, "monsterName": "Hieroglyph Wall", "question": "What was the Ancient Egyptian writing system called?", "options": ["Cuneiform", "Latin", "Hieroglyphics", "Sanskrit"], "correctAnswerIndex": 2, "successText": "The wall slides open revealing daylight!", "failText": "The symbols glow red. Try again." }
+      ]
+    }
+  },
+  {
+    id: '3',
+    template: 'explorer_2d',
+    title: 'Biology Quest',
+    subject: 'Science',
+    cardImage: 'https://picsum.photos/seed/cellbiology/600/400',
+    data: {
+      "title": "Cellular Adventure",
+      "backgroundStory": "You have been shrunk down to a microscopic size! Defeat the viruses by answering cell biology questions to reach the exit portal.",
+      "levels": [
+        { "levelNumber": 1, "monsterName": "Virus X", "question": "What is the powerhouse of the cell?", "options": ["Nucleus", "Ribosome", "Mitochondria", "Cell Wall"], "correctAnswerIndex": 2, "successText": "Virus destroyed by sheer energy!", "failText": "The virus drains your HP." },
+        { "levelNumber": 2, "monsterName": "Bacteria Y", "question": "Which part of a plant cell performs photosynthesis?", "options": ["Chloroplast", "Vacuole", "Mitochondria", "Cytoplasm"], "correctAnswerIndex": 0, "successText": "Correct! You blasted it with solar power.", "failText": "You took a hit." },
+        { "levelNumber": 3, "monsterName": "Fungus Z", "question": "What controls the cell's activities?", "options": ["Cell Membrane", "Nucleus", "Ribosome", "Endoplasmic Reticulum"], "correctAnswerIndex": 1, "successText": "The command center is secure!", "failText": "You missed!" }
+      ]
+    }
+  },
+  {
+    id: '4',
+    template: 'space_shooter',
+    title: 'Galaxy Grammar',
+    subject: 'English & Literature',
+    cardImage: 'https://picsum.photos/seed/galaxygrammar/600/400',
+    data: {
+      "title": "Galaxy Grammar Defense",
+      "backgroundStory": "Hostile asteroids are raining down! Read the sentence fragment on the HUD and shoot the asteroid that contains the correct missing word.",
+      "levels": [
+        { "levelNumber": 1, "monsterName": "Asteroid", "question": "She _____ to the store yesterday.", "options": ["goes", "went", "going", "gone"], "correctAnswerIndex": 1, "successText": "Perfect hit!", "failText": "Incorrect verb tense!" },
+        { "levelNumber": 2, "monsterName": "Asteroid", "question": "I have never _____ such a beautiful sunset.", "options": ["saw", "seen", "seeing", "see"], "correctAnswerIndex": 1, "successText": "Grammar shield holds!", "failText": "Watch your past participles!" },
+        { "levelNumber": 3, "monsterName": "Asteroid", "question": "They _____ playing football when it started raining.", "options": ["were", "was", "are", "is"], "correctAnswerIndex": 0, "successText": "Target neutralized.", "failText": "Subject-verb disagreement!" },
+        { "levelNumber": 4, "monsterName": "Asteroid", "question": "If I _____ you, I would study harder.", "options": ["was", "were", "am", "be"], "correctAnswerIndex": 1, "successText": "Subjunctive mood correctly applied!", "failText": "Grammar shield compromised!" },
+        { "levelNumber": 5, "monsterName": "Asteroid", "question": "Neither the teacher nor the students _____ happy.", "options": ["is", "are", "was", "be"], "correctAnswerIndex": 1, "successText": "Excellent subject-verb agreement!", "failText": "Proximity rule failed." },
+        { "levelNumber": 6, "monsterName": "Asteroid", "question": "By next year, I _____ graduated from college.", "options": ["will have", "will", "have", "would have"], "correctAnswerIndex": 0, "successText": "Future perfect mastery!", "failText": "Timeline distorted." },
+        { "levelNumber": 7, "monsterName": "Asteroid", "question": "The book _____ on the table belongs to me.", "options": ["lie", "lays", "laying", "lying"], "correctAnswerIndex": 3, "successText": "Target intercepted successfully!", "failText": "Lie vs Lay error!" },
+        { "levelNumber": 8, "monsterName": "Asteroid", "question": "Hardly had we arrived _____ the movie started.", "options": ["when", "than", "then", "that"], "correctAnswerIndex": 0, "successText": "Correlative conjunctions aligned!", "failText": "Syntax error in transmission." },
+        { "levelNumber": 9, "monsterName": "Asteroid", "question": "She is the _____ of the two sisters.", "options": ["taller", "tallest", "most tall", "more taller"], "correctAnswerIndex": 0, "successText": "Comparative adjective locked on!", "failText": "Comparison protocols failed." },
+        { "levelNumber": 10, "monsterName": "Asteroid", "question": "The data _____ analyzed successfully.", "options": ["was", "were", "has", "have been"], "correctAnswerIndex": 1, "successText": "Plural noun accepted. Galaxy saved!", "failText": "Data is plural!" }
+      ]
+    }
+  }
+]
 
 export default function VisualGames() {
   const [selectedTemplate, setSelectedTemplate] = useState('rpg_quest')
@@ -112,6 +216,15 @@ Generate exactly ${numLevels} levels. Ensure correctAnswerIndex is an integer fr
     } finally {
       setIsGenerating(false)
     }
+  }
+
+  const handlePlayPremade = (game) => {
+    setSelectedTemplate(game.template)
+    setGeneratedGameData(game.data)
+    setIsPlaying(true)
+    
+    // Auto-scroll to top for better experience
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const toggleFullscreen = () => {
@@ -287,6 +400,35 @@ Generate exactly ${numLevels} levels. Ensure correctAnswerIndex is an integer fr
               </button>
             </form>
           </div>
+
+          {/* Pre-Made Games Library */}
+          <div className="mt-8">
+            <h3 className="text-lg font-bold font-display text-surface-900 mb-4 flex items-center gap-2">
+              <Rocket className="w-5 h-5 text-blue-500" />
+              Featured Instant Games
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+              {PRE_MADE_GAMES.map((game) => (
+                <div key={game.id} className="bg-white rounded-2xl border border-surface-200 overflow-hidden shadow-sm hover:shadow-xl transition-all group cursor-pointer" onClick={() => handlePlayPremade(game)}>
+                  <div className="h-32 w-full relative overflow-hidden">
+                    <img src={game.cardImage} alt={game.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-4">
+                      <h4 className="text-white font-bold text-lg drop-shadow-md">{game.title}</h4>
+                    </div>
+                  </div>
+                  <div className="p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-surface-500 uppercase tracking-widest">{game.subject}</p>
+                      <p className="text-sm font-semibold text-surface-900 mt-1 capitalize">{game.template.replace('_', ' ')}</p>
+                    </div>
+                    <button className="w-10 h-10 rounded-full bg-surface-100 group-hover:bg-emerald-500 group-hover:text-white flex items-center justify-center transition-colors">
+                      <Play className="w-5 h-5 fill-current ml-1" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Game Engine Canvas */}
@@ -387,6 +529,24 @@ Generate exactly ${numLevels} levels. Ensure correctAnswerIndex is an integer fr
                 <LabSimulatorGame 
                   gameData={generatedGameData} 
                   onComplete={() => console.log("Lab Simulator completed")} 
+                />
+              )}
+              {generatedGameData && !isGenerating && isPlaying && selectedTemplate === 'explorer_2d' && (
+                <Explorer2DGame 
+                  gameData={generatedGameData} 
+                  onComplete={() => console.log("2D Explorer completed")} 
+                />
+              )}
+              {generatedGameData && !isGenerating && isPlaying && selectedTemplate === 'battleship' && (
+                <BattleshipGame 
+                  gameData={generatedGameData} 
+                  onComplete={() => console.log("Battleship completed")} 
+                />
+              )}
+              {generatedGameData && !isGenerating && isPlaying && selectedTemplate === 'space_shooter' && (
+                <SpaceShooterGame 
+                  gameData={generatedGameData} 
+                  onComplete={() => console.log("Space Shooter completed")} 
                 />
               )}
             </div>
