@@ -982,36 +982,71 @@ YOU MUST STRICTLY USE THIS FORMAT:
     icon: ClipboardList,
     color: 'from-blue-500 to-cyan-600',
     inputs: [
-      { id: 'templateType', label: 'Template Type', type: 'text', placeholder: 'e.g. Weekly Lesson Planner, Seating Chart, Student Checklist' },
-      { id: 'grade', label: 'Class / Grade (Optional)', type: 'select', options: GRADE_LIST, optional: true },
-      { id: 'columns', label: 'Required Columns/Sections', type: 'textarea', placeholder: 'e.g. Date, Topic, Activity, Remarks' },
-      { id: 'style', label: 'Design Style', type: 'select', options: ['Minimalist & Clean', 'Fun & Engaging (Primary)', 'Professional & Detailed'] }
+      { id: 'templateType', label: 'Template Document Type', type: 'select', options: ['Daily Lesson Planner', 'Weekly Lesson Planner', 'Student Attendance & Performance Tracker', 'Seating Arrangement Chart', 'Field Trip / Tour Student Record & Headcount', 'Parent-Teacher Meeting (PTM) Log', 'Annual Day / Special Event Duty Roster', 'Class Inventory / Supply Checklist', 'Student Behavior & Anecdotal Record', 'Substitute Teacher Instructions', 'Exam Invigilation Duty Sheet', 'Custom / General Template'] },
+      { id: 'schoolName', label: 'School / Institution Name (Optional)', type: 'text', placeholder: 'e.g. Delhi Public School', optional: true },
+      { id: 'schoolLogo', label: 'School Logo Image URL (Optional)', type: 'text', placeholder: 'e.g. https://example.com/logo.png', optional: true },
+      { id: 'orientation', label: 'Page Orientation', type: 'select', options: ['Portrait (Vertical)', 'Landscape (Horizontal)'] },
+      { id: 'layoutType', label: 'Core Layout Structure', type: 'select', options: ['Standard Grid / Table', 'Checklist & Tasks Board', 'Cornell Notes Format', 'Weekly Split Planner', 'Evaluation / Scoring Rubric'] },
+      { id: 'rowCount', label: 'Number of Empty Rows to Generate', type: 'select', options: ['10 Rows (Spacious)', '15 Rows (Standard)', '25 Rows (Compact)', '35 Rows (Dense)', 'Fill Entire Page (Maximum Space)'] },
+      { id: 'columns', label: 'Specify Your Exact Columns Needed (Optional)', type: 'textarea', placeholder: 'e.g. S.No., Student Name, Bus No., Sign. Leave blank to let AI decide.', optional: true },
+      { id: 'excludeColumns', label: 'Columns to Strictly REMOVE / Avoid (Optional)', type: 'text', placeholder: 'e.g. Do not include Age, Gender, Remarks', optional: true },
+      { id: 'style', label: 'Visual Design Aesthetic', type: 'select', options: ['Minimalist B&W (Printer Friendly)', 'Playful & Visual (Primary)', 'Professional & Modern'] }
     ],
-    promptTemplate: (data) => `Create a structural, blank template/layout for a "${data.templateType}"${data.grade ? ' for a ' + data.grade + ' class' : ''}.
-Style: ${data.style}.
-Required Columns/Sections: ${data.columns}.
+    promptTemplate: (data) => {
+      let layoutInstruction = '';
+      const colInstruct = data.columns ? `EXACTLY these columns: ${data.columns}` : `standard, highly professional columns appropriate for a ${data.templateType}`;
+      const secInstruct = data.columns ? `these exact categories: ${data.columns}` : `standard categories appropriate for a ${data.templateType}`;
+      const rubricInstruct = data.columns ? `based exactly on: ${data.columns}` : `with comprehensive evaluation criteria appropriate for a ${data.templateType}`;
+      const excludeInstruct = data.excludeColumns ? `\nCRITICAL: DO NOT INCLUDE the following columns or sections: ${data.excludeColumns}.` : '';
 
-This is for a teacher to print as a PDF and fill in by hand. Therefore, it MUST primarily consist of empty tables, blank lines, and structured spaces rather than dense text.
+      // Handle Row Count
+      let rowGen = 'at least 15 empty rows';
+      if (data.rowCount === '10 Rows (Spacious)') rowGen = 'exactly 10 empty rows with large height';
+      if (data.rowCount === '15 Rows (Standard)') rowGen = 'exactly 15 empty rows';
+      if (data.rowCount === '25 Rows (Compact)') rowGen = 'exactly 25 empty rows';
+      if (data.rowCount === '35 Rows (Dense)') rowGen = 'exactly 35 empty rows';
+      if (data.rowCount === 'Fill Entire Page (Maximum Space)') rowGen = 'the absolute maximum number of empty rows possible (usually 40+) to fill the entire A4 page';
+
+      if (data.layoutType === 'Standard Grid / Table') {
+        layoutInstruction = `Create a massive, full-width Markdown table using ${colInstruct}. Leave ${rowGen} (using <br> or empty spaces) so teachers can write by hand.`;
+      } else if (data.layoutType === 'Checklist & Tasks Board') {
+        layoutInstruction = `Create multiple sections with interactive-looking checklists. Use markdown checkboxes like "- [ ] ________________________". Provide checklist items grouped by ${secInstruct}. Make sure there are ${rowGen} worth of space.`;
+      } else if (data.layoutType === 'Cornell Notes Format') {
+        layoutInstruction = `Create a Cornell Notes layout using a 2-column markdown table. Left column "Keywords/Cues" (25% width), Right column "Detailed Notes" (75% width). Leave ${rowGen} for handwriting. Add a "Summary" section at the bottom.`;
+      } else if (data.layoutType === 'Weekly Split Planner') {
+        layoutInstruction = `Create 5 separate tables or sections for Monday to Friday. Each day should have empty blocks for ${colInstruct}. Provide ${rowGen} of planning space per day.`;
+      } else {
+        layoutInstruction = `Design a comprehensive scoring rubric or evaluation matrix ${rubricInstruct}. Ensure there is ample space (${rowGen}) for the evaluator to write comments and assign scores manually.`;
+      }
+
+      return `Act as an expert document designer. Design a highly advanced, blank structural template for a "${data.templateType}".
+Page Orientation: ${data.orientation}.
+Design Style: ${data.style}.${excludeInstruct}
+The template is for hand-written use, so it MUST prioritize EMPTY SPACE, BLANK LINES, and STRUCTURAL GRIDS over dense text.
 
 YOU MUST STRICTLY USE THIS FORMAT:
 
-# 📝 ${data.templateType}
-**Class:** ${data.grade || '___________'} | **Date:** ___________
-
-### [Optional Brief Instruction or Quote]
-[A 1-sentence instruction on how to use it, or a motivational quote]
-
-### [Main Content Area]
-Create comprehensive Markdown Tables with empty rows/cells where teachers can write. 
-Use multiple tables or sections if necessary.
-Provide ample blank space (e.g., using empty rows in tables or lists like:
-1. ________________________
-2. ________________________)
+${data.schoolName ? `# ${data.schoolName.toUpperCase()}` : ''}
+## 📝 ${data.templateType.toUpperCase()}
+**Date:** _________________ | **Class/Section:** _________________ | **Teacher/Name:** _________________
 
 ---
-> **💡 Notes / Remarks:**
-> _______________________________________
-> _______________________________________`
+
+### 📌 Instructions
+[A brief 1-sentence italicized instruction on how to fill out this specific template]
+
+### 🏗️ ${data.templateType} Layout
+${layoutInstruction}
+
+Ensure you use large tables or extensive blank lines (e.g. _________________________) to make it genuinely useful for printing.
+
+---
+> **💡 Remarks / Official Signatures:**
+> 
+> Signature 1: _____________________      Signature 2: _____________________
+> 
+> Notes: _________________________________________________________________`
+    }
   }
 ]
 
@@ -1174,12 +1209,14 @@ export default function AITools() {
         </div>
       `
 
+      const isLandscape = formData.orientation === 'Landscape (Horizontal)';
+
       const opt = {
         margin:       12,
         filename:     `LDMS_${activeTool.title.replace(/\s+/g, '_')}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: isLandscape ? 'landscape' : 'portrait' },
         pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
       };
       
@@ -1490,11 +1527,11 @@ export default function AITools() {
                       </div>
                     )}
 
-                    <div className={activeTool.id === 'summer-camp' && formData.format === 'Poster Style (Visual & Catchy)' ? 'p-6 sm:p-10 rounded-3xl bg-white/85 backdrop-blur-md shadow-2xl border border-white/60 relative z-10 [&_h1]:text-center [&_h1]:text-primary-800 [&_h1]:text-4xl sm:[&_h1]:text-5xl [&_h1]:font-extrabold [&_h1]:mb-8 [&_h1]:drop-shadow-sm [&_h3]:text-primary-700 [&_h3]:text-2xl [&_h3]:mt-6 [&_h4]:text-xl [&_h4]:text-primary-600 [&_p]:text-surface-900 [&_p]:font-medium [&_li]:text-surface-900 [&_li]:font-medium [&_blockquote]:bg-white/90 [&_blockquote]:shadow-md' : ''}>
-                      {(formData.schoolName || formData.schoolLogo) && activeTool.id === 'summer-camp' && formData.format === 'Poster Style (Visual & Catchy)' && (
-                        <div className="flex flex-col items-center justify-center mb-8 border-b-2 border-primary-200/60 pb-6">
+                    <div className={activeTool.id === 'summer-camp' && formData.format === 'Poster Style (Visual & Catchy)' ? 'p-6 sm:p-10 rounded-3xl bg-white/85 backdrop-blur-md shadow-2xl border border-white/60 relative z-10 [&_h1]:text-center [&_h1]:text-primary-800 [&_h1]:text-4xl sm:[&_h1]:text-5xl [&_h1]:font-extrabold [&_h1]:mb-8 [&_h1]:drop-shadow-sm [&_h3]:text-primary-700 [&_h3]:text-2xl [&_h3]:mt-6 [&_h4]:text-xl [&_h4]:text-primary-600 [&_p]:text-surface-900 [&_p]:font-medium [&_li]:text-surface-900 [&_li]:font-medium [&_blockquote]:bg-white/90 [&_blockquote]:shadow-md' : activeTool.id === 'printable-template' ? `p-8 sm:p-12 bg-white ring-1 ring-slate-200 shadow-sm relative z-10 print:p-0 print:shadow-none print:ring-0 w-full mx-auto ${formData.orientation === 'Landscape (Horizontal)' ? 'min-h-[816px] max-w-[1056px]' : 'min-h-[1056px] max-w-[816px]'} [&_h1]:text-center [&_h1]:text-slate-800 [&_h1]:font-black [&_h1]:tracking-widest [&_h1]:uppercase [&_h2]:text-center [&_h2]:text-slate-600 [&_h2]:font-bold [&_h2]:mb-8 [&_h2]:border-b [&_h2]:border-slate-200 [&_h2]:pb-4 [&_table]:w-full [&_table]:border-2 [&_table]:border-slate-800 [&_th]:bg-slate-100 [&_th]:border-slate-400 [&_th]:py-4 [&_td]:border-slate-400 [&_td]:py-6 [&_hr]:border-slate-800 [&_hr]:border-2` : ''}>
+                      {(formData.schoolName || formData.schoolLogo) && ((activeTool.id === 'summer-camp' && formData.format === 'Poster Style (Visual & Catchy)') || activeTool.id === 'printable-template') && (
+                        <div className={`flex flex-col items-center justify-center mb-8 border-b-2 ${activeTool.id === 'printable-template' ? 'border-slate-800' : 'border-primary-200/60'} pb-6`}>
                           {formData.schoolLogo && <img src={formData.schoolLogo} alt="School Logo" className="h-20 sm:h-28 object-contain mb-4 drop-shadow-md rounded-xl" crossOrigin="anonymous" />}
-                          {formData.schoolName && <h2 className="text-2xl sm:text-4xl font-extrabold text-surface-900 tracking-wide uppercase text-center drop-shadow-sm">{formData.schoolName}</h2>}
+                          {formData.schoolName && <h2 className={`text-2xl sm:text-4xl font-extrabold tracking-wide uppercase text-center drop-shadow-sm ${activeTool.id === 'printable-template' ? 'text-slate-900' : 'text-surface-900'}`}>{formData.schoolName}</h2>}
                         </div>
                       )}
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
