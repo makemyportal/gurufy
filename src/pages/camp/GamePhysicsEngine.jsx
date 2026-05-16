@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const DEFAULT_CODE = `// Game Physics Configuration
-// Tweak the values below to help the player clear the obstacle!
+// Tweak the values below to help the player clear ALL obstacles!
 
 const config = {
-  gravity: 0.8,        // How fast the player falls (Try: 0.4)
-  jumpStrength: -10,   // Upward force when jumping (Negative is up, Try: -15)
-  playerSpeed: 3       // Forward speed (Try: 5)
+  gravity: 0.8,        // How fast the player falls (Try: 0.5)
+  jumpStrength: -12,   // Upward force when jumping (Negative = up, Try: -14)
+  playerSpeed: 4,      // Forward speed (Try: 5)
+  doubleJump: false    // Can the player jump twice? (Try: true)
 };
 
 return config;
@@ -18,16 +19,28 @@ export default function GamePhysicsEngine() {
   const canvasRef = useRef(null)
   const [code, setCode] = useState(DEFAULT_CODE)
   const [error, setError] = useState("")
-  const [gameState, setGameState] = useState('idle') // idle, playing, won, lost
+  const [score, setScore] = useState(0)
+  const [gameLevel, setGameLevel] = useState(1)
+  const [gameState, setGameState] = useState('idle')
   const requestRef = useRef()
   
-  // Game state refs (mutable without re-rendering)
+  // Game state refs
   const stateRef = useRef({
-    player: { x: 50, y: 300, vy: 0, width: 30, height: 30 },
-    obstacle: { x: 400, y: 280, width: 40, height: 50 },
-    config: { gravity: 0.8, jumpStrength: -10, playerSpeed: 3 },
+    player: { x: 50, y: 300, vy: 0, width: 25, height: 25 },
+    obstacles: [
+      { x: 350, y: 280, width: 35, height: 50 },
+      { x: 600, y: 290, width: 30, height: 40 }
+    ],
+    coins: [
+      { x: 250, y: 260, collected: false },
+      { x: 450, y: 240, collected: false },
+      { x: 700, y: 260, collected: false }
+    ],
+    config: { gravity: 0.8, jumpStrength: -12, playerSpeed: 4, doubleJump: false },
     groundY: 330,
-    hasJumped: false
+    hasJumped: false,
+    jumpCount: 0,
+    coinScore: 0
   })
 
   // Apply code to config
@@ -52,8 +65,20 @@ export default function GamePhysicsEngine() {
   }
 
   const resetGame = () => {
-    stateRef.current.player = { x: 50, y: 300, vy: 0, width: 30, height: 30 }
+    stateRef.current.player = { x: 50, y: 300, vy: 0, width: 25, height: 25 }
+    stateRef.current.obstacles = [
+      { x: 350, y: 280, width: 35, height: 50 },
+      { x: 600, y: 290, width: 30, height: 40 }
+    ]
+    stateRef.current.coins = [
+      { x: 250, y: 260, collected: false },
+      { x: 450, y: 240, collected: false },
+      { x: 700, y: 260, collected: false }
+    ]
     stateRef.current.hasJumped = false
+    stateRef.current.jumpCount = 0
+    stateRef.current.coinScore = 0
+    setScore(0)
     setGameState('idle')
     drawFrame()
   }
@@ -61,10 +86,12 @@ export default function GamePhysicsEngine() {
   const jump = () => {
     if (gameState !== 'playing') return
     const s = stateRef.current
-    // Only jump if on the ground
-    if (s.player.y + s.player.height >= s.groundY) {
+    const onGround = s.player.y + s.player.height >= s.groundY
+    const canDoubleJump = s.config.doubleJump && s.jumpCount < 2
+    if (onGround || canDoubleJump) {
       s.player.vy = s.config.jumpStrength
       s.hasJumped = true
+      s.jumpCount++
     }
   }
 
@@ -83,28 +110,43 @@ export default function GamePhysicsEngine() {
     if (p.y + p.height > s.groundY) {
       p.y = s.groundY - p.height
       p.vy = 0
+      s.jumpCount = 0
     }
 
-    // Obstacle collision
-    const hitObstacle = (
-      p.x < o.x + o.width &&
-      p.x + p.width > o.x &&
-      p.y < o.y + o.height &&
-      p.y + p.height > o.y
-    )
-
-    if (hitObstacle) {
-      setGameState('lost')
-      return false // Stop loop
+    // Check all obstacles
+    for (const o of s.obstacles) {
+      const hitObstacle = (
+        p.x < o.x + o.width &&
+        p.x + p.width > o.x &&
+        p.y < o.y + o.height &&
+        p.y + p.height > o.y
+      )
+      if (hitObstacle) {
+        setGameState('lost')
+        return false
+      }
     }
 
-    // Win condition (passed obstacle)
-    if (p.x > o.x + o.width + 50) {
+    // Collect coins
+    s.coins.forEach(coin => {
+      if (!coin.collected) {
+        const dist = Math.hypot(p.x - coin.x, p.y - coin.y)
+        if (dist < 25) {
+          coin.collected = true
+          s.coinScore++
+          setScore(s.coinScore)
+        }
+      }
+    })
+
+    // Win condition (passed all obstacles)
+    const lastObstacle = s.obstacles[s.obstacles.length - 1]
+    if (p.x > lastObstacle.x + lastObstacle.width + 80) {
       setGameState('won')
-      return false // Stop loop
+      return false
     }
 
-    return true // Continue loop
+    return true
   }
 
   const drawFrame = () => {
@@ -137,17 +179,43 @@ export default function GamePhysicsEngine() {
       ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
     }
 
-    // Draw Obstacle (Neon Red)
-    ctx.fillStyle = '#ef4444'
-    ctx.shadowColor = '#ef4444'
-    ctx.shadowBlur = 15
-    ctx.fillRect(s.obstacle.x, s.obstacle.y, s.obstacle.width, s.obstacle.height)
+    // Draw Obstacles (Neon Red)
+    s.obstacles.forEach(o => {
+      ctx.fillStyle = '#ef4444'
+      ctx.shadowColor = '#ef4444'
+      ctx.shadowBlur = 15
+      ctx.fillRect(o.x, o.y, o.width, o.height)
+    })
+
+    // Draw Coins
+    s.coins.forEach(coin => {
+      if (!coin.collected) {
+        ctx.fillStyle = '#fbbf24'
+        ctx.shadowColor = '#fbbf24'
+        ctx.shadowBlur = 12
+        ctx.beginPath()
+        ctx.arc(coin.x, coin.y, 8, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#92400e'
+        ctx.shadowBlur = 0
+        ctx.font = 'bold 10px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('$', coin.x, coin.y + 4)
+      }
+    })
 
     // Draw Player (Neon Green)
     ctx.fillStyle = '#10b981'
     ctx.shadowColor = '#10b981'
     ctx.shadowBlur = s.hasJumped ? 20 : 10
     ctx.fillRect(s.player.x, s.player.y, s.player.width, s.player.height)
+    
+    // Score display
+    ctx.shadowBlur = 0
+    ctx.fillStyle = '#fbbf24'
+    ctx.font = 'bold 16px sans-serif'
+    ctx.textAlign = 'left'
+    ctx.fillText('Coins: ' + s.coinScore + '/3', 15, 30)
     
     // Reset shadow
     ctx.shadowBlur = 0
@@ -297,10 +365,10 @@ export default function GamePhysicsEngine() {
 
           <div className="p-6 border-t border-slate-800 bg-slate-900/50 flex flex-col gap-2 text-sm text-slate-400">
             <div>
-              <strong className="text-slate-300">🎮 Mission:</strong> Change the code on the left so the green player clears the red obstacle.
+              <strong className="text-slate-300">Mission:</strong> Change the code on the left so the green player clears ALL red obstacles and collects coins!
             </div>
             <div>
-              <strong className="text-slate-300">📊 Current Rules:</strong> Gravity is {stateRef.current.config.gravity} | Jump Power is {stateRef.current.config.jumpStrength}
+              <strong className="text-slate-300">Coins Collected:</strong> <span className="text-yellow-400 font-bold">{score}/3</span> | <strong className="text-slate-300">Tip:</strong> Try setting <code className="text-indigo-400">doubleJump: true</code> to jump in mid-air!
             </div>
           </div>
 

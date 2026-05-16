@@ -43,6 +43,12 @@ const GamePhysicsEngine = lazy(() => import('./pages/camp/GamePhysicsEngine'))
 const AICreatorLab = lazy(() => import('./pages/camp/AICreatorLab'))
 const APINinja = lazy(() => import('./pages/camp/APINinja'))
 const BlockGameBuilder = lazy(() => import('./pages/camp/BlockGameBuilder'))
+const HTMLPlayground = lazy(() => import('./pages/camp/HTMLPlayground'))
+const PixelArtStudio = lazy(() => import('./pages/camp/PixelArtStudio'))
+const MusicCodeDJ = lazy(() => import('./pages/camp/MusicCodeDJ'))
+const RobotMazeSolver = lazy(() => import('./pages/camp/RobotMazeSolver'))
+const TypingSpeedRacer = lazy(() => import('./pages/camp/TypingSpeedRacer'))
+const EncryptionLab = lazy(() => import('./pages/camp/EncryptionLab'))
 
 // Lazy loaded components (Public info pages)
 const About = lazy(() => import('./pages/public/About'))
@@ -154,6 +160,12 @@ export default function App() {
         <Route path="camp/ai-creator" element={<ProtectedRoute><AICreatorLab /></ProtectedRoute>} />
         <Route path="camp/api-ninja" element={<ProtectedRoute><APINinja /></ProtectedRoute>} />
         <Route path="camp/block-builder" element={<ProtectedRoute><BlockGameBuilder /></ProtectedRoute>} />
+        <Route path="camp/html-playground" element={<ProtectedRoute><HTMLPlayground /></ProtectedRoute>} />
+        <Route path="camp/pixel-art" element={<ProtectedRoute><PixelArtStudio /></ProtectedRoute>} />
+        <Route path="camp/music-dj" element={<ProtectedRoute><MusicCodeDJ /></ProtectedRoute>} />
+        <Route path="camp/robot-maze" element={<ProtectedRoute><RobotMazeSolver /></ProtectedRoute>} />
+        <Route path="camp/typing-racer" element={<ProtectedRoute><TypingSpeedRacer /></ProtectedRoute>} />
+        <Route path="camp/encryption-lab" element={<ProtectedRoute><EncryptionLab /></ProtectedRoute>} />
 
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       </Route>

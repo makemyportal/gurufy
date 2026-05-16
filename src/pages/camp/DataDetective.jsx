@@ -2,31 +2,33 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const INITIAL_SUSPECTS = [
-  { id: 1, name: "Alex", hair_color: "Brown", glasses: "Yes", favorite_snack: "Chips", location: "Library" },
-  { id: 2, name: "Sam", hair_color: "Black", glasses: "No", favorite_snack: "Cookies", location: "Cafeteria" },
-  { id: 3, name: "Jordan", hair_color: "Blonde", glasses: "Yes", favorite_snack: "Apple", location: "Gym" },
-  { id: 4, name: "Taylor", hair_color: "Red", glasses: "No", favorite_snack: "Chips", location: "Library" },
-  { id: 5, name: "Casey", hair_color: "Black", glasses: "Yes", favorite_snack: "Cookies", location: "Gym" },
-  { id: 6, name: "Riley", hair_color: "Blonde", glasses: "No", favorite_snack: "Pizza", location: "Cafeteria" },
-  { id: 7, name: "Morgan", hair_color: "Brown", glasses: "Yes", favorite_snack: "Pizza", location: "Library" },
-  { id: 8, name: "Drew", hair_color: "Black", glasses: "Yes", favorite_snack: "Apple", location: "Gym" }
+  { id: 1, name: "Alex", hair_color: "Brown", glasses: "Yes", favorite_snack: "Chips", location: "Library", shoe_size: "8" },
+  { id: 2, name: "Sam", hair_color: "Black", glasses: "No", favorite_snack: "Cookies", location: "Cafeteria", shoe_size: "9" },
+  { id: 3, name: "Jordan", hair_color: "Blonde", glasses: "Yes", favorite_snack: "Apple", location: "Gym", shoe_size: "7" },
+  { id: 4, name: "Taylor", hair_color: "Red", glasses: "No", favorite_snack: "Chips", location: "Library", shoe_size: "10" },
+  { id: 5, name: "Casey", hair_color: "Black", glasses: "Yes", favorite_snack: "Cookies", location: "Gym", shoe_size: "8" },
+  { id: 6, name: "Riley", hair_color: "Blonde", glasses: "No", favorite_snack: "Pizza", location: "Cafeteria", shoe_size: "9" },
+  { id: 7, name: "Morgan", hair_color: "Brown", glasses: "Yes", favorite_snack: "Pizza", location: "Library", shoe_size: "8" },
+  { id: 8, name: "Drew", hair_color: "Black", glasses: "Yes", favorite_snack: "Apple", location: "Gym", shoe_size: "11" },
+  { id: 9, name: "Quinn", hair_color: "Red", glasses: "Yes", favorite_snack: "Cookies", location: "Library", shoe_size: "7" },
+  { id: 10, name: "Skyler", hair_color: "Brown", glasses: "No", favorite_snack: "Chips", location: "Cafeteria", shoe_size: "10" }
 ]
 
 const STORY_LEVELS = [
   {
     level: 1,
     title: "The Missing Trophy",
-    briefing: "Detective, the school's championship trophy has been stolen! We have a database of students who were in the building. Our first clue: The security guard saw someone running away with **Black** hair.",
+    briefing: "Detective, the school's championship trophy has been stolen! We have a database of 10 students who were in the building. Our first clue: The security guard saw someone running away with **Black** hair.",
     hint: "Try querying: SELECT * FROM suspects WHERE hair_color = 'Black'",
-    targetCount: 3, // Sam, Casey, Drew
-    successMsg: "Great job! You've narrowed down the list."
+    targetCount: 3,
+    successMsg: "Great job! You've narrowed down the list to 3 suspects."
   },
   {
     level: 2,
     title: "A Closer Look",
     briefing: "We found a dropped contact lens case at the scene. This means the suspect likely wears **glasses**.",
-    hint: "Update your query and add AND: SELECT * FROM suspects WHERE hair_color = 'Black' AND glasses = 'Yes'",
-    targetCount: 2, // Casey, Drew
+    hint: "Add AND: SELECT * FROM suspects WHERE hair_color = 'Black' AND glasses = 'Yes'",
+    targetCount: 2,
     successMsg: "Excellent deduction. Only two suspects left."
   },
   {
@@ -34,8 +36,24 @@ const STORY_LEVELS = [
     title: "The Final Clue",
     briefing: "We found cookie crumbs near the empty trophy case. The suspect's favorite snack must be **Cookies**.",
     hint: "Add another AND: ... AND favorite_snack = 'Cookies'",
-    targetCount: 1, // Casey
+    targetCount: 1,
     successMsg: "You found the culprit! It was Casey!"
+  },
+  {
+    level: 4,
+    title: "NEW CASE: The Lab Break-In",
+    briefing: "A new crime! Someone broke into the Science Lab last night. Witnesses saw two people near the lab — one had **Brown** hair, the other had **Red** hair. Find everyone matching EITHER description.",
+    hint: "Use OR: SELECT * FROM suspects WHERE hair_color = 'Brown' OR hair_color = 'Red'",
+    targetCount: 4,
+    successMsg: "You found 4 potential suspects using the OR keyword!"
+  },
+  {
+    level: 5,
+    title: "Case Closed",
+    briefing: "Forensics found size **8** shoe prints in the lab, and it was someone from the **Library**. Narrow down the Brown/Red hair suspects!",
+    hint: "Combine: SELECT * FROM suspects WHERE location = 'Library' AND shoe_size = '8'",
+    targetCount: 2,
+    successMsg: "You solved both cases! You are a certified Data Detective!"
   }
 ]
 
@@ -73,26 +91,25 @@ export default function DataDetective() {
     }
 
     try {
-      // Split by AND
-      const conditions = whereClause.split(/ AND /i).map(c => c.trim())
-      
+      // Support OR: split by OR first, then AND within each group
+      const orGroups = whereClause.split(/ OR /i).map(g => g.trim())
+
       const filtered = INITIAL_SUSPECTS.filter(suspect => {
-        return conditions.every(cond => {
-          // match: column = 'value'
-          const condMatch = cond.match(/^(\w+)\s*=\s*'([^']+)'$/)
-          if (!condMatch) throw new Error(`Invalid condition format: ${cond}. Use column = 'value'`)
-          
-          const [, column, value] = condMatch
-          if (!(column in suspect)) throw new Error(`Column not found: ${column}`)
-          
-          return suspect[column].toString().toLowerCase() === value.toLowerCase()
+        return orGroups.some(group => {
+          const conditions = group.split(/ AND /i).map(c => c.trim())
+          return conditions.every(cond => {
+            const condMatch = cond.match(/^(\w+)\s*=\s*'([^']+)'$/)
+            if (!condMatch) throw new Error("Invalid condition: " + cond + ". Use column = 'value'")
+            const [, column, value] = condMatch
+            if (!(column in suspect)) throw new Error("Column not found: " + column)
+            return suspect[column].toString().toLowerCase() === value.toLowerCase()
+          })
         })
       })
 
       return { data: filtered }
-
-    } catch (err) {
-      return { error: err.message }
+    } catch (errInner) {
+      return { error: errInner.message }
     }
   }
 

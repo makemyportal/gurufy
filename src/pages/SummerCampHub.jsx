@@ -54,6 +54,66 @@ export default function SummerCampHub() {
       color: 'from-yellow-500 to-orange-600',
       status: 'ready',
       path: '/camp/block-builder'
+    },
+    {
+      id: 'html-playground',
+      title: 'HTML/CSS Playground',
+      description: 'Write real HTML & CSS code and see your website come alive instantly!',
+      icon: '🌐',
+      skills: ['HTML', 'CSS', 'Web Design'],
+      color: 'from-cyan-500 to-blue-600',
+      status: 'ready',
+      path: '/camp/html-playground'
+    },
+    {
+      id: 'pixel-art',
+      title: 'Pixel Art Studio',
+      description: 'Create pixel art characters, items, and icons with a professional drawing tool.',
+      icon: '🎨',
+      skills: ['Digital Art', 'Grid Logic', 'Design'],
+      color: 'from-pink-500 to-rose-600',
+      status: 'ready',
+      path: '/camp/pixel-art'
+    },
+    {
+      id: 'music-dj',
+      title: 'Music Code DJ',
+      description: 'Create beats and music using a step sequencer — just like professional music producers!',
+      icon: '🎵',
+      skills: ['Patterns', 'Loops', 'Audio'],
+      color: 'from-fuchsia-500 to-purple-600',
+      status: 'ready',
+      path: '/camp/music-dj'
+    },
+    {
+      id: 'robot-maze',
+      title: 'Robot Maze Solver',
+      description: 'Program a robot step-by-step to navigate through a maze. Learn algorithms!',
+      icon: '🤖',
+      skills: ['Algorithms', 'Logic', 'Problem Solving'],
+      color: 'from-amber-500 to-yellow-600',
+      status: 'ready',
+      path: '/camp/robot-maze'
+    },
+    {
+      id: 'typing-racer',
+      title: 'Typing Speed Racer',
+      description: 'Race your car by typing programming words fast! Build the #1 developer skill.',
+      icon: '⌨️',
+      skills: ['Typing Speed', 'Accuracy', 'Focus'],
+      color: 'from-green-500 to-teal-600',
+      status: 'ready',
+      path: '/camp/typing-racer'
+    },
+    {
+      id: 'encryption-lab',
+      title: 'Encryption Lab',
+      description: 'Learn cybersecurity! Encrypt and decrypt secret messages using the Caesar Cipher.',
+      icon: '🔐',
+      skills: ['Cybersecurity', 'Cryptography', 'Logic'],
+      color: 'from-red-500 to-rose-600',
+      status: 'ready',
+      path: '/camp/encryption-lab'
     }
   ]
 
@@ -70,7 +130,7 @@ export default function SummerCampHub() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
             </span>
-            Gurufy Summer Camp
+            Gurufy Tech Lab
           </div>
           
           <h1 
@@ -81,7 +141,7 @@ export default function SummerCampHub() {
           <p 
             className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto animate-fade-in"
           >
-            Dive into advanced, interactive tech modules designed to teach real-world programming, data science, and AI skills.
+            Dive into advanced, interactive tech modules designed to teach real-world programming, data science, AI, and game development skills.
           </p>
         </div>
 
