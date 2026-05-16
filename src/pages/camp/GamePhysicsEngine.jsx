@@ -23,7 +23,12 @@ export default function GamePhysicsEngine() {
   const [gameLevel, setGameLevel] = useState(1)
   const [gameState, setGameState] = useState('idle')
   const requestRef = useRef()
-  
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const containerRef = useRef(null)
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) containerRef.current?.requestFullscreen().catch(() => {})
+    else document.exitFullscreen()
+  }
   // Game state refs
   const stateRef = useRef({
     player: { x: 50, y: 300, vy: 0, width: 25, height: 25 },
@@ -253,9 +258,8 @@ export default function GamePhysicsEngine() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [gameState])
 
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-300 font-sans flex flex-col selection:bg-indigo-500/30">
+    <div ref={containerRef} className={`min-h-screen bg-slate-950 text-slate-300 font-sans flex flex-col selection:bg-indigo-500/30 ${isFullscreen ? 'fixed inset-0 z-[9999]' : ''}`}>
       {/* Header */}
       <header className="border-b border-slate-800 bg-slate-900/50 p-4 flex items-center justify-between backdrop-blur-md sticky top-0 z-10">
         <div className="flex items-center gap-4">
@@ -274,6 +278,9 @@ export default function GamePhysicsEngine() {
             </div>
           </div>
         </div>
+        <button onClick={toggleFullscreen} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors" title="Fullscreen">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+        </button>
       </header>
 
       <div className="flex-1 flex overflow-hidden">

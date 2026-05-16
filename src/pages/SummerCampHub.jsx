@@ -114,6 +114,96 @@ export default function SummerCampHub() {
       color: 'from-red-500 to-rose-600',
       status: 'ready',
       path: '/camp/encryption-lab'
+    },
+    {
+      id: 'stock-market',
+      title: 'Stock Market Simulator',
+      description: 'Learn finance! Buy and sell stocks, track profits, and react to market news.',
+      icon: '💰',
+      skills: ['Finance', 'Strategy', 'Math'],
+      color: 'from-green-500 to-emerald-600',
+      status: 'ready',
+      path: '/camp/stock-market'
+    },
+    {
+      id: 'spreadsheet',
+      title: 'Spreadsheet Simulator',
+      description: 'Master Excel formulas! SUM, AVERAGE, MAX — the skills every job needs.',
+      icon: '📊',
+      skills: ['Data Analysis', 'Formulas', 'Excel'],
+      color: 'from-teal-500 to-cyan-600',
+      status: 'ready',
+      path: '/camp/spreadsheet'
+    },
+    {
+      id: 'terminal',
+      title: 'Terminal Simulator',
+      description: 'Learn Linux commands! Navigate files, read code, and think like a real developer.',
+      icon: '🖥️',
+      skills: ['CLI', 'Linux', 'DevOps'],
+      color: 'from-lime-500 to-green-600',
+      status: 'ready',
+      path: '/camp/terminal'
+    },
+    {
+      id: 'logo-designer',
+      title: 'Logo & Brand Designer',
+      description: 'Design professional logos with shapes, colors, fonts, and icons. Download as PNG!',
+      icon: '🎯',
+      skills: ['Design', 'Branding', 'Creativity'],
+      color: 'from-violet-500 to-indigo-600',
+      status: 'ready',
+      path: '/camp/logo-designer'
+    },
+    {
+      id: 'git-sim',
+      title: 'Git Version Control',
+      description: 'Learn Git! Stage files, make commits, create branches, and merge code.',
+      icon: '🌐',
+      skills: ['Git', 'Collaboration', 'DevOps'],
+      color: 'from-orange-500 to-amber-600',
+      status: 'ready',
+      path: '/camp/git-sim'
+    },
+    {
+      id: 'app-builder',
+      title: 'App UI Builder',
+      description: 'Design mobile app interfaces! Add buttons, cards, inputs to a phone preview.',
+      icon: '📱',
+      skills: ['UX/UI', 'App Design', 'Prototyping'],
+      color: 'from-indigo-500 to-blue-600',
+      status: 'ready',
+      path: '/camp/app-builder'
+    },
+    {
+      id: 'binary-calc',
+      title: 'Binary Calculator',
+      description: 'Learn how computers think! Convert numbers and explore logic gates.',
+      icon: '🧮',
+      skills: ['Binary', 'Logic Gates', 'CS Fundamentals'],
+      color: 'from-cyan-500 to-sky-600',
+      status: 'ready',
+      path: '/camp/binary-calc'
+    },
+    {
+      id: 'json-explorer',
+      title: 'JSON Explorer',
+      description: 'Explore JSON data with a tree view. The format every API and database uses!',
+      icon: '🗄️',
+      skills: ['JSON', 'APIs', 'Data Formats'],
+      color: 'from-amber-500 to-yellow-600',
+      status: 'ready',
+      path: '/camp/json-explorer'
+    },
+    {
+      id: 'chatbot-builder',
+      title: 'Chatbot Builder',
+      description: 'Build your own AI chatbot! Create IF-THEN rules and chat with your creation.',
+      icon: '🤖',
+      skills: ['AI Basics', 'Logic', 'NLP'],
+      color: 'from-sky-500 to-blue-600',
+      status: 'ready',
+      path: '/camp/chatbot-builder'
     }
   ]
 

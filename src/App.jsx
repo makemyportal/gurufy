@@ -49,6 +49,15 @@ const MusicCodeDJ = lazy(() => import('./pages/camp/MusicCodeDJ'))
 const RobotMazeSolver = lazy(() => import('./pages/camp/RobotMazeSolver'))
 const TypingSpeedRacer = lazy(() => import('./pages/camp/TypingSpeedRacer'))
 const EncryptionLab = lazy(() => import('./pages/camp/EncryptionLab'))
+const StockMarketSim = lazy(() => import('./pages/camp/StockMarketSim'))
+const SpreadsheetSim = lazy(() => import('./pages/camp/SpreadsheetSim'))
+const TerminalSim = lazy(() => import('./pages/camp/TerminalSim'))
+const LogoDesigner = lazy(() => import('./pages/camp/LogoDesigner'))
+const GitSimulator = lazy(() => import('./pages/camp/GitSimulator'))
+const AppUIBuilder = lazy(() => import('./pages/camp/AppUIBuilder'))
+const BinaryCalculator = lazy(() => import('./pages/camp/BinaryCalculator'))
+const JsonExplorer = lazy(() => import('./pages/camp/JsonExplorer'))
+const ChatbotBuilder = lazy(() => import('./pages/camp/ChatbotBuilder'))
 
 // Lazy loaded components (Public info pages)
 const About = lazy(() => import('./pages/public/About'))
@@ -166,6 +175,15 @@ export default function App() {
         <Route path="camp/robot-maze" element={<ProtectedRoute><RobotMazeSolver /></ProtectedRoute>} />
         <Route path="camp/typing-racer" element={<ProtectedRoute><TypingSpeedRacer /></ProtectedRoute>} />
         <Route path="camp/encryption-lab" element={<ProtectedRoute><EncryptionLab /></ProtectedRoute>} />
+        <Route path="camp/stock-market" element={<ProtectedRoute><StockMarketSim /></ProtectedRoute>} />
+        <Route path="camp/spreadsheet" element={<ProtectedRoute><SpreadsheetSim /></ProtectedRoute>} />
+        <Route path="camp/terminal" element={<ProtectedRoute><TerminalSim /></ProtectedRoute>} />
+        <Route path="camp/logo-designer" element={<ProtectedRoute><LogoDesigner /></ProtectedRoute>} />
+        <Route path="camp/git-sim" element={<ProtectedRoute><GitSimulator /></ProtectedRoute>} />
+        <Route path="camp/app-builder" element={<ProtectedRoute><AppUIBuilder /></ProtectedRoute>} />
+        <Route path="camp/binary-calc" element={<ProtectedRoute><BinaryCalculator /></ProtectedRoute>} />
+        <Route path="camp/json-explorer" element={<ProtectedRoute><JsonExplorer /></ProtectedRoute>} />
+        <Route path="camp/chatbot-builder" element={<ProtectedRoute><ChatbotBuilder /></ProtectedRoute>} />
 
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       </Route>

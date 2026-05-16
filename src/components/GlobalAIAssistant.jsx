@@ -350,7 +350,7 @@ If no tool matches even loosely, return { "tool_id": "none", "confidence": 0 }
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-4 sm:right-6 z-[85] group flex items-center justify-center animate-fade-in-up"
+          className="fixed bottom-[84px] xl:bottom-6 right-4 sm:right-6 z-[85] group flex items-center justify-center animate-fade-in-up"
         >
            <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-full blur-xl opacity-50 group-hover:opacity-80 group-hover:scale-110 transition-all duration-300"></div>
            <div className="relative flex items-center gap-3 px-5 py-3.5 bg-slate-900/90 dark:bg-white/90 backdrop-blur-xl border border-white/20 dark:border-slate-800/20 shadow-2xl rounded-full text-white dark:text-slate-900 hover:scale-105 transition-all duration-300">

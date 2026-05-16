@@ -55,28 +55,20 @@ function getSchoolNav(t, settings) {
 }
 function getTeacherMobileNav(t) {
   return [
-    { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
-    { to: '/timetable', icon: CalendarDays, label: 'Timetable', color: 'from-teal-500 to-teal-600', shadow: 'rgba(20,184,166,0.4)' },
-    { to: '/ai-directory', icon: Sparkles, label: 'AI', color: 'from-pink-500 to-rose-600', shadow: 'rgba(236,72,153,0.4)' },
-    { to: '/ppt-generator', icon: MonitorPlay, label: 'PPT Maker', color: 'from-indigo-500 to-purple-600', shadow: 'rgba(99,102,241,0.4)' },
-    { to: '/visual-games', icon: Gamepad2, label: 'Games', color: 'from-green-500 to-emerald-600', shadow: 'rgba(16,185,129,0.4)' },
+    { to: '/', icon: Home, label: 'Home', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/ai-directory', icon: Sparkles, label: 'AI Tools', color: 'from-pink-500 to-rose-600', shadow: 'rgba(236,72,153,0.4)' },
     { to: '/camp', icon: Rocket, label: 'Tech Lab', color: 'from-violet-500 to-purple-600', shadow: 'rgba(139,92,246,0.4)' },
-    { to: '/history', icon: History, label: 'History', color: 'from-purple-500 to-violet-600', shadow: 'rgba(139,92,246,0.4)' },
-    { to: '/resources', icon: FolderOpen, label: 'Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
-    { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
+    { to: '/visual-games', icon: Gamepad2, label: 'Games', color: 'from-green-500 to-emerald-600', shadow: 'rgba(16,185,129,0.4)' },
+    { to: '/profile', icon: Settings, label: 'Profile', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
   ];
 }
 function getSchoolMobileNav(t) {
   return [
-    { to: '/', icon: Home, label: 'Workspace', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
-    { to: '/timetable', icon: CalendarDays, label: 'Timetable', color: 'from-teal-500 to-teal-600', shadow: 'rgba(20,184,166,0.4)' },
-    { to: '/ai-directory', icon: Sparkles, label: 'AI', color: 'from-pink-500 to-rose-600', shadow: 'rgba(236,72,153,0.4)' },
-    { to: '/ppt-generator', icon: MonitorPlay, label: 'PPT Maker', color: 'from-indigo-500 to-purple-600', shadow: 'rgba(99,102,241,0.4)' },
-    { to: '/visual-games', icon: Gamepad2, label: 'Games', color: 'from-green-500 to-emerald-600', shadow: 'rgba(16,185,129,0.4)' },
+    { to: '/', icon: Home, label: 'Home', color: 'from-blue-500 to-indigo-600', shadow: 'rgba(99,102,241,0.4)' },
+    { to: '/ai-directory', icon: Sparkles, label: 'AI Tools', color: 'from-pink-500 to-rose-600', shadow: 'rgba(236,72,153,0.4)' },
     { to: '/camp', icon: Rocket, label: 'Tech Lab', color: 'from-violet-500 to-purple-600', shadow: 'rgba(139,92,246,0.4)' },
-    { to: '/history', icon: History, label: 'History', color: 'from-purple-500 to-violet-600', shadow: 'rgba(139,92,246,0.4)' },
-    { to: '/resources', icon: FolderOpen, label: 'Vault', color: 'from-amber-500 to-orange-600', shadow: 'rgba(245,158,11,0.4)' },
-    { to: '/profile', icon: Settings, label: 'Settings', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
+    { to: '/visual-games', icon: Gamepad2, label: 'Games', color: 'from-green-500 to-emerald-600', shadow: 'rgba(16,185,129,0.4)' },
+    { to: '/profile', icon: Settings, label: 'Profile', color: 'from-slate-500 to-slate-700', shadow: 'rgba(100,116,139,0.4)' }
   ];
 }
 

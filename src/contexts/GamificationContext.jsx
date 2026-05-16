@@ -38,21 +38,25 @@ export function GamificationProvider({ children }) {
   // Load coin config from platformSettings (real-time)
   useEffect(() => {
     if (!db) return
-    const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data()
-        if (data.coinConfig) {
-          const cfg = data.coinConfig
-          const merged = { ...DEFAULT_XP_VALUES, ...cfg }
-          setCoinConfig(merged)
-          XP_VALUES = merged
+    try {
+      const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (snap) => {
+        if (snap.exists()) {
+          const data = snap.data()
+          if (data.coinConfig) {
+            const cfg = data.coinConfig
+            const merged = { ...DEFAULT_XP_VALUES, ...cfg }
+            setCoinConfig(merged)
+            XP_VALUES = merged
+          }
+          if (data.toolCosts) {
+            setToolCosts(data.toolCosts)
+          }
         }
-        if (data.toolCosts) {
-          setToolCosts(data.toolCosts)
-        }
-      }
-    }, (err) => console.error('platformSettings listener error:', err))
-    return () => unsub()
+      }, (err) => console.error('platformSettings listener error:', err))
+      return () => unsub()
+    } catch (err) {
+      console.warn('GamificationContext: Failed to connect to platformSettings:', err.message)
+    }
   }, [])
 
   // Real-time listener for user gamification data
@@ -63,35 +67,40 @@ export function GamificationProvider({ children }) {
       return
     }
 
-    let checkedStreak = false
-    const ref = doc(db, 'gamification', currentUser.uid)
+    try {
+      let checkedStreak = false
+      const ref = doc(db, 'gamification', currentUser.uid)
 
-    const unsub = onSnapshot(ref, async (snap) => {
-      if (snap.exists()) {
-        const data = snap.data()
-        setStats(data)
-        if (!checkedStreak) {
-          checkedStreak = true
-          await checkDailyStreak(ref, data)
+      const unsub = onSnapshot(ref, async (snap) => {
+        if (snap.exists()) {
+          const data = snap.data()
+          setStats(data)
+          if (!checkedStreak) {
+            checkedStreak = true
+            await checkDailyStreak(ref, data)
+          }
+        } else {
+          // Initialize gamification doc
+          const initial = {
+            xp: 0, coins: coinConfig.daily_login, streak: 1, longestStreak: 1,
+            lastLoginDate: new Date().toISOString().split('T')[0],
+            badges: [], totalPosts: 0, totalLikes: 0, totalComments: 0,
+            totalResources: 0, aiUsages: 0,
+            createdAt: serverTimestamp(),
+          }
+          await setDoc(ref, initial)
         }
-      } else {
-        // Initialize gamification doc
-        const initial = {
-          xp: 0, coins: coinConfig.daily_login, streak: 1, longestStreak: 1,
-          lastLoginDate: new Date().toISOString().split('T')[0],
-          badges: [], totalPosts: 0, totalLikes: 0, totalComments: 0,
-          totalResources: 0, aiUsages: 0,
-          createdAt: serverTimestamp(),
-        }
-        await setDoc(ref, initial)
-      }
-      setLoading(false)
-    }, (err) => {
-      console.error('Gamification load error:', err)
-      setLoading(false)
-    })
+        setLoading(false)
+      }, (err) => {
+        console.error('Gamification load error:', err)
+        setLoading(false)
+      })
 
-    return () => unsub()
+      return () => unsub()
+    } catch (err) {
+      console.warn('GamificationContext: Failed to setup listener:', err.message)
+      setLoading(false)
+    }
   }, [currentUser])
 
   async function checkDailyStreak(ref, data) {
