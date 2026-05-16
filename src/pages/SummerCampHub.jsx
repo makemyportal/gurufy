@@ -1,0 +1,151 @@
+import React from 'react'
+import { useNavigate } from 'react-router-dom'
+
+export default function SummerCampHub() {
+  const navigate = useNavigate()
+
+  const modules = [
+    {
+      id: 'data-detective',
+      title: 'The Data Detective Agency',
+      description: 'Solve a digital mystery using real SQL queries and data analysis.',
+      icon: '🕵️‍♂️',
+      skills: ['SQL', 'Logic', 'Databases'],
+      color: 'from-blue-500 to-indigo-600',
+      status: 'ready',
+      path: '/camp/data-detective'
+    },
+    {
+      id: 'game-physics',
+      title: 'Game Physics Engine',
+      description: 'Code the rules of the game! Edit gravity, speed, and jump power to win.',
+      icon: '👾',
+      skills: ['JavaScript', 'Physics', 'Game Dev'],
+      color: 'from-green-500 to-emerald-600',
+      status: 'ready',
+      path: '/camp/game-physics'
+    },
+    {
+      id: 'ai-creator',
+      title: 'AI Creator Lab',
+      description: 'Train your own AI model using your webcam and test it live.',
+      icon: '🧠',
+      skills: ['Machine Learning', 'Data Training'],
+      color: 'from-purple-500 to-pink-600',
+      status: 'ready',
+      path: '/camp/ai-creator'
+    },
+    {
+      id: 'api-ninja',
+      title: 'API Ninja: World Tracker',
+      description: 'Connect real-world APIs to build a live tracking dashboard.',
+      icon: '🌍',
+      skills: ['APIs', 'Web Dev', 'JSON'],
+      color: 'from-orange-500 to-red-600',
+      status: 'ready',
+      path: '/camp/api-ninja'
+    },
+    {
+      id: 'block-builder',
+      title: 'Block Code Studio: Racing',
+      description: 'Build your own racing game! Connect visual logic blocks to make your car drive, steer, and win.',
+      icon: '🏎️',
+      skills: ['Game Logic', 'Visual Coding', 'Creativity'],
+      color: 'from-yellow-500 to-orange-600',
+      status: 'ready',
+      path: '/camp/block-builder'
+    }
+  ]
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-100 p-8 font-sans selection:bg-indigo-500/30">
+      <div className="max-w-6xl mx-auto">
+        
+        {/* Header */}
+        <div className="mb-12 text-center">
+          <div 
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/50 border border-slate-700/50 text-indigo-400 font-medium mb-6 backdrop-blur-sm animate-fade-in"
+          >
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
+            </span>
+            Gurufy Summer Camp
+          </div>
+          
+          <h1 
+            className="text-4xl md:text-6xl font-bold mb-4 tracking-tight animate-slide-up"
+          >
+            Real Skills. <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Real Fun.</span>
+          </h1>
+          <p 
+            className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto animate-fade-in"
+          >
+            Dive into advanced, interactive tech modules designed to teach real-world programming, data science, and AI skills.
+          </p>
+        </div>
+
+        {/* Modules Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {modules.map((mod, index) => (
+            <div
+              key={mod.id}
+              className={`relative overflow-hidden rounded-3xl border ${mod.status === 'ready' ? 'border-slate-700 hover:border-slate-500 bg-slate-800/40 cursor-pointer hover:-translate-y-1' : 'border-slate-800 bg-slate-800/20 cursor-not-allowed'} p-8 transition-all duration-300 group`}
+              onClick={() => {
+                if (mod.status === 'ready') {
+                  navigate(mod.path)
+                }
+              }}
+            >
+              {/* Background Gradient Glow */}
+              <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br ${mod.color} rounded-full blur-[80px] opacity-10 group-hover:opacity-20 transition-opacity duration-500 pointer-events-none`} />
+
+              <div className="relative z-10">
+                <div className="flex justify-between items-start mb-6">
+                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${mod.color} flex items-center justify-center text-3xl shadow-lg`}>
+                    {mod.icon}
+                  </div>
+                  {mod.status === 'ready' ? (
+                    <div className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-sm font-semibold border border-emerald-500/20">
+                      Available Now
+                    </div>
+                  ) : (
+                    <div className="px-3 py-1 rounded-full bg-slate-500/10 text-slate-400 text-sm font-semibold border border-slate-500/20">
+                      Coming Soon
+                    </div>
+                  )}
+                </div>
+
+                <h3 className="text-2xl font-bold mb-3 text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-slate-300 transition-colors">
+                  {mod.title}
+                </h3>
+                
+                <p className="text-slate-400 mb-6 leading-relaxed">
+                  {mod.description}
+                </p>
+
+                <div className="flex flex-wrap gap-2 mb-8">
+                  {mod.skills.map(skill => (
+                    <span key={skill} className="px-3 py-1 rounded-md bg-slate-900/50 text-slate-300 text-sm border border-slate-700/50">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+
+                {mod.status === 'ready' && (
+                  <button className="flex items-center gap-2 text-white font-medium group-hover:gap-4 transition-all">
+                    Start Mission
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+      </div>
+    </div>
+  )
+}

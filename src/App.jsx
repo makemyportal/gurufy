@@ -37,6 +37,13 @@ const PPTGenerator = lazy(() => import('./pages/PPTGenerator'))
 const SchoolTimetableHero = lazy(() => import('./pages/SchoolTimetableHero'))
 const VisualGames = lazy(() => import('./pages/VisualGames'))
 
+const SummerCampHub = lazy(() => import('./pages/SummerCampHub'))
+const DataDetective = lazy(() => import('./pages/camp/DataDetective'))
+const GamePhysicsEngine = lazy(() => import('./pages/camp/GamePhysicsEngine'))
+const AICreatorLab = lazy(() => import('./pages/camp/AICreatorLab'))
+const APINinja = lazy(() => import('./pages/camp/APINinja'))
+const BlockGameBuilder = lazy(() => import('./pages/camp/BlockGameBuilder'))
+
 // Lazy loaded components (Public info pages)
 const About = lazy(() => import('./pages/public/About'))
 const HowItWorks = lazy(() => import('./pages/public/HowItWorks'))
@@ -139,6 +146,14 @@ export default function App() {
         <Route path="ppt-generator" element={<ProtectedRoute><CoinGate toolName="Smart PPT Maker"><PPTGenerator /></CoinGate></ProtectedRoute>} />
         <Route path="school-timetable-builder" element={<ProtectedRoute><CoinGate toolName="Hero Timetable Builder"><SchoolTimetableHero /></CoinGate></ProtectedRoute>} />
         <Route path="visual-games" element={<ProtectedRoute><CoinGate toolName="Visual Games Engine"><VisualGames /></CoinGate></ProtectedRoute>} />
+        
+        {/* Summer Camp Tech Activities */}
+        <Route path="camp" element={<ProtectedRoute><SummerCampHub /></ProtectedRoute>} />
+        <Route path="camp/data-detective" element={<ProtectedRoute><DataDetective /></ProtectedRoute>} />
+        <Route path="camp/game-physics" element={<ProtectedRoute><GamePhysicsEngine /></ProtectedRoute>} />
+        <Route path="camp/ai-creator" element={<ProtectedRoute><AICreatorLab /></ProtectedRoute>} />
+        <Route path="camp/api-ninja" element={<ProtectedRoute><APINinja /></ProtectedRoute>} />
+        <Route path="camp/block-builder" element={<ProtectedRoute><BlockGameBuilder /></ProtectedRoute>} />
 
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       </Route>
