@@ -102,6 +102,7 @@ export default function HandControlOverlay() {
       activeRef.current = true
 
       let lastT = performance.now()
+      const startTime = performance.now()
       const isFront = (camFacing || 'user') === 'user'
 
       function detect() {
@@ -148,15 +149,24 @@ export default function HandControlOverlay() {
             const g = getStableGesture(raw)
             setGesture(g)
 
-            if (g === 'pinch' && now > clickCooldownRef.current) {
+            // Safety: skip actions for first 2 seconds (warmup)
+            if (now - startTime < 2000) { /* warmup - no actions */ }
+            else if (g === 'pinch' && now > clickCooldownRef.current) {
               clickCooldownRef.current = now + 600
               const el = document.elementFromPoint(screenX, screenY)
               if (el) {
-                setClickFx({ x: screenX, y: screenY, t: now })
-                setTimeout(() => setClickFx(null), 400)
+                // Safety: skip dangerous elements (logout, auth, nav links that leave page)
                 const clickable = el.closest('a, button, [role="button"], input, select, textarea, [onclick]') || el
-                clickable.click()
-                if (clickable.tagName === 'INPUT' || clickable.tagName === 'TEXTAREA') clickable.focus()
+                const unsafeTexts = ['logout', 'sign out', 'log out', 'login', 'sign in']
+                const elText = (clickable.textContent || '').toLowerCase()
+                const isLogout = unsafeTexts.some(t => elText.includes(t))
+                const isHandControl = clickable.closest('[data-hand-control]')
+                if (!isLogout && !isHandControl) {
+                  setClickFx({ x: screenX, y: screenY, t: now })
+                  setTimeout(() => setClickFx(null), 400)
+                  clickable.click()
+                  if (clickable.tagName === 'INPUT' || clickable.tagName === 'TEXTAREA') clickable.focus()
+                }
               }
             } else if (g === 'scroll') {
               const scrollY = pts[8].y
@@ -165,10 +175,9 @@ export default function HandControlOverlay() {
                 window.scrollBy({ top: delta, behavior: 'auto' })
               }
               lastScrollYRef.current = scrollY
-            } else if (g === 'palm' && now > backCooldownRef.current) {
-              backCooldownRef.current = now + 2000
-              window.history.back()
             } else {
+              // palm = no action (removed history.back to prevent accidental navigation)
+              // fist = pause
               lastScrollYRef.current = null
             }
           } else {
