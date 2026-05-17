@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useAuth } from '../contexts/AuthContext'
 
 const HAND_CONNECTIONS = [
   [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],
@@ -10,7 +11,6 @@ const SCROLL_SPEED = 18
 const GESTURE_FRAMES = 5
 
 function dist3d(a, b) { return Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2) }
-
 function isUp(lm, tip, pip) { return lm[tip].y < lm[pip].y }
 
 function detectGesture(lm) {
@@ -28,12 +28,16 @@ function detectGesture(lm) {
 }
 
 export default function HandControlOverlay() {
+  const { userProfile } = useAuth()
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'superadmin'
+
   const [active, setActive] = useState(false)
   const [loading, setLoading] = useState(false)
   const [gesture, setGesture] = useState('none')
   const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 })
   const [minimized, setMinimized] = useState(false)
   const [clickFx, setClickFx] = useState(null)
+  const [facingMode, setFacingMode] = useState('user')
 
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
@@ -46,6 +50,7 @@ export default function HandControlOverlay() {
   const lastScrollYRef = useRef(null)
   const clickCooldownRef = useRef(0)
   const backCooldownRef = useRef(0)
+  const activeRef = useRef(false)
 
   const getStableGesture = useCallback((raw) => {
     const c = gestureCountRef.current
@@ -56,19 +61,32 @@ export default function HandControlOverlay() {
     return stableRef.current
   }, [])
 
-  const startHandControl = useCallback(async () => {
+  const cleanup = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
+    if (landmarkerRef.current) { try { landmarkerRef.current.close() } catch(e){} }
+    landmarkerRef.current = null
+    streamRef.current = null
+    rafRef.current = null
+  }, [])
+
+  const startHandControl = useCallback(async (camFacing) => {
+    cleanup()
     setLoading(true)
+    setGesture('none')
+    smoothRef.current = { x: 0.5, y: 0.5, init: false }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false
+        video: { facingMode: camFacing || 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false
       })
       streamRef.current = stream
       const video = videoRef.current
+      if (!video) { stream.getTracks().forEach(t => t.stop()); return }
       video.srcObject = stream
       await video.play()
       const cv = canvasRef.current
-      cv.width = video.videoWidth
-      cv.height = video.videoHeight
+      if (cv) { cv.width = video.videoWidth; cv.height = video.videoHeight }
 
       const vision = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs')
       const { FilesetResolver, HandLandmarker } = vision
@@ -80,23 +98,26 @@ export default function HandControlOverlay() {
       landmarkerRef.current = lm
       setLoading(false)
       setActive(true)
+      activeRef.current = true
 
       let lastT = performance.now()
+      const isFront = (camFacing || 'user') === 'user'
 
       function detect() {
+        if (!activeRef.current) return
         const now = performance.now()
         if (video.readyState >= 2 && now > lastT) {
           const res = lm.detectForVideo(video, now)
           lastT = now
-
-          const ctx = cv.getContext('2d')
-          ctx.clearRect(0, 0, cv.width, cv.height)
+          const cvEl = canvasRef.current
+          if (!cvEl) return
+          const ctx = cvEl.getContext('2d')
+          ctx.clearRect(0, 0, cvEl.width, cvEl.height)
 
           if (res.landmarks && res.landmarks.length > 0) {
             const pts = res.landmarks[0]
-            const cw = cv.width, ch = cv.height
+            const cw = cvEl.width, ch = cvEl.height
 
-            // Draw skeleton on mini canvas
             ctx.strokeStyle = 'rgba(0,255,170,0.6)'
             ctx.lineWidth = 1.5
             HAND_CONNECTIONS.forEach(([a,b]) => {
@@ -112,14 +133,13 @@ export default function HandControlOverlay() {
               ctx.fill()
             })
 
-            // Smooth fingertip
             const rawX = pts[8].x, rawY = pts[8].y
             const sm = smoothRef.current
             if (!sm.init) { sm.x = rawX; sm.y = rawY; sm.init = true }
             else { sm.x += EMA*(rawX-sm.x); sm.y += EMA*(rawY-sm.y) }
 
-            // Map to screen — mirror X for front cam, and add margins
-            const screenX = (1 - sm.x) * window.innerWidth
+            // Mirror X only for front camera
+            const screenX = isFront ? (1 - sm.x) * window.innerWidth : sm.x * window.innerWidth
             const screenY = sm.y * window.innerHeight
             setCursorPos({ x: screenX, y: screenY })
 
@@ -127,16 +147,12 @@ export default function HandControlOverlay() {
             const g = getStableGesture(raw)
             setGesture(g)
 
-            // --- Actions ---
             if (g === 'pinch' && now > clickCooldownRef.current) {
-              // Click
               clickCooldownRef.current = now + 600
               const el = document.elementFromPoint(screenX, screenY)
               if (el) {
-                // Visual click effect
                 setClickFx({ x: screenX, y: screenY, t: now })
                 setTimeout(() => setClickFx(null), 400)
-                // Find clickable parent
                 const clickable = el.closest('a, button, [role="button"], input, select, textarea, [onclick]') || el
                 clickable.click()
                 if (clickable.tagName === 'INPUT' || clickable.tagName === 'TEXTAREA') clickable.focus()
@@ -167,21 +183,24 @@ export default function HandControlOverlay() {
       console.error('HandControl init error:', err)
       setLoading(false)
     }
-  }, [getStableGesture])
+  }, [cleanup, getStableGesture])
 
   const stopHandControl = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
-    if (landmarkerRef.current) landmarkerRef.current.close()
-    landmarkerRef.current = null
-    streamRef.current = null
-    smoothRef.current = { x: 0.5, y: 0.5, init: false }
+    activeRef.current = false
+    cleanup()
     setActive(false)
     setGesture('none')
     setCursorPos({ x: -100, y: -100 })
-  }, [])
+    setMinimized(false)
+  }, [cleanup])
 
-  useEffect(() => { return () => { stopHandControl() } }, [stopHandControl])
+  const switchCamera = useCallback(() => {
+    const newFacing = facingMode === 'user' ? 'environment' : 'user'
+    setFacingMode(newFacing)
+    startHandControl(newFacing)
+  }, [facingMode, startHandControl])
+
+  useEffect(() => { return () => { activeRef.current = false; cleanup() } }, [cleanup])
 
   const gInfo = {
     point: { emoji: '☝️', label: 'Moving', color: '#00ffaa' },
@@ -193,17 +212,19 @@ export default function HandControlOverlay() {
   }
   const gi = gInfo[gesture] || gInfo.none
 
-  // Inactive state — just the toggle button
+  if (!isAdmin) return null
+
+  // Toggle button — positioned at right side to avoid overlap with SupportWidget (left side)
   if (!active && !loading) {
     return (
       <button
-        onClick={startHandControl}
-        className="fixed bottom-20 xl:bottom-6 left-4 z-[70] w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 flex items-center justify-center hover:scale-110 transition-all group"
-        title="Enable Hand Control"
+        onClick={() => startHandControl(facingMode)}
+        className="fixed bottom-[90px] xl:bottom-6 right-20 xl:right-6 z-[60] w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-all group"
+        title="Hand Control (Admin)"
       >
         <span className="text-xl">🤚</span>
-        <div className="absolute left-full ml-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
-          Hand Control Mode
+        <div className="absolute right-full mr-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
+          🎮 Hand Control
         </div>
       </button>
     )
@@ -213,14 +234,10 @@ export default function HandControlOverlay() {
     <>
       {/* Virtual Cursor */}
       {active && cursorPos.x > 0 && (
-        <div
-          className="fixed pointer-events-none z-[9998] transition-all duration-75"
-          style={{ left: cursorPos.x - 16, top: cursorPos.y - 16 }}
-        >
-          {/* Outer ring */}
+        <div className="fixed pointer-events-none z-[9998] transition-all duration-75"
+          style={{ left: cursorPos.x - 16, top: cursorPos.y - 16 }}>
           <div className="w-8 h-8 rounded-full border-2 flex items-center justify-center"
             style={{ borderColor: gi.color, boxShadow: `0 0 20px ${gi.color}40, 0 0 6px ${gi.color}60` }}>
-            {/* Inner dot */}
             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: gi.color, boxShadow: `0 0 8px ${gi.color}` }} />
           </div>
         </div>
@@ -233,22 +250,20 @@ export default function HandControlOverlay() {
         </div>
       )}
 
-      {/* PIP Window */}
-      <div className={`fixed z-[9999] ${minimized ? 'bottom-20 xl:bottom-6 left-4' : 'bottom-20 xl:bottom-6 left-4'} transition-all duration-300`}>
+      {/* PIP Window — right side, above mobile nav */}
+      <div className={`fixed z-[9999] transition-all duration-300 ${minimized ? 'bottom-[90px] xl:bottom-6 right-20 xl:right-6' : 'bottom-[90px] xl:bottom-6 right-4 xl:right-6'}`}>
         {minimized ? (
-          /* Minimized: small circle */
           <button onClick={() => setMinimized(false)}
-            className="w-12 h-12 rounded-full bg-slate-900 border-2 border-cyan-500/50 shadow-lg shadow-cyan-500/20 flex items-center justify-center relative overflow-hidden group hover:scale-110 transition-all">
+            className="w-12 h-12 rounded-full bg-slate-900 border-2 border-cyan-500/50 shadow-lg shadow-cyan-500/20 flex items-center justify-center relative overflow-hidden hover:scale-110 transition-all">
             <span className="text-lg">{gi.emoji}</span>
             <div className="absolute inset-0 rounded-full border-2 border-cyan-400 animate-pulse opacity-30" />
           </button>
         ) : (
-          /* Full PIP */
           <div className="w-[200px] bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-700/50 shadow-2xl overflow-hidden">
             {/* Camera feed */}
             <div className="relative w-full aspect-[4/3] bg-black overflow-hidden">
-              <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} playsInline muted />
-              <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ transform: 'scaleX(-1)' }} />
+              <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }} playsInline muted />
+              <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }} />
 
               {loading && (
                 <div className="absolute inset-0 bg-slate-950/80 flex flex-col items-center justify-center">
@@ -263,10 +278,15 @@ export default function HandControlOverlay() {
                 <span className="text-xs">{gi.emoji}</span> {gi.label}
               </div>
 
-              {/* Minimize btn */}
-              <button onClick={() => setMinimized(true)} className="absolute top-1.5 right-1.5 w-5 h-5 rounded-md bg-slate-800/80 text-slate-400 hover:text-white flex items-center justify-center text-[10px] transition-colors">
-                −
-              </button>
+              {/* Top right buttons */}
+              <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+                {/* Camera switch */}
+                <button onClick={switchCamera} className="w-5 h-5 rounded-md bg-slate-800/80 text-slate-400 hover:text-white flex items-center justify-center transition-colors" title="Switch Camera">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                </button>
+                {/* Minimize */}
+                <button onClick={() => setMinimized(true)} className="w-5 h-5 rounded-md bg-slate-800/80 text-slate-400 hover:text-white flex items-center justify-center text-[10px] transition-colors">−</button>
+              </div>
             </div>
 
             {/* Controls bar */}
@@ -281,13 +301,9 @@ export default function HandControlOverlay() {
               </button>
             </div>
 
-            {/* Gesture guide - compact */}
+            {/* Gesture guide */}
             <div className="px-2 pb-2 grid grid-cols-3 gap-1">
-              {[
-                { e: '☝️', d: 'Move' },
-                { e: '👌', d: 'Click' },
-                { e: '✌️', d: 'Scroll' },
-              ].map(g => (
+              {[{e:'☝️',d:'Move'},{e:'👌',d:'Click'},{e:'✌️',d:'Scroll'}].map(g => (
                 <div key={g.d} className="text-center py-1 bg-slate-800/50 rounded-md">
                   <div className="text-xs">{g.e}</div>
                   <div className="text-[8px] text-slate-500 font-bold">{g.d}</div>
