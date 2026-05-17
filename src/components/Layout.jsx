@@ -21,6 +21,7 @@ import ProfileCompletion from './ProfileCompletion'
 import TokenShopModal from './TokenShopModal'
 import SupportWidget from './SupportWidget'
 import GlobalAIAssistant from './GlobalAIAssistant'
+import HandControlOverlay from './HandControlOverlay'
 
 // Nav array builders — called inside component to get reactive translations
 function getTeacherNav(t, settings) {
@@ -794,6 +795,7 @@ export default function Layout() {
       {/* <AIChatWidget pageContext={pageTitle} /> */}
       <SupportWidget />
       <GlobalAIAssistant />
+      <HandControlOverlay />
     </div>
   )
 }
