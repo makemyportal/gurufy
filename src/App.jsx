@@ -58,6 +58,7 @@ const AppUIBuilder = lazy(() => import('./pages/camp/AppUIBuilder'))
 const BinaryCalculator = lazy(() => import('./pages/camp/BinaryCalculator'))
 const JsonExplorer = lazy(() => import('./pages/camp/JsonExplorer'))
 const ChatbotBuilder = lazy(() => import('./pages/camp/ChatbotBuilder'))
+const HandGestureCanvas = lazy(() => import('./pages/camp/HandGestureCanvas'))
 
 // Lazy loaded components (Public info pages)
 const About = lazy(() => import('./pages/public/About'))
@@ -184,6 +185,7 @@ export default function App() {
         <Route path="camp/binary-calc" element={<ProtectedRoute><BinaryCalculator /></ProtectedRoute>} />
         <Route path="camp/json-explorer" element={<ProtectedRoute><JsonExplorer /></ProtectedRoute>} />
         <Route path="camp/chatbot-builder" element={<ProtectedRoute><ChatbotBuilder /></ProtectedRoute>} />
+        <Route path="camp/hand-gesture" element={<ProtectedRoute><HandGestureCanvas /></ProtectedRoute>} />
 
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       </Route>

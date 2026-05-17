@@ -204,6 +204,16 @@ export default function SummerCampHub() {
       color: 'from-sky-500 to-blue-600',
       status: 'ready',
       path: '/camp/chatbot-builder'
+    },
+    {
+      id: 'hand-gesture',
+      title: 'AI Hand Gesture Canvas',
+      description: 'Use your camera to track hand movements in real-time! Draw in the air with AI-powered gesture recognition.',
+      icon: '🤚',
+      skills: ['Computer Vision', 'AI/ML', 'MediaPipe'],
+      color: 'from-cyan-500 to-teal-600',
+      status: 'ready',
+      path: '/camp/hand-gesture'
     }
   ]
 
