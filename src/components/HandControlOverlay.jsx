@@ -28,8 +28,9 @@ function detectGesture(lm) {
 }
 
 export default function HandControlOverlay() {
-  const { userProfile } = useAuth()
-  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'superadmin'
+  const { currentUser, userProfile } = useAuth()
+  // Show for all logged-in users (admin gets full access, others can use too)
+  const canAccess = !!currentUser
 
   const [active, setActive] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -212,20 +213,26 @@ export default function HandControlOverlay() {
   }
   const gi = gInfo[gesture] || gInfo.none
 
-  if (!isAdmin) return null
+  // Listen for sidebar trigger event (desktop)
+  useEffect(() => {
+    const handler = () => {
+      if (!active && !loading) startHandControl(facingMode)
+    }
+    window.addEventListener('toggle-hand-control', handler)
+    return () => window.removeEventListener('toggle-hand-control', handler)
+  }, [active, loading, facingMode, startHandControl])
 
-  // Toggle button — positioned at right side to avoid overlap with SupportWidget (left side)
+  if (!canAccess) return null
+
+  // Floating toggle — mobile only (desktop trigger is in sidebar profile card)
   if (!active && !loading) {
     return (
       <button
         onClick={() => startHandControl(facingMode)}
-        className="fixed bottom-[90px] xl:bottom-6 right-20 xl:right-6 z-[60] w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-all group"
-        title="Hand Control (Admin)"
+        className="xl:hidden fixed bottom-[160px] right-4 z-[90] w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-all"
+        title="Hand Control"
       >
-        <span className="text-xl">🤚</span>
-        <div className="absolute right-full mr-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
-          🎮 Hand Control
-        </div>
+        <span className="text-lg">🤚</span>
       </button>
     )
   }
@@ -250,8 +257,8 @@ export default function HandControlOverlay() {
         </div>
       )}
 
-      {/* PIP Window — right side, above mobile nav */}
-      <div className={`fixed z-[9999] transition-all duration-300 ${minimized ? 'bottom-[90px] xl:bottom-6 right-20 xl:right-6' : 'bottom-[90px] xl:bottom-6 right-4 xl:right-6'}`}>
+      {/* PIP Window — desktop: sidebar area, mobile: right side */}
+      <div className="fixed z-[9999] transition-all duration-300 bottom-[160px] xl:bottom-[80px] right-4 xl:right-auto xl:left-4">
         {minimized ? (
           <button onClick={() => setMinimized(false)}
             className="w-12 h-12 rounded-full bg-slate-900 border-2 border-cyan-500/50 shadow-lg shadow-cyan-500/20 flex items-center justify-center relative overflow-hidden hover:scale-110 transition-all">
