@@ -109,13 +109,17 @@ export default function Layout() {
   const [platformSettings, setPlatformSettings] = useState({})
 
   useEffect(() => {
-    if (!db) return
-    const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (snap) => {
-      if (snap.exists()) {
-        setPlatformSettings(snap.data())
-      }
-    })
-    return () => unsub()
+    if (!db || !db.type) return
+    try {
+      const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (snap) => {
+        if (snap.exists()) {
+          setPlatformSettings(snap.data())
+        }
+      })
+      return () => unsub()
+    } catch (err) {
+      console.warn('Firebase HMR error Layout:', err)
+    }
   }, [])
 
   // Build translated nav arrays

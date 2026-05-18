@@ -37,7 +37,7 @@ export function GamificationProvider({ children }) {
 
   // Load coin config from platformSettings (real-time)
   useEffect(() => {
-    if (!db) return
+    if (!db || !db.type) return
     try {
       const unsub = onSnapshot(doc(db, 'platformSettings', 'global'), (snap) => {
         if (snap.exists()) {

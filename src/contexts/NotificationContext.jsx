@@ -16,30 +16,35 @@ export function NotificationProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!currentUser || !db) {
+    if (!currentUser || !db || !db.type) {
       setNotifications([])
       setUnreadCount(0)
       setLoading(false)
       return
     }
 
-    const q = query(
-      collection(db, 'users', currentUser.uid, 'notifications'),
-      orderBy('createdAt', 'desc'),
-      limit(30)
-    )
+    try {
+      const q = query(
+        collection(db, 'users', currentUser.uid, 'notifications'),
+        orderBy('createdAt', 'desc'),
+        limit(30)
+      )
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notifs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
-      setNotifications(notifs)
-      setUnreadCount(notifs.filter(n => !n.read).length)
-      setLoading(false)
-    }, (err) => {
-      console.error('Notifications listener error:', err)
-      setLoading(false)
-    })
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const notifs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+        setNotifications(notifs)
+        setUnreadCount(notifs.filter(n => !n.read).length)
+        setLoading(false)
+      }, (err) => {
+        console.error('Notifications listener error:', err)
+        setLoading(false)
+      })
 
-    return () => unsubscribe()
+      return () => unsubscribe()
+    } catch (err) {
+      console.warn('Firebase HMR error NotificationContext:', err)
+      setLoading(false)
+    }
   }, [currentUser])
 
   async function markAsRead(notificationId) {
