@@ -55,10 +55,13 @@ const TerminalSim = lazy(() => import('./pages/camp/TerminalSim'))
 const LogoDesigner = lazy(() => import('./pages/camp/LogoDesigner'))
 const GitSimulator = lazy(() => import('./pages/camp/GitSimulator'))
 const AppUIBuilder = lazy(() => import('./pages/camp/AppUIBuilder'))
+const AppInventorPro = lazy(() => import('./pages/camp/AppInventorPro'))
 const BinaryCalculator = lazy(() => import('./pages/camp/BinaryCalculator'))
 const JsonExplorer = lazy(() => import('./pages/camp/JsonExplorer'))
 const ChatbotBuilder = lazy(() => import('./pages/camp/ChatbotBuilder'))
 const HandGestureCanvas = lazy(() => import('./pages/camp/HandGestureCanvas'))
+const ImageGenLab = lazy(() => import('./pages/camp/ImageGenLab'))
+const FaceAnalyzerLab = lazy(() => import('./pages/camp/FaceAnalyzerLab'))
 
 // Lazy loaded components (Public info pages)
 const About = lazy(() => import('./pages/public/About'))
@@ -186,6 +189,9 @@ export default function App() {
         <Route path="camp/json-explorer" element={<ProtectedRoute><JsonExplorer /></ProtectedRoute>} />
         <Route path="camp/chatbot-builder" element={<ProtectedRoute><ChatbotBuilder /></ProtectedRoute>} />
         <Route path="camp/hand-gesture" element={<ProtectedRoute><HandGestureCanvas /></ProtectedRoute>} />
+        <Route path="camp/image-gen" element={<ProtectedRoute><ImageGenLab /></ProtectedRoute>} />
+        <Route path="camp/face-analyzer" element={<ProtectedRoute><FaceAnalyzerLab /></ProtectedRoute>} />
+        <Route path="camp/app-inventor-pro" element={<ProtectedRoute><AppInventorPro /></ProtectedRoute>} />
 
         <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       </Route>

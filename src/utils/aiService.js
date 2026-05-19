@@ -42,7 +42,7 @@ FORMATTING RULES:
 async function generateWithGemini(prompt) {
   if (GEMINI_API_KEYS.length === 0) throw new Error("Gemini API key is missing");
 
-  const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash-exp'];
+  const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro'];
   let lastError = null;
 
   for (let i = 0; i < GEMINI_API_KEYS.length; i++) {

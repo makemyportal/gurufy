@@ -197,13 +197,33 @@ export default function SummerCampHub() {
     },
     {
       id: 'chatbot-builder',
-      title: 'Chatbot Builder',
-      description: 'Build your own AI chatbot! Create IF-THEN rules and chat with your creation.',
+      title: 'AI Persona Studio',
+      description: 'Build your own AI chatbot! Create personas, rules, and chat with your generative AI creation.',
       icon: '🤖',
-      skills: ['AI Basics', 'Logic', 'NLP'],
+      skills: ['Prompt Engineering', 'Generative AI', 'NLP'],
       color: 'from-sky-500 to-blue-600',
       status: 'ready',
       path: '/camp/chatbot-builder'
+    },
+    {
+      id: 'image-gen',
+      title: 'AI Image Generator',
+      description: 'Generate high-quality AI art from text prompts! Master visual prompt engineering and diffusion models.',
+      icon: '🎨',
+      skills: ['Visual Prompting', 'AI Art', 'Creativity'],
+      color: 'from-fuchsia-500 to-pink-600',
+      status: 'ready',
+      path: '/camp/image-gen'
+    },
+    {
+      id: 'face-analyzer',
+      title: 'Emotion Face Analyzer',
+      description: 'Use your webcam to detect real-time 3D facial landmarks and analyze micro-expressions with AI!',
+      icon: '😲',
+      skills: ['Computer Vision', 'Emotion AI', 'MediaPipe'],
+      color: 'from-cyan-500 to-blue-500',
+      status: 'ready',
+      path: '/camp/face-analyzer'
     },
     {
       id: 'hand-gesture',
@@ -214,6 +234,16 @@ export default function SummerCampHub() {
       color: 'from-cyan-500 to-teal-600',
       status: 'ready',
       path: '/camp/hand-gesture'
+    },
+    {
+      id: 'app-inventor-pro',
+      title: 'App Inventor Pro',
+      description: 'Build real functional mobile apps using HTML, CSS, and JavaScript! Export as WebApp or APK.',
+      icon: '🚀',
+      skills: ['App Development', 'Coding', 'JavaScript'],
+      color: 'from-emerald-500 to-teal-600',
+      status: 'ready',
+      path: '/camp/app-inventor-pro'
     }
   ]
 
